@@ -7,7 +7,6 @@ from dataclasses import asdict
 
 import swanlab
 import torch.distributed as dist
-import trackio
 from tensorboardX import SummaryWriter
 
 from areal.api import FinetuneSpec
@@ -115,6 +114,9 @@ class StatsLogger:
         self._trackio_enabled = False
         trackio_config = self.config.trackio
         if trackio_config.mode != "disabled":
+            import trackio
+
+            self._trackio = trackio
             trackio.init(
                 project=trackio_config.project or self.config.experiment_name,
                 name=trackio_config.name or self.config.trial_name,
@@ -146,7 +148,7 @@ class StatsLogger:
             self._wandb.finish()
         swanlab.finish()
         if getattr(self, "_trackio_enabled", False):
-            trackio.finish()
+            self._trackio.finish()
         if self.summary_writer is not None:
             self.summary_writer.close()
 
@@ -171,7 +173,7 @@ class StatsLogger:
                 self._wandb.log(item, step=log_step + i)
             swanlab.log(item, step=log_step + i)
             if getattr(self, "_trackio_enabled", False):
-                trackio.log(item, step=log_step + i)
+                self._trackio.log(item, step=log_step + i)
             if self.summary_writer is not None:
                 for key, val in item.items():
                     self.summary_writer.add_scalar(f"{key}", val, log_step + i)

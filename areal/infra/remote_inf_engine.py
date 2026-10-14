@@ -41,11 +41,12 @@ from areal.api.io_struct import (
     WeightUpdateRequests,
 )
 from areal.infra import workflow_context
+from areal.infra.request_router import acquire_route, route_call, workflow_group_id
 from areal.infra.utils.concurrent import get_executor
 from areal.infra.utils.http import arequest_with_retry, get_default_connector
 from areal.infra.utils.launcher import wait_llm_server_addrs
 from areal.infra.utils.proc import kill_process_tree
-from areal.utils import logging, name_resolve, names
+from areal.utils import logging, name_resolve, names, request_trace
 from areal.utils.data import concat_padded_tensors
 from areal.utils.dynamic_import import import_from_string
 from areal.utils.network import (
@@ -125,6 +126,9 @@ class GroupedRolloutWorkflow(RolloutWorkflow):
             try:
                 # Drain cancellation handlers before releasing shared resources.
                 await asyncio.gather(*group_tasks, return_exceptions=True)
+                finish_group = getattr(engine, "_finish_request_group", None)
+                if finish_group is not None:
+                    await finish_group(group_context.task_id, group_context.is_eval)
             finally:
                 finalizer = getattr(
                     self.workflow, "_afinalize_processor_cache_group", None
@@ -960,6 +964,17 @@ class RemoteInfEngine(InferenceEngine):
             return server
         raise NotImplementedError("Only round-robin scheduling is implemented.")
 
+    def configure_request_router(self, address: str) -> None:
+        self._request_router_addr = address
+
+    async def _finish_request_group(self, task_id: int | None, is_eval: bool):
+        address = getattr(self, "_request_router_addr", None)
+        group_id = workflow_group_id(task_id, is_eval)
+        if address and group_id is not None:
+            session = await workflow_context.get_aiohttp_session()
+            await route_call(session, address, "finish_group", group_id=group_id)
+
+    @request_trace.trace_errors
     async def agenerate(self, req: ModelRequest) -> ModelResponse:
         """Asynchronously generate a response for the given request.
 
@@ -976,6 +991,10 @@ class RemoteInfEngine(InferenceEngine):
         # Create a shallow copy of the input request
         # we are going to modify it in-place
         req = req.copy()
+        trace_identity = (
+            request_trace.identity(req.rid) if request_trace.enabled() else {}
+        )
+        request_trace.emit("answer_start", **trace_identity)
 
         # Populate return_routed_experts from config to metadata
         if self.config.return_routed_experts:
@@ -1028,38 +1047,152 @@ class RemoteInfEngine(InferenceEngine):
         # Deal with rollout interruption
         stop_reason = None
         ori_max_new_tokens = gconfig.max_new_tokens
+        trace_segment = 0
+        router_addr = getattr(self, "_request_router_addr", None)
         while (
             stop_reason not in ["stop", "tool_calls", "length"]
             and len(accumulated_output_tokens) < ori_max_new_tokens
         ):
             # Request is interrupted, wait for some time to avoid interfering
             # with update weights requests
-            while self.workflow_executor.is_paused():
+            trace_paused = not router_addr and self.workflow_executor.is_paused()
+            if trace_paused:
+                request_trace.emit("client_pause", **trace_identity)
+            while not router_addr and self.workflow_executor.is_paused():
                 await asyncio.sleep(0.5)
+            if trace_paused:
+                request_trace.emit("client_resume", **trace_identity)
 
             # Pin the version that serves this request. A trajectory may span
             # several weight versions, so each segment must be attributed to the
             # version that actually generated it rather than to whichever
             # version is current once the response arrives.
-            request_version = self.get_version()
+            trace_segment += 1
+            lease = None
+            if router_addr:
+                ticket = f"{req.rid}:{trace_segment}"
+                request_trace.emit(
+                    "route_queue", segment=trace_segment, **trace_identity
+                )
+                ctx = workflow_context.get()
+                lease = await acquire_route(
+                    session,
+                    router_addr,
+                    ticket,
+                    req.rid,
+                    group_id=(
+                        workflow_group_id(ctx.task_id, ctx.is_eval)
+                        if ctx.group_size > 1
+                        else None
+                    ),
+                    group_size=ctx.group_size,
+                    metrics=(
+                        dict(
+                            question_id=workflow_group_id(ctx.task_id, ctx.is_eval),
+                            generated_tokens=len(accumulated_output_tokens),
+                            prompt_tokens=len(req.input_ids)
+                            - len(accumulated_output_tokens),
+                            max_new_tokens=ori_max_new_tokens,
+                        )
+                        if os.getenv("AREAL_DRAIN_METRICS", "0") == "1"
+                        else None
+                    ),
+                )
+                server_addr = lease["server"]
+                request_version = lease["version"]
+            else:
+                request_version = self.get_version()
 
             # Build request using backend
-            http_req = self.backend.build_generation_request(
-                req,
-                with_lora=self.config.use_lora,
-                version=request_version,
-            )
+            try:
+                http_req = self.backend.build_generation_request(
+                    req,
+                    with_lora=self.config.use_lora,
+                    version=request_version,
+                )
+            except BaseException:
+                if lease is not None:
+                    await asyncio.shield(
+                        route_call(
+                            session,
+                            router_addr,
+                            "release",
+                            ticket=lease["ticket"],
+                            lease_id=lease["lease_id"],
+                        )
+                    )
+                raise
 
-            # Loop until the generation is complete
-            result = await arequest_with_retry(
-                session=session,
-                addr=server_addr,
-                endpoint=http_req.endpoint,
-                payload=http_req.payload,
-                method=http_req.method,
-                max_retries=self.config.request_retries,
-                timeout=self.config.request_timeout,
+            request_trace.emit(
+                "segment_send",
+                segment=trace_segment,
+                version=request_version,
+                server=server_addr,
+                server_rank=lease["rank"] if lease else None,
+                **trace_identity,
             )
+            # Loop until the generation is complete
+            if lease is not None:
+                # Do not automatically retry a generation whose execution state
+                # is unknown. Only a complete response or fenced 409 is reusable.
+                acknowledged = False
+                observation = None
+                try:
+                    async with session.request(
+                        http_req.method,
+                        f"http://{server_addr}{http_req.endpoint}",
+                        json=http_req.payload,
+                        headers={
+                            "X-Areal-Request-Routing": "1",
+                            "X-Areal-Route-Rank": str(lease["rank"]),
+                        },
+                        timeout=aiohttp.ClientTimeout(
+                            total=self.config.request_timeout
+                        ),
+                    ) as response:
+                        result = await response.json()
+                        rejected = (
+                            response.status == 409
+                            and result.get("areal_route_rejected") is True
+                        )
+                        if not rejected:
+                            response.raise_for_status()
+                            parsed = self.backend.parse_generation_response(result)
+                            if os.getenv("AREAL_DRAIN_METRICS", "0") == "1":
+                                observation = dict(
+                                    finished=parsed.stop_reason
+                                    in ["stop", "length", "tool_calls"],
+                                    total_tokens=len(accumulated_output_tokens)
+                                    + len(parsed.output_tokens),
+                                )
+                        acknowledged = True
+                finally:
+                    await asyncio.shield(
+                        route_call(
+                            session,
+                            router_addr,
+                            "release",
+                            ticket=lease["ticket"],
+                            lease_id=lease["lease_id"],
+                            uncertain=not acknowledged,
+                            observation=observation,
+                        )
+                    )
+                if rejected:
+                    request_trace.emit(
+                        "route_rejected", segment=trace_segment, **trace_identity
+                    )
+                    continue
+            else:
+                result = await arequest_with_retry(
+                    session=session,
+                    addr=server_addr,
+                    endpoint=http_req.endpoint,
+                    payload=http_req.payload,
+                    method=http_req.method,
+                    max_retries=self.config.request_retries,
+                    timeout=self.config.request_timeout,
+                )
 
             # Assert response is JSON dict (not text/binary from error pages)
             if not isinstance(result, dict):
@@ -1070,6 +1203,13 @@ class RemoteInfEngine(InferenceEngine):
             # Parse response using backend
             gen_result = self.backend.parse_generation_response(result)
             stop_reason = gen_result.stop_reason
+            request_trace.emit(
+                "segment_return",
+                segment=trace_segment,
+                reason=stop_reason,
+                tokens=len(gen_result.output_tokens),
+                **trace_identity,
+            )
 
             if (
                 req.metadata.get("return_routed_experts", False)
@@ -1130,6 +1270,12 @@ class RemoteInfEngine(InferenceEngine):
             tokenizer=req.tokenizer,
             processor=req.processor,
             routed_experts=accumulated_routed_experts,
+        )
+        request_trace.emit(
+            "answer_end",
+            reason=stop_reason,
+            output_tokens=len(accumulated_output_tokens),
+            **trace_identity,
         )
         return response
 
@@ -1499,6 +1645,12 @@ class RemoteInfEngine(InferenceEngine):
         # The following line waits until all requests are indeed dropped.
         time.sleep(self.config.pause_grace_period)
 
+    def pause_generation_preserve(self):
+        """Freeze native requests without aborting or relinquishing their leases."""
+        return self._run_request_on_all_servers(
+            HttpRequest(endpoint="/areal_pause_generation_preserve", payload={})
+        )
+
     @trace_perf("remote_inf_engine.continue_generation", category="misc")
     def continue_generation(self):
         """Resume request submission for async rollout."""
@@ -1545,9 +1697,26 @@ class RemoteInfEngine(InferenceEngine):
                             timeout=self.config.request_timeout,
                         )
                     )
-                await asyncio.gather(*jobs)
+                return await asyncio.gather(*jobs)
 
-        uvloop.run(_fn())
+        return uvloop.run(_fn())
+
+    def colocation_memory(
+        self,
+        action: str = "status",
+        target_free_bytes: int | None = None,
+        kv_budget_bytes: int | None = None,
+    ):
+        return self._run_request_on_all_servers(
+            HttpRequest(
+                endpoint="/areal_colocation_memory",
+                payload={
+                    "action": action,
+                    "target_free_bytes": target_free_bytes,
+                    "kv_budget_bytes": kv_budget_bytes,
+                },
+            )
+        )
 
     def launch_server(self, server_args: dict[str, Any]) -> LocalInfServerInfo:
         """Launch a local inference server."""
@@ -1604,10 +1773,15 @@ def _update_weights_from_disk(
     """Helper to update weights from disk in a separate process."""
 
     async def _fn():
-        update_name = names.update_weights_from_disk(
-            experiment_name, trial_name, model_version
-        )
-        save_timestamp = float(name_resolve.wait(update_name, timeout=120))
+        if meta.npu_share_snapshot:
+            # The actor has already published the atomic, versioned manifest.
+            # Asymmetric loading bypasses actor stage 1 and its legacy rendezvous.
+            save_timestamp = datetime.now().timestamp()
+        else:
+            update_name = names.update_weights_from_disk(
+                experiment_name, trial_name, model_version
+            )
+            save_timestamp = float(name_resolve.wait(update_name, timeout=120))
         load_timestamp = datetime.now().timestamp()
 
         # Get requests from backend with version for LoRA name

@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
+import json
+import time
 import traceback
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 
 import torch
 import torch.distributed as dist
@@ -23,8 +25,12 @@ except ImportError:
 
 
 from areal.engine.core.distributed import init_custom_process_group
+from areal.engine.vllm_ext.ascend_kernel_warmup import install_ascend_kernel_warmup
+from areal.engine.vllm_ext.kv_slab_adapter import install_kv_slab
+from areal.engine.vllm_ext.queue_rebalance import install_queue_rebalance
 from areal.infra.platforms import current_platform
 from areal.utils.constants import DIST_GROUP_DEFAULT_TIMEOUT
+from areal.utils.request_trace import install_device_trace
 
 logger = init_logger("vllm_worker_extension")
 
@@ -75,30 +81,186 @@ def _apply_ascend_patch_awex():
 
 
 _apply_ascend_patch_awex()
+install_kv_slab()
+
+install_queue_rebalance()
+
+install_device_trace()
+install_ascend_kernel_warmup()
 
 
 class VLLMWorkerExtension:
+    def areal_colocation_memory(
+        self,
+        action: str = "status",
+        kv_idle_verified: bool = False,
+        target_free_bytes: int | None = None,
+        kv_budget_bytes: int | None = None,
+    ):
+        runner = self.model_runner
+        memory = getattr(runner, "_adaptive_memory", None)
+        if memory is None:
+            raise RuntimeError("Adaptive inference memory is not enabled")
+        if action not in {
+            "status",
+            "release_kv",
+            "offload",
+            "restore",
+            "reclaim",
+            "pause_preserved",
+            "resume_preserved",
+            "kv_budget",
+            "kv_budget_clear",
+        }:
+            raise ValueError("Unsupported inference memory action")
+        if action == "reclaim":
+            if not kv_idle_verified:
+                raise RuntimeError("Partial reclaim requires scheduler idle proof")
+            if type(target_free_bytes) is not int or target_free_bytes < 0:
+                raise ValueError("reclaim requires a nonnegative free-memory target")
+        dynamic = getattr(runner, "_areal_dynamic_kv", None)
+        if action in {"kv_budget", "kv_budget_clear"}:
+            if action == "kv_budget" and (
+                type(kv_budget_bytes) is not int or kv_budget_bytes < 0
+            ):
+                raise ValueError("kv_budget requires a nonnegative byte limit")
+            if dynamic is None or not kv_idle_verified or dynamic.paused:
+                raise RuntimeError(
+                    "KV budgeting requires idle dynamic KV, without retained requests"
+                )
+            dynamic.reconcile({0}, trim=True)
+            cap = dynamic.set_budget(kv_budget_bytes if action == "kv_budget" else None)
+            result = memory.snapshot()
+            result["capacity_blocks"] = cap
+            result["dynamic_kv"] = dynamic.snapshot()
+            return result
+        if action in {"pause_preserved", "resume_preserved"}:
+            if dynamic is None or not kv_idle_verified:
+                raise RuntimeError(
+                    "Retained pause requires dynamic KV and a paused scheduler"
+                )
+            getattr(dynamic, action)()
+        if dynamic is not None:
+            if dynamic.broken:
+                raise RuntimeError(
+                    "Dynamic KV mapping failed; worker must remain paused"
+                )
+            if action in {"release_kv", "offload"}:
+                if dynamic.paused:
+                    raise RuntimeError(
+                        "Retained KV must use budgeted reclaim, not full discard"
+                    )
+                if not kv_idle_verified:
+                    raise RuntimeError("Dynamic KV release needs scheduler idle proof")
+                dynamic.reconcile({0}, trim=True)
+            if action == "reclaim":
+                # Idle KV pages are disposable; model blocks are backed by RAM.
+                if memory.snapshot()["free_bytes"] < target_free_bytes:
+                    if dynamic.paused:
+                        dynamic.reclaim_preserved(target_free_bytes)
+                    else:
+                        dynamic.reconcile({0}, trim=True)
+                memory.reclaim(["weights"], target_free_bytes)
+            if action == "restore":
+                memory.transition(["weights"], mapped=True)
+                dynamic.restore_preserved()
+            if action == "offload":
+                memory.transition(["weights"], mapped=False, preserve=True)
+            result = memory.snapshot()
+            result["bytes"]["kv_cache"] = dynamic.snapshot()["mapped_bytes"]
+            result["dynamic_kv"] = dynamic.snapshot()
+            result["restore_bytes"] += dynamic.snapshot()["cpu_backup_bytes"]
+            result["cpu_backup_bytes"] += dynamic.snapshot()["cpu_backup_bytes"]
+            result["states"]["kv_cache"] = "partial" if dynamic.swapped else "mapped"
+            init_logger("vllm.areal_kv_slab").info(
+                "AUTO_MEMORY_INFERENCE %s", json.dumps({"action": action, **result})
+            )
+            return result
+        if action == "reclaim":
+            memory.reclaim(["kv_cache"], target_free_bytes, preserve=False)
+            memory.reclaim(["weights"], target_free_bytes)
+        if action == "restore":
+            discarded = memory.states["kv_cache"] != "mapped"
+            memory.transition(["weights"], mapped=True)
+            memory.transition(["kv_cache"], mapped=True)
+            if discarded:
+                try:
+                    runner._areal_reset_kv()
+                    runner._adaptive_backend.synchronize()
+                except BaseException:
+                    memory.broken = True
+                    raise
+        if action in {"release_kv", "offload"}:
+            memory.transition(["kv_cache"], mapped=False, preserve=False)
+        if action == "offload":
+            memory.transition(["weights"], mapped=False, preserve=True)
+        if memory.states["weights"] == "mapped":
+            runner._adaptive_backend.assert_covered(
+                list(runner.model.parameters()) + list(runner.model.buffers())
+            )
+        # Pure status queries and partial residency must not evict native pools.
+        result = memory.snapshot()
+        init_logger("vllm.areal_kv_slab").info(
+            "AUTO_MEMORY_INFERENCE %s", json.dumps({"action": action, **result})
+        )
+        return result
+
     """
     Iherited from vllm codebase
     """
+
+    def areal_kv_slab_transition(self, mapped: bool):
+        memory = getattr(self.model_runner, "_areal_kv_slab_memory", None)
+        if memory is None:
+            raise RuntimeError("KV slab memory was not initialized")
+        result = memory.transition(mapped)
+        init_logger("vllm.areal_kv_slab").info("KV_SLAB_MEMORY %s", json.dumps(result))
+        return result
 
     def sync(self):
         current_platform.synchronize()
         torch.distributed.barrier()
 
-    def areal_update_weights(self, model_path):
+    def areal_update_weights(self, model_path, snapshot_version=None):
         logger.info(f"start update weights, {model_path}", flush=True)
         try:
             # load weight
             undo_moe_postprocess_for_reload(self.model_runner.model)
-            self.model_runner.model_config.model = model_path
-            model_loader = get_model_loader(self.model_runner.vllm_config.load_config)
-            logger.info("Reloading weights inplace...")
-            with set_current_vllm_config(self.model_runner.vllm_config):
-                model_loader.load_weights(
-                    self.model_runner.model,
-                    model_config=self.model_runner.model_config,
+            if snapshot_version is None:
+                self.model_runner.model_config.model = model_path
+                model_loader = get_model_loader(
+                    self.model_runner.vllm_config.load_config
                 )
+            logger.info("Reloading weights inplace...")
+            backend = getattr(self.model_runner, "_adaptive_backend", None)
+            scope = (
+                backend.allocation_scope("weights")
+                if backend is not None
+                else nullcontext()
+            )
+            with scope, set_current_vllm_config(self.model_runner.vllm_config):
+                if snapshot_version is None:
+                    model_loader.load_weights(
+                        self.model_runner.model,
+                        model_config=self.model_runner.model_config,
+                    )
+                else:
+                    from areal.engine.weight_snapshot import (
+                        open_snapshot,
+                        validate_loaded_weights,
+                    )
+
+                    started = time.perf_counter()
+                    with open_snapshot(model_path, snapshot_version) as weights:
+                        loaded = self.model_runner.model.load_weights(weights)
+                        expected = set(dict(self.model_runner.model.named_parameters()))
+                        validate_loaded_weights(expected, loaded)
+                        current_platform.synchronize()
+                    logger.info(
+                        "NPU_WEIGHT_SNAPSHOT load version=%s seconds=%.6f",
+                        snapshot_version,
+                        time.perf_counter() - started,
+                    )
                 if getattr(current_platform, "device_type", None) == "npu":
                     process_weights_after_loading(
                         self.model_runner.model,
@@ -190,7 +352,6 @@ class VLLMWorkerExtension:
 
     def areal_update_weight_xccl(self):
         logger.info("start update weights by nccl or hccl", flush=True)
-        undo_moe_postprocess_for_reload(self.model_runner.model)
         names = self.areal_weight_meta_names
         dtypes = self.areal_weight_meta_dtypes
         shapes = self.areal_weight_meta_shapes
@@ -201,6 +362,19 @@ class VLLMWorkerExtension:
                 f"Weight update group named `{self.areal_weight_meta_group_name}` not found"
             )
         try:
+            memory = getattr(self.model_runner, "_adaptive_memory", None)
+            if memory is not None and (
+                memory.broken or memory.states["weights"] != "mapped"
+            ):
+                raise RuntimeError("Restore healthy mapped weights before HCCL update")
+            backend = getattr(self.model_runner, "_adaptive_backend", None)
+            scope = (
+                backend.allocation_scope("weights")
+                if backend is not None
+                else nullcontext()
+            )
+            with scope:
+                undo_moe_postprocess_for_reload(self.model_runner.model)
             for name, dtype, shape in zip(names, dtypes, shapes):
                 target_dtype = (
                     dtype if isinstance(dtype, torch.dtype) else getattr(torch, dtype)
@@ -214,16 +388,31 @@ class VLLMWorkerExtension:
                     group=group,
                     async_op=False,
                 )
-                with set_current_vllm_config(self.model_runner.vllm_config):
+                scope = (
+                    backend.allocation_scope("weights")
+                    if backend is not None
+                    else nullcontext()
+                )
+                with scope, set_current_vllm_config(self.model_runner.vllm_config):
                     self.model_runner.model.load_weights(weights=[(name, tensor)])
             if getattr(current_platform, "device_type", None) == "npu":
-                with set_current_vllm_config(self.model_runner.vllm_config):
+                scope = (
+                    backend.allocation_scope("weights")
+                    if backend is not None
+                    else nullcontext()
+                )
+                with scope, set_current_vllm_config(self.model_runner.vllm_config):
                     process_weights_after_loading(
                         self.model_runner.model,
                         self.model_runner.model_config,
                         self.model_runner.device,
                     )
             self.sync()
+            if backend is not None:
+                backend.assert_covered(
+                    list(self.model_runner.model.parameters())
+                    + list(self.model_runner.model.buffers())
+                )
             return True, "Success"
         except Exception as e:
             error_msg = f"Failed to update parameter! {e}."

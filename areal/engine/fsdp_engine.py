@@ -111,6 +111,7 @@ from areal.utils import (
     names,
     perf_tracer,
     pkg_version,
+    request_trace,
     stats_tracker,
 )
 from areal.utils.constants import DIST_GROUP_DEFAULT_TIMEOUT
@@ -372,6 +373,41 @@ class FSDPEngine(TrainEngine):
         warmup_process_groups(self.dp_group, self.sp_group, self.mp_group)
 
     def initialize(self, addr: str | None, ft_spec: FinetuneSpec, *args, **kwargs):
+        from areal.engine.colocation_memory import (
+            AscendPoolBackend,
+            TaggedMemory,
+            adaptive_memory_enabled,
+        )
+
+        self._adaptive_memory = None
+        if adaptive_memory_enabled():
+            if (
+                not is_npu_available
+                or is_tms_enabled()
+                or self.config.fsdp.offload_params
+                or self.config.fsdp.per_layer_optim_step
+                or self.config.optimizer.type != "adam"
+                or self.config.use_lora
+                or dist.get_world_size() != 1
+            ):
+                raise ValueError(
+                    "Adaptive memory requires single-NPU full-model AdamW without other offload"
+                )
+            current_platform.set_device(int(os.environ["LOCAL_RANK"]))
+            self._adaptive_backend = AscendPoolBackend()
+            self._adaptive_memory = TaggedMemory(
+                self._adaptive_backend,
+                ["actor_weights", "actor_optimizer", "actor_workspace"],
+            )
+            with self._adaptive_backend.allocation_scope("actor_weights"):
+                self._initialize_impl(addr, ft_spec, *args, **kwargs)
+            self.colocation_memory("status")
+        else:
+            self._initialize_impl(addr, ft_spec, *args, **kwargs)
+
+    def _initialize_impl(
+        self, addr: str | None, ft_spec: FinetuneSpec, *args, **kwargs
+    ):
         # Initialize distributed enviroments and load model.
         assert addr is None, "FSDPEngine does not support remote initialization."
         assert ft_spec is not None, "FSDPEngine requires FinetuneSpec to initialize."
@@ -517,6 +553,31 @@ class FSDPEngine(TrainEngine):
         return self._cpu_group
 
     def destroy(self):
+        snapshot_error = None
+        try:
+            self.wait_shared_snapshot()
+        except BaseException as exc:
+            # wait() has joined the writer. Failed publication must not prevent
+            # safe model/process-group cleanup; report the failure afterwards.
+            snapshot_error = exc
+        self._shared_snapshot = None
+        self._optimizer_prewarm = None
+        if (
+            getattr(self, "_adaptive_memory", None) is not None
+            and self._adaptive_memory.broken
+        ):
+            raise RuntimeError(
+                "Partial memory transition: terminate this worker without ordinary tensor cleanup"
+            )
+        workspace = getattr(getattr(self, "_adaptive_backend", None), "workspace", None)
+        if workspace is not None:
+            workspace.check()
+        if getattr(self, "_adaptive_memory", None) is not None and (
+            self.is_offload or (workspace is not None and workspace.parked)
+        ):
+            # Trainer destroys inference first, so actor storage can be safely
+            # remapped before native tensor destructors free its virtual addresses.
+            self.colocation_memory("restore")
         self._initialized = False
         if hasattr(self, "optimizer"):
             del self.optimizer
@@ -553,6 +614,8 @@ class FSDPEngine(TrainEngine):
             # more than once (e.g. via cleanup hooks), the second call
             # must not try to destroy already-destroyed groups.
             self.own_global_group = False
+        if snapshot_error is not None:
+            raise snapshot_error
 
     @property
     def initialized(self) -> bool:
@@ -621,6 +684,7 @@ class FSDPEngine(TrainEngine):
         )
 
     def update_weights(self, meta: WeightUpdateMeta):
+        self.wait_shared_snapshot()
         self._check_rollout_engine_connected()
         context = self._offload_aware_context()
         if meta.colocate_mode and meta.colocate_stage == 1 and meta.type == "disk":
@@ -636,6 +700,21 @@ class FSDPEngine(TrainEngine):
             else:
                 raise ValueError(f"Unknown weight update type {meta.type}")
 
+    def wait_shared_snapshot(self, version: int | None = None):
+        # Both background jobs borrow persistent actor storage. Every existing
+        # snapshot lifecycle boundary also protects optimizer preparation.
+        prewarm = getattr(self, "_optimizer_prewarm", None)
+        if prewarm is not None:
+            prewarm.wait()
+        job = getattr(self, "_shared_snapshot", None)
+        if job is None:
+            if version is not None:
+                raise RuntimeError("No shared snapshot was started")
+            return
+        if version is not None and job.version != version:
+            raise RuntimeError("Shared snapshot version mismatch")
+        job.wait()
+
     def set_version(self, version: int):
         self._version = version
 
@@ -643,6 +722,7 @@ class FSDPEngine(TrainEngine):
         return self._version
 
     def save(self, meta: SaveLoadMeta):
+        self.wait_shared_snapshot()
         with self._offload_aware_context():
             if meta.weight_format == "hf":
                 self._save_model_to_hf(meta.path, meta.tokenizer, meta.processor)
@@ -655,6 +735,7 @@ class FSDPEngine(TrainEngine):
                 self._save_optimizer_state(meta.path)
 
     def load(self, meta: SaveLoadMeta):
+        self.wait_shared_snapshot()
         with self._offload_aware_context():
             if meta.weight_format == "hf":
                 self._load_model_from_hf(meta.path)
@@ -678,9 +759,19 @@ class FSDPEngine(TrainEngine):
         Reentrant: nested calls increment depth; only the outermost
         call performs actual onload/offload transitions.
         """
+        workspace = getattr(getattr(self, "_adaptive_backend", None), "workspace", None)
+        if workspace is not None:
+            workspace.check()
+            if workspace.parked:
+                raise RuntimeError("Restore workspace before actor tensor operations")
         if not self.is_offload:
             yield
             return
+
+        if getattr(self, "_adaptive_memory", None) is not None:
+            raise RuntimeError(
+                "Adaptive actor must be restored by the memory policy before this operation"
+            )
 
         self._offload_depth += 1
         if self._offload_depth == 1:
@@ -697,6 +788,7 @@ class FSDPEngine(TrainEngine):
         self.optimizer.zero_grad()
 
     def optimizer_step(self):
+        self.wait_shared_snapshot()
         assert self.optimizer is not None
         assert self.optimizer_config is not None
         assert self.lr_scheduler is not None
@@ -719,7 +811,14 @@ class FSDPEngine(TrainEngine):
             update_successful = True
         else:
             with trace_scope("fsdp_engine.step"):
-                self.optimizer.step()
+                memory = getattr(self, "_adaptive_memory", None)
+                scope = (
+                    self._adaptive_backend.allocation_scope("actor_optimizer")
+                    if memory is not None
+                    else nullcontext()
+                )
+                with scope:
+                    self.optimizer.step()
             update_successful = True
 
         current_lr = self.lr_scheduler.get_last_lr()[0]
@@ -771,7 +870,23 @@ class FSDPEngine(TrainEngine):
             loss = process_output_fn(logits, ctx_dict)
 
             if not forward_only and loss is not None:
-                with trace_scope("fsdp_engine.backward"):
+                workspace = getattr(
+                    getattr(self, "_adaptive_backend", None), "workspace", None
+                )
+                scope = (
+                    self._adaptive_backend.allocation_scope("actor_workspace")
+                    if workspace is not None
+                    else nullcontext()
+                )
+                # NPU autograd worker threads inherit the pool id but not its
+                # pluggable allocator TLS. Execute on this thread so all cached
+                # segments actually use CaMem and can be safely unmapped.
+                autograd_scope = (
+                    torch.autograd.set_multithreading_enabled(False)
+                    if workspace is not None
+                    else nullcontext()
+                )
+                with autograd_scope, scope, trace_scope("fsdp_engine.backward"):
                     loss.backward()
 
     def train_batch(
@@ -915,11 +1030,129 @@ class FSDPEngine(TrainEngine):
                 reduce_group=self.data_parallel_group,
             )
 
+    def prepare_optimizer_async(
+        self, reserve_bytes: int, device_budget_bytes: int | None = None
+    ) -> None:
+        from areal.engine.colocation_memory import OptimizerPrewarm
+
+        if reserve_bytes < 0 or (
+            device_budget_bytes is not None and device_budget_bytes <= 0
+        ):
+            raise ValueError("Invalid optimizer prewarm memory budget")
+        if getattr(self, "_adaptive_memory", None) is None:
+            return
+        if self.is_offload or getattr(self, "_optimizer_prewarm", None) is not None:
+            return
+        self.wait_shared_snapshot()
+        self._optimizer_prewarm = OptimizerPrewarm(
+            self.optimizer, self._adaptive_backend, reserve_bytes, device_budget_bytes
+        )
+
+    def colocation_memory(
+        self, action: str = "status", target_free_bytes: int | None = None
+    ) -> dict:
+        self.wait_shared_snapshot()
+        memory = getattr(self, "_adaptive_memory", None)
+        if memory is None:
+            raise RuntimeError("Adaptive actor memory is not enabled")
+        if action not in {
+            "status",
+            "finish_train",
+            "release_cache",
+            "park_cache",
+            "offload",
+            "restore",
+            "reclaim",
+        }:
+            raise ValueError("Unsupported actor memory action")
+        workspace = getattr(self._adaptive_backend, "workspace", None)
+        if workspace is not None:
+            workspace.check()
+        if action == "reclaim":
+            if type(target_free_bytes) is not int or target_free_bytes < 0:
+                raise ValueError("reclaim requires a nonnegative free-memory target")
+            # Actor is quiescent, and snapshot export/prewarm have been joined.
+            # Free gradients before parking; never allocate or clear parked pools.
+            if not self.is_offload:
+                self.optimizer_zero_grad()
+            if workspace is not None:
+                workspace.park(target_free_bytes)
+            status = memory.reclaim(
+                ["actor_optimizer", "actor_weights"], target_free_bytes
+            )
+            self.is_offload = status["restore_bytes"] > 0
+        if action == "park_cache":
+            if workspace is None:
+                raise RuntimeError("Workspace parking is not enabled")
+            # Release ordinary caches while all private pool mappings are valid.
+            # Retained MemPool ownership keeps its segments out of empty_cache.
+            self._adaptive_backend.clear_cache()
+            workspace.park()
+        if action == "finish_train":
+            if self.is_offload:
+                raise RuntimeError("Cannot finish training on an offloaded actor")
+            # The optimizer update and checkpoint export have completed. These
+            # gradients are not needed by inference or the next optimizer step.
+            self.optimizer_zero_grad()
+            # Fence completed training without discarding reusable allocations.
+            self._adaptive_backend.synchronize()
+        if action == "restore":
+            if workspace is not None:
+                workspace.restore()
+            memory.transition(["actor_weights", "actor_optimizer"], mapped=True)
+            self.is_offload = False
+        if not self.is_offload:
+            self._adaptive_backend.assert_covered(
+                list(self.model.parameters()) + list(self.model.buffers())
+            )
+            state_tensors = [
+                v
+                for state in self.optimizer.state.values()
+                for v in state.values()
+                if isinstance(v, torch.Tensor)
+            ]
+            self._adaptive_backend.assert_covered(state_tensors)
+        if action == "release_cache":
+            if memory.snapshot()["restore_bytes"]:
+                raise RuntimeError("Restore actor allocations before clearing cache")
+            self._adaptive_backend.clear_cache()
+        if action == "offload":
+            self.optimizer_zero_grad()
+            # Reclaim unused blocks before backing up and unmapping live pools.
+            if (workspace is None or not workspace.parked) and not memory.snapshot()[
+                "restore_bytes"
+            ]:
+                self._adaptive_backend.clear_cache()
+            memory.transition(
+                ["actor_weights", "actor_optimizer"], mapped=False, preserve=True
+            )
+            self.is_offload = True
+        status = memory.snapshot()
+        if workspace is not None:
+            status["workspace_parked_bytes"] = workspace.restore_bytes
+            status["restore_bytes"] += workspace.restore_bytes
+        params = list(self.model.parameters())
+        status["gradient_bytes"] = sum(
+            p.numel() * p.element_size() for p in params if p.requires_grad
+        )
+        status["future_optimizer_bytes"] = sum(
+            2 * p.numel() * p.element_size() + 4
+            for p in params
+            if p.requires_grad and not self.optimizer.state.get(p)
+        )
+        status["optimizer_id"] = id(self.optimizer)
+        self.logger.info("AUTO_MEMORY_ACTOR %s", status)
+        return status
+
     def offload(self) -> None:
         """Offload model memory to CPU using torch_memory_saver.
 
         Ref: https://github.com/THUDM/slime/blob/main/slime/backends/fsdp_utils/actor.py
         """
+        self.wait_shared_snapshot()
+        if getattr(self, "_adaptive_memory", None) is not None:
+            self.colocation_memory("offload")
+            return
         if not is_tms_enabled():
             raise RuntimeError(
                 "torch_memory_saver requires `enable_offload=True` in yaml config."
@@ -943,6 +1176,9 @@ class FSDPEngine(TrainEngine):
         Ref: https://github.com/THUDM/slime/blob/main/slime/backends/fsdp_utils/actor.py
         """
 
+        if getattr(self, "_adaptive_memory", None) is not None:
+            self.colocation_memory("restore")
+            return
         torch_memory_saver.resume()
 
         current_platform.synchronize()
@@ -1257,7 +1493,17 @@ class FSDPEngine(TrainEngine):
             )
 
     def _ensure_ready(self) -> None:
+        workspace = getattr(getattr(self, "_adaptive_backend", None), "workspace", None)
+        if workspace is not None:
+            workspace.check()
+            if workspace.parked:
+                raise RuntimeError("Restore workspace before executing the model")
+        self.wait_shared_snapshot()
         if self.is_offload:
+            if getattr(self, "_adaptive_memory", None) is not None:
+                raise RuntimeError(
+                    "Adaptive actor must be restored by the memory policy"
+                )
             self.onload()
 
         if self.parallel_helper.sp_size > 1:
@@ -1607,7 +1853,7 @@ class FSDPEngine(TrainEngine):
         )
 
         main_rank = dist.get_rank() == 0
-        if main_rank:
+        if main_rank and not meta.npu_share_fixed:
             self.rollout_engine.pause_generation()
 
         dist.barrier(group=self.cpu_group)
@@ -1637,41 +1883,53 @@ class FSDPEngine(TrainEngine):
             # For full model, iterate over all parameters
             param_iterator = self._get_model_name_parameters(meta)
 
-        try:
-            for name, param in param_iterator:
-                # Ranks other than 0 only help to get the full tensor
-                # (DTensor.full_tensor() is a collective; all ranks must
-                # call _get_full_tensor). Only rank 0 broadcasts to the
-                # rollout engine, so casting is main-rank-only by design.
-                tensor = self._get_full_tensor(param)
-                if not main_rank:
-                    continue
-                # Cast fp32 master storage to compute dtype before broadcast.
-                # Rollout engines (SGLang/vLLM) expect compute dtype (bf16).
-                tensor = self._cast_to_compute_dtype(tensor)
-
-                tensor_size = tensor.numel() * tensor.element_size()
-                bucket_overflow = (
-                    buffer_size > 0
-                    and tensor_size + buffer_size > weight_chunked_mem_size
+        def enqueue_tensor(name, tensor):
+            nonlocal buffer_size, named_tensors, pending_bucket
+            tensor_size = tensor.numel() * tensor.element_size()
+            if buffer_size > 0 and tensor_size + buffer_size > weight_chunked_mem_size:
+                if pending_bucket is not None:
+                    self._wait_pending_weight_update_bucket(pending_bucket)
+                    pending_bucket = None
+                pending_bucket = self._update_bucket_weights_from_distributed_async(
+                    meta, named_tensors, stream=broadcast_stream
                 )
-                if bucket_overflow:
-                    # Only middle buckets need drain+align before the next all-gather.
-                    if pending_bucket is not None:
-                        self._wait_pending_weight_update_bucket(pending_bucket)
-                        pending_bucket = None
+                named_tensors = []
+                buffer_size = 0
+            buffer_size += tensor_size
+            named_tensors.append((name, tensor))
 
-                    pending_bucket = self._update_bucket_weights_from_distributed_async(
-                        meta,
-                        named_tensors,
-                        stream=broadcast_stream,
+        try:
+            if meta.npu_share_snapshot:
+                from areal.engine.weight_snapshot import IndependentSnapshot
+
+                if (
+                    not meta.npu_share_fixed
+                    or dist.get_world_size() != 1
+                    or self.config.use_lora
+                    or len(self.weight_update_groups) != 1
+                    or meta.path is None
+                    or meta.version is None
+                ):
+                    raise ValueError(
+                        "Fused snapshots require one full-model actor and one fixed receiver"
                     )
-
-                    named_tensors = []
-                    buffer_size = 0
-
-                buffer_size += tensor_size
-                named_tensors.append((name, tensor))
+                self.wait_shared_snapshot()
+                parameters = list(param_iterator)
+                snapshot = IndependentSnapshot(
+                    meta.path, meta.version, parameters, self._compute_dtype()
+                )
+                self._shared_snapshot = snapshot
+                with torch.no_grad():
+                    for name, param in parameters:
+                        tensor = self._cast_to_compute_dtype(
+                            self._get_full_tensor(param)
+                        )
+                        enqueue_tensor(name, tensor)
+            else:
+                for name, param in param_iterator:
+                    tensor = self._get_full_tensor(param)
+                    if main_rank:
+                        enqueue_tensor(name, self._cast_to_compute_dtype(tensor))
 
             if pending_bucket:
                 self._wait_pending_weight_update_bucket(pending_bucket)
@@ -1680,23 +1938,63 @@ class FSDPEngine(TrainEngine):
             # Process remaining parameters
             if buffer_size > 0:
                 self._update_bucket_weights_from_distributed(meta, named_tensors)
+        except BaseException as exc:
+            if meta.npu_share_snapshot and getattr(self, "_shared_snapshot", None):
+                self._shared_snapshot.abort(exc)
+            raise
         finally:
             if main_rank and pending_bucket is not None:
                 self._wait_pending_weight_update_bucket(pending_bucket)
                 pending_bucket = None
 
         dist.barrier(group=self.cpu_group)
-        if main_rank:
+        if main_rank and not meta.npu_share_fixed:
             self.rollout_engine.continue_generation()
 
-        current_platform.synchronize()
+        if meta.npu_share_snapshot:
+            # All HCCL handles and receiver load ACKs are complete. A device-wide
+            # sync here would also wait for the independent snapshot copy stream.
+            request_trace.emit(
+                "fixed_hccl_complete",
+                version=meta.version,
+                snapshot_mode="independent_reader",
+                snapshot_submit_seconds=0.0,
+            )
+        else:
+            current_platform.synchronize()
         dist.barrier(group=self.cpu_group)
 
     @trace_perf("fsdp_engine.update_weights_from_disk", category="io")
     def _update_weights_from_disk_stage(self, meta: WeightUpdateMeta):
         if meta.colocate_stage == 0:
             assert meta.path is not None
-            self._save_model_to_hf(meta.path, self.tokenizer, self.processor)
+            if meta.npu_share_snapshot:
+                from areal.engine.weight_snapshot import write_snapshot
+
+                if (
+                    dist.get_world_size() != 1
+                    or meta.version is None
+                    or self.config.use_lora
+                ):
+                    raise ValueError(
+                        "NPU snapshots require one full-model actor and a version"
+                    )
+                started = time.perf_counter()
+                manifest = write_snapshot(
+                    meta.path,
+                    meta.version,
+                    list(self._get_model_name_parameters(meta)),
+                    self._compute_dtype(),
+                    lambda param: self._cast_to_compute_dtype(
+                        self._get_full_tensor(param)
+                    ),
+                )
+                self.logger.info(
+                    f"NPU_WEIGHT_SNAPSHOT export version={meta.version} "
+                    f"bytes={manifest['nbytes']} seconds={time.perf_counter() - started:.6f}"
+                )
+            else:
+                self._save_model_to_hf(meta.path, self.tokenizer, self.processor)
             current_platform.synchronize()
             dist.barrier(group=self.cpu_group)
             self.logger.info(

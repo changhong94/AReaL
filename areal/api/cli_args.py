@@ -3388,8 +3388,32 @@ class DistillationConfig:
 
 
 @dataclass
+class ColocationMemoryConfig:
+    """Experimental Ascend-only budgeting. Workspace bounds are workload-specific."""
+
+    train_workspace_gib: float = 8.0
+    inference_workspace_gib: float = 2.0
+    safety_margin_gib: float = 2.0
+    device_budget_gib: float | None = None
+
+
+@dataclass
 class PPOConfig(BaseExperimentConfig):
     """Configuration for Proximal Policy Optimization (PPO) reinforcement learning experiments."""
+
+    npu_share: bool = field(
+        default=False,
+        metadata={
+            "help": "Experimental FSDP/vLLM NPU time sharing; supports one shared replica "
+            "or a two-replica inference pool. Automatically "
+            "keep states resident or offload to CPU based on memory budget. Requires "
+            "rollout colocated with actor, disk weight updates, and no offload."
+        },
+    )
+
+    colocation_memory: ColocationMemoryConfig = field(
+        default_factory=ColocationMemoryConfig
+    )
 
     gconfig: GenerationHyperparameters = field(
         default_factory=GenerationHyperparameters

@@ -6,7 +6,7 @@ import logging
 from http import HTTPStatus
 
 import uvloop
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from vllm.entrypoints.openai.api_server import build_app as _original_build_app
 from vllm.entrypoints.openai.api_server import run_server
@@ -30,8 +30,47 @@ from vllm.logger import init_logger
 from vllm.lora.request import LoRARequest
 from vllm.utils.argparse_utils import FlexibleArgumentParser
 
-# AReaL's own router for custom endpoints (replaces vLLM's removed global router)
-router = APIRouter()
+from areal.engine.vllm_ext.generation_gate import (
+    run_weight_update_while_paused,
+    update_weights_while_paused,
+)
+from areal.engine.vllm_ext.kv_slab_adapter import (
+    slab_blocks,
+    transition_slab_cache,
+)
+from areal.engine.vllm_ext.request_admission import (
+    RoutingPaused,
+    install_admission_guard,
+    routed_request,
+)
+from areal.utils import generation_progress, request_trace
+
+
+async def validate_slab_endpoint(request: Request):
+    if slab_blocks() and request.url.path not in {
+        "/areal_update_weights",
+        "/areal_init_weights_update_group",
+        "/areal_set_update_weight_meta",
+        "/areal_update_weights_xccl",
+        "/areal_pause_generation",
+        "/areal_pause_generation_preserve",
+        "/areal_continue_generation",
+        "/areal_colocation_memory",
+        "/areal_generation_progress",
+        "/areal_queue_rebalance",
+        "/v1/completions",
+        "/inference/v1/generate",
+    }:
+        raise HTTPException(
+            status_code=400, detail="Endpoint unsupported in single-NPU KV slab mode"
+        )
+
+
+# AReaL's own router for custom endpoints.
+router = APIRouter(dependencies=[Depends(validate_slab_endpoint)])
+# Install in the worker extension after Ascend initializes its native imports.
+# Importing the model runner in the API process causes an Ascend import cycle.
+_memory_transition_lock = asyncio.Lock()
 
 # vLLM already decorates its handlers with @with_cancellation and
 # @load_aware_call. AReaL's wrappers below re-apply both, so they must delegate
@@ -41,6 +80,13 @@ router = APIRouter()
 # so a disconnect can be seen by the outer listener while the inner generation
 # keeps running and the load counter stays elevated.
 original_create_completion = inspect.unwrap(_decorated_create_completion)
+request_trace.install_request_id_trace()
+
+generation_progress.install()
+_concurrent_budget_valid = False
+_trace_active_requests = set()
+_trace_paused_requests = set()
+
 original_generate = inspect.unwrap(_decorated_generate)
 
 
@@ -50,6 +96,7 @@ logger.setLevel(logging.INFO)
 # Global event to control generation resume/pause
 _generation_run_event = asyncio.Event()
 _generation_run_event.set()  # Initially not paused
+install_admission_guard(_memory_transition_lock, _generation_run_event)
 
 
 def _apply_ascend_patch_awex():
@@ -66,6 +113,7 @@ _apply_ascend_patch_awex()
 
 
 class UpdateWeightsRequest(OpenAIBaseModel):
+    snapshot_version: int | None = None
     # The model path with the new weights
     model_path: str
     # The format to load the weights
@@ -199,15 +247,14 @@ def _register_runtime_lora_name(
 async def areal_update_weight(request: UpdateWeightsRequest, raw_request: Request):
     logger.info(f"API server starts areal_update_weight, {request.model_path}")
     llm = raw_request.app.state.engine_client
-    await llm.pause_generation(wait_for_inflight_requests=False, clear_cache=True)
-    await llm.reset_mm_cache()
-    try:
-        ret_list = await llm.collective_rpc(
-            "areal_update_weights",
-            args=(request.model_path,),
+    async with _memory_transition_lock:
+        ret_list = await update_weights_while_paused(
+            llm,
+            _generation_run_event,
+            request.model_path,
+            before_load=lambda: transition_slab_cache(llm, mapped=True),
+            snapshot_version=request.snapshot_version,
         )
-    finally:
-        await llm.resume_generation()
     return build_response(ret_list)
 
 
@@ -233,6 +280,7 @@ async def areal_update_weight_lora(
             ),
         )
     finally:
+        generation_progress.registry.break_service_interval()
         await llm.resume_generation()
 
     return build_response(ret_list)
@@ -242,12 +290,13 @@ async def areal_update_weight_lora(
 async def areal_update_weight_xccl(raw_request: Request):
     logger.info("API server starts areal_update_weight_xccl")
     llm = raw_request.app.state.engine_client
-    await llm.pause_generation(wait_for_inflight_requests=False, clear_cache=True)
-    await llm.reset_mm_cache()
-    try:
-        ret_list = await llm.collective_rpc("areal_update_weight_xccl")
-    finally:
-        await llm.resume_generation()
+    async with _memory_transition_lock:
+        ret_list = await run_weight_update_while_paused(
+            llm,
+            _generation_run_event,
+            lambda: llm.collective_rpc("areal_update_weight_xccl"),
+            before_load=lambda: transition_slab_cache(llm, mapped=True),
+        )
     return build_response(ret_list)
 
 
@@ -270,6 +319,7 @@ async def areal_update_weight_lora_xccl(
                 base_model_name=request.base_model_name,
             )
     finally:
+        generation_progress.registry.break_service_interval()
         await llm.resume_generation()
 
     return build_response(ret_list)
@@ -340,27 +390,189 @@ async def areal_set_weight_meta_xccl_lora(
     return build_response(ret_list)
 
 
+@router.post("/areal_pause_generation_preserve")
+async def areal_pause_generation_preserve(raw_request: Request):
+    """Freeze the scheduler and retain request identities and live KV contents."""
+    llm = raw_request.app.state.engine_client
+    async with _memory_transition_lock:
+        llm._areal_preserve_pause = True
+        generation_progress.registry.break_service_interval()
+        _generation_run_event.clear()
+        _trace_paused_requests.update(_trace_active_requests)
+        request_trace.emit(
+            "native_pause_request",
+            request_ids=sorted(_trace_active_requests),
+            mode="keep",
+        )
+        await llm.pause_generation(mode="keep", clear_cache=False)
+        # Worker synchronization fences the last decode before any memory copy.
+        await llm.collective_rpc(
+            "areal_colocation_memory", args=("pause_preserved", True)
+        )
+        request_trace.emit(
+            "native_pause_ack", request_ids=sorted(_trace_paused_requests), mode="keep"
+        )
+    return to_json_response(True, "Generation paused with live KV preserved")
+
+
 @router.post("/areal_pause_generation")
 async def areal_pause_generation(raw_request: Request):
     logger.info("API server starts areal_pause_generation and aborts all requests")
     llm = raw_request.app.state.engine_client
-    # Abort all running and waiting requests
-    _generation_run_event.clear()
-    await llm.pause_generation(
-        wait_for_inflight_requests=False,
-        clear_cache=True,
-    )
-    await llm.reset_mm_cache()
+    # Abort requests and confirm scheduler blocks are free before discarding KV.
+    async with _memory_transition_lock:
+        if getattr(llm, "_areal_preserve_pause", False):
+            raise HTTPException(
+                status_code=409,
+                detail="Restore and drain retained requests before aborting",
+            )
+        if request_trace.enabled():
+            _trace_paused_requests.update(_trace_active_requests)
+            request_trace.emit(
+                "native_pause_request", request_ids=sorted(_trace_active_requests)
+            )
+        generation_progress.registry.break_service_interval()
+        _generation_run_event.clear()
+        await llm.pause_generation(
+            wait_for_inflight_requests=False,
+            clear_cache=True,
+        )
+        await llm.reset_mm_cache()
+        await transition_slab_cache(llm, mapped=False)
+
+        request_trace.emit(
+            "native_pause_ack", request_ids=sorted(_trace_paused_requests)
+        )
 
     return to_json_response(True, "Generation paused and all requests aborted")
+
+
+class ColocationMemoryRequest(OpenAIBaseModel):
+    action: str = "status"
+    target_free_bytes: int | None = None
+    kv_budget_bytes: int | None = None
+
+
+@router.post("/areal_generation_progress")
+async def areal_generation_progress(raw_request: Request):
+    body = await raw_request.json()
+    result = generation_progress.registry.snapshot(rotate=body.get("rotate", False))
+    result["budget_valid"] = _concurrent_budget_valid
+    result["generation_running"] = _generation_run_event.is_set()
+    return result
+
+
+@router.post("/areal_queue_rebalance")
+async def areal_queue_rebalance(raw_request: Request):
+    import os
+
+    if (
+        os.getenv("AREAL_QUEUE_REBALANCE", "1") != "1"
+        or os.getenv("AREAL_DRAIN_METRICS", "0") != "1"
+    ):
+        raise HTTPException(status_code=409, detail="Queue rebalance disabled")
+    body = await raw_request.json()
+    action = body.get("action", "snapshot")
+    if action not in ("snapshot", "abort"):
+        raise HTTPException(status_code=400, detail="Invalid queue operation")
+    async with _memory_transition_lock:
+        if not _generation_run_event.is_set():
+            raise HTTPException(status_code=409, detail="Replica transitioning")
+        llm = raw_request.app.state.engine_client
+        # Keep the exact attempt IDs: a late claim must not cancel its retry.
+        with generation_progress.registry.lock:
+            mapping = {
+                i: r["request_id"]
+                for i, r in generation_progress.registry.active.items()
+            }
+        ids = [i for i in body.get("internal_ids", []) if i in mapping]
+        result = await llm.engine_core.call_utility_async(
+            "areal_queue_rebalance", action, ids
+        )
+        if action == "snapshot":
+            return dict(
+                queue=dict(
+                    queued=[mapping[i] for i in result["queued"] if i in mapping],
+                    waiting=[mapping[i] for i in result["waiting"] if i in mapping],
+                    running=[mapping[i] for i in result["running"] if i in mapping],
+                    width=result["width"],
+                ),
+                internal_ids={mapping[i]: i for i in result["queued"] if i in mapping},
+                **generation_progress.registry.snapshot(),
+            )
+        request_trace.emit("queue_rebalance_source_ack", internal_ids=result["aborted"])
+        return result
+
+
+@router.post("/areal_colocation_memory")
+async def areal_colocation_memory(
+    request: ColocationMemoryRequest, raw_request: Request
+):
+    global _concurrent_budget_valid
+    from areal.engine.colocation_memory import adaptive_memory_enabled
+
+    if not adaptive_memory_enabled():
+        raise HTTPException(status_code=400, detail="Adaptive memory is disabled")
+    async with _memory_transition_lock:
+        if _generation_run_event.is_set():
+            raise HTTPException(
+                status_code=409, detail="Pause generation before memory handoff"
+            )
+        llm = raw_request.app.state.engine_client
+        if not await llm.is_paused():
+            raise HTTPException(
+                status_code=409, detail="Engine scheduler must remain paused"
+            )
+        stats = await llm.engine_core.call_utility_async("areal_kv_slab_stats")
+        preserving = getattr(llm, "_areal_preserve_pause", False)
+        if stats["used_blocks"] and not preserving:
+            raise HTTPException(
+                status_code=409, detail="Live KV blocks prevent memory handoff"
+            )
+        result = await llm.collective_rpc(
+            "areal_colocation_memory",
+            args=(
+                request.action,
+                True,
+                request.target_free_bytes,
+                request.kv_budget_bytes,
+            ),
+        )
+        if request.action in {"kv_budget", "kv_budget_clear"}:
+            if len(result) != 1:
+                raise RuntimeError("Training priority requires a single-device replica")
+            cap = result[0]["capacity_blocks"]
+            # One full-length request must be able to complete without deadlock.
+            minimum = (
+                llm.model_config.max_model_len
+                + llm.vllm_config.cache_config.block_size
+                - 1
+            ) // llm.vllm_config.cache_config.block_size + 1
+            admitted = cap >= minimum
+            result[0]["concurrent_admitted"] = admitted
+            _concurrent_budget_valid = request.action == "kv_budget" and admitted
+            if admitted:
+                await llm.engine_core.call_utility_async("areal_set_kv_capacity", cap)
+        return result
 
 
 @router.post("/areal_continue_generation")
 async def areal_continue_generation(raw_request: Request):
     logger.info("API server starts areal_continue_generation")
     llm = raw_request.app.state.engine_client
-    await llm.resume_generation()
-    _generation_run_event.set()
+    async with _memory_transition_lock:
+        await transition_slab_cache(llm, mapped=True)
+        preserving = getattr(llm, "_areal_preserve_pause", False)
+        if preserving:
+            await llm.collective_rpc(
+                "areal_colocation_memory", args=("resume_preserved", True)
+            )
+        generation_progress.registry.break_service_interval()
+        await llm.resume_generation()
+        llm._areal_preserve_pause = False
+        _generation_run_event.set()
+        request_trace.emit("native_resume", request_ids=sorted(_trace_paused_requests))
+        _trace_paused_requests.clear()
     return to_json_response(True, "Generation continued")
 
 
@@ -414,9 +626,54 @@ async def generate(request: GenerateRequest, raw_request: Request):
     schema, same handler underneath, so the patches stay deletable.
     """
 
-    await _wait_if_paused()
-
-    return await original_generate(request, raw_request)
+    if raw_request.headers.get("X-Areal-Request-Routing") == "1":
+        if request.stream:
+            raise HTTPException(
+                status_code=400, detail="Shared request routing requires stream=False"
+            )
+        token = routed_request.set(True)
+        rid = request.request_id
+        request_trace.emit(
+            "server_arrival",
+            request_id=rid,
+            server_rank=int(raw_request.headers["X-Areal-Route-Rank"]),
+        )
+        _trace_active_requests.add(rid)
+        try:
+            if not _generation_run_event.is_set():
+                if getattr(
+                    raw_request.app.state.engine_client, "_areal_preserve_pause", False
+                ):
+                    request_trace.emit("server_gate_wait_start", request_id=rid)
+                    await _generation_run_event.wait()
+                    request_trace.emit("server_gate_wait_end", request_id=rid)
+                else:
+                    raise RoutingPaused("Replica paused")
+            return await original_generate(request, raw_request)
+        except RoutingPaused:
+            return JSONResponse(status_code=409, content={"areal_route_rejected": True})
+        finally:
+            _trace_active_requests.discard(rid)
+            generation_progress.registry.discard_external(rid)
+            request_trace.emit("server_return", request_id=rid)
+            routed_request.reset(token)
+    if not request_trace.enabled():
+        await _wait_if_paused()
+        return await original_generate(request, raw_request)
+    rid = request.request_id
+    request_trace.emit("server_arrival", request_id=rid)
+    _trace_active_requests.add(rid)
+    try:
+        waiting = not _generation_run_event.is_set()
+        if waiting:
+            request_trace.emit("server_gate_wait_start", request_id=rid)
+        await _wait_if_paused()
+        if waiting:
+            request_trace.emit("server_gate_wait_end", request_id=rid)
+        return await original_generate(request, raw_request)
+    finally:
+        _trace_active_requests.discard(rid)
+        request_trace.emit("server_return", request_id=rid)
 
 
 if __name__ == "__main__":

@@ -210,6 +210,10 @@ class WeightUpdateMeta:
     weight_chunked_mem_mb: int = 1024
     colocate_stage: int = 0
     colocate_mode: bool = False
+    # Internal local publication format; enabled by PPOConfig.npu_share.
+    npu_share_snapshot: bool = False
+    # Internal: target only the separately allocated replica, with caller-owned pause.
+    npu_share_fixed: bool = False
 
     backend: str | None = None
 

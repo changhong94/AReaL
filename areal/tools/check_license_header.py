@@ -15,6 +15,8 @@ import sys
 from pathlib import Path
 
 HEADER = "# SPDX-License-Identifier: Apache-2.0"
+# Preserve the attribution of the vendored FineServe slab adaptation.
+ACCEPTED_HEADERS = (HEADER, "# SPDX-License-Identifier: BSD-3-Clause")
 SHEBANG_PREFIX = "#!"
 
 
@@ -24,7 +26,7 @@ def needs_header(path: Path) -> bool:
         text = path.read_text(encoding="utf-8")
     except Exception:
         return False
-    return HEADER not in text
+    return not any(header in text for header in ACCEPTED_HEADERS)
 
 
 def fix_file(path: Path) -> None:

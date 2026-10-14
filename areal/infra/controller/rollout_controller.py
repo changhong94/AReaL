@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import os
 import shutil
 import threading
+import time
 import traceback
 from collections import defaultdict
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from threading import Lock
 from typing import Any
 
@@ -36,9 +39,11 @@ from areal.api.cli_args import (
     SchedulingSpec,
     SchedulingStrategy,
 )
+from areal.infra.borrowed_rollout import BorrowedRolloutPool
+from areal.infra.request_router import RequestLeasePool
 from areal.infra.rpc.serialization import deserialize_value
-from areal.infra.utils.concurrent import run_async_task
-from areal.utils import logging, perf_tracer
+from areal.infra.utils.concurrent import get_executor, run_async_task
+from areal.utils import logging, perf_tracer, request_trace
 from areal.utils.data import cycle_dataloader
 from areal.utils.dynamic_import import import_from_string
 from areal.utils.network import find_free_ports, format_hostport, gethostip
@@ -91,6 +96,12 @@ class RolloutController:
 
         # Round-robin scheduling
         self._current_worker_idx = 0
+        self._shared_publication = None
+        self._shared_publication_lock = threading.RLock()
+        self._shared_loading = False
+        self._borrowed_pool: BorrowedRolloutPool | None = None
+        self._request_pool: RequestLeasePool | None = None
+        self._worker_roles: list[str] = []
 
         # State
         self._version_lock = Lock()
@@ -115,6 +126,7 @@ class RolloutController:
         self._callback_host: str | None = None
         self._callback_loop: asyncio.AbstractEventLoop | None = None
         self._callback_loop_ready = threading.Event()
+        self._callback_control_lock = Lock()
 
         # Task completion futures
         self._pending_futures: dict[int, asyncio.Future] = {}
@@ -156,6 +168,493 @@ class RolloutController:
         """
         return f"{self._worker_role}/{rank}"
 
+    def enable_npu_share_pool(self) -> None:
+        """Borrow replica zero; replica one gets a separately allocated device."""
+        if (
+            self.rollout_alloc.world_size != 2
+            or self.rollout_alloc.parallel.dp_size != 2
+        ):
+            raise ValueError("NPU share pool requires two single-device replicas")
+        self._preserve_borrowed_requests = (
+            os.getenv("AREAL_NPU_SHARE_PAUSE_KEEP", "0") == "1"
+        )
+        self._borrowed_pool = BorrowedRolloutPool(
+            self.config.consumer_batch_size,
+            preserve_requests=self._preserve_borrowed_requests,
+        )
+
+    @property
+    def has_borrowed_replica(self) -> bool:
+        return self._borrowed_pool is not None
+
+    def _pool_event(self, event: str, **fields) -> None:
+        logger.info("NPU_SHARE_POOL " + json.dumps({"event": event, **fields}))
+
+    def _worker_rpc(self, rank: int, method: str, **kwargs):
+        return run_async_task(
+            self.scheduler.async_call_engine,
+            worker_id=self.workers[rank].id,
+            engine_name=self._engine_name(rank),
+            method=method,
+            **kwargs,
+        )
+
+    def training_prefetch_target(self) -> int:
+        if self._borrowed_pool is None:
+            raise RuntimeError("No borrowed replica configured")
+        return self._borrowed_pool.training_prefetch_target()
+
+    def training_prefetch_ready(self, target: int) -> bool:
+        return self.staleness_manager.get_stats().accepted >= target
+
+    def borrow_for_training(self) -> None:
+        """Only the actor's replica stops; the other replica keeps generating."""
+        if self._borrowed_pool is None:
+            raise RuntimeError("No borrowed replica configured")
+        self.wait_shared_publication()
+        self._borrowed_pool.withdraw()
+        pool = getattr(self, "_request_pool", None)
+        if pool is not None:
+            pool.close(0)
+        else:
+            self._worker_rpc(0, "pause", http_timeout=60.0)
+        preserve = getattr(self, "_preserve_borrowed_requests", False)
+        if preserve and pool is None:
+            raise RuntimeError("Retained requests require request lease routing")
+        method = "pause_generation_preserve" if preserve else "pause_generation"
+        self._worker_rpc(0, method, http_timeout=60.0)
+        if pool is not None and not preserve:
+            pool.wait_empty(0)
+        self._pool_event("borrowed", rank=0, version=self.get_version())
+
+    def begin_shared_drain(self, timeout: float) -> float:
+        """Close new leases without interrupting old-version native generation."""
+        pool = getattr(self, "_request_pool", None)
+        if pool is None or self._borrowed_pool is None:
+            raise RuntimeError("Shared drain requires request lease routing")
+        self._borrowed_pool.withdraw()
+        pool.close(0)
+        deadline = time.monotonic() + timeout
+        request_trace.emit(
+            "shared_drain_begin",
+            version=pool.versions[0],
+            timeout=timeout,
+            request_ids=pool.active_requests(0),
+        )
+        return deadline
+
+    def freeze_drain_window(self) -> None:
+        if os.getenv("AREAL_BATCH_DRAIN_METRICS", "0") != "1":
+            return
+        from threading import Event
+
+        import requests
+
+        from areal.infra.rolling_drain import RollingBatchCalibration
+
+        if not hasattr(self, "_batch_calibration"):
+            self._batch_calibration = RollingBatchCalibration()
+            self._batch_drain_wakeup = Event()
+        with requests.Session() as session:
+            session.trust_env = False
+            engines = []
+            for address in self._request_pool.addresses:
+                response = session.post(
+                    f"http://{address}/areal_generation_progress",
+                    json={"rotate": True},
+                    timeout=2,
+                )
+                response.raise_for_status()
+                engines.append(response.json())
+        route = self._request_pool.drain_snapshot(rotate=True)
+        handoffs = getattr(self, "_batch_handoff_parts", [])
+        request_trace.emit(
+            "batch_drain_calibration_input",
+            engines=engines,
+            route=route,
+            handoffs=handoffs,
+        )
+        summary = self._batch_calibration.freeze(engines, route, handoffs)
+        if os.getenv("AREAL_QUEUE_REBALANCE", "1") == "1":
+            import copy
+
+            # Publish an immutable completed calibration for the independent
+            # rebalance worker; freeze() mutates the live estimator next batch.
+            self._queue_calibration = copy.deepcopy(self._batch_calibration)
+        self._batch_handoffs = []
+        self._batch_handoff_parts = []
+        request_trace.emit("batch_drain_calibration", **summary)
+
+    def record_training_ready(
+        self, prepare_seconds: float, idle_seconds: float | None = None
+    ) -> None:
+        if os.getenv("AREAL_BATCH_DRAIN_METRICS", "0") != "1":
+            return
+        # Publication tail finishes on this same executor BEFORE preparation.
+        # Never await a future queued behind the drain that is making a decision.
+        publish = getattr(self, "_batch_publish_seconds", None)
+        if publish is not None:
+            self._batch_handoffs = getattr(self, "_batch_handoffs", [])
+            handoff = publish + prepare_seconds
+            if idle_seconds is not None:
+                handoff = (
+                    time.monotonic() - self._batch_transition_started - idle_seconds
+                )
+            self._batch_handoffs.append(handoff)
+            self._batch_handoff_parts = getattr(self, "_batch_handoff_parts", [])
+            self._batch_handoff_parts.append(
+                dict(tail=max(0.0, handoff - prepare_seconds), restore=prepare_seconds)
+            )
+            self._batch_publish_seconds = None
+            request_trace.emit(
+                "batch_drain_training_ready",
+                publish_seconds=publish,
+                prepare_seconds=prepare_seconds,
+                idle_seconds=idle_seconds,
+                handoff=handoff,
+            )
+
+    def _adaptive_drain_reason(self, target: int) -> str:
+        import requests
+
+        from areal.infra.adaptive_drain import estimate_drain
+
+        pool = self._request_pool
+        # A watchdog is failure protection, not the normal scheduling deadline.
+        watchdog = time.monotonic() + self.config.request_timeout
+        votes = 0
+        batch_mode = os.getenv("AREAL_BATCH_DRAIN", "0") == "1"
+        with requests.Session() as session:
+            session.trust_env = False
+            while True:
+                if not pool.active_requests(0):
+                    return "empty"
+                if self.training_prefetch_ready(target):
+                    return "next_batch_ready"
+                if (
+                    self.get_version() - pool.versions[0]
+                    > self.config.max_head_offpolicyness
+                ):
+                    return "version_limit"
+                if time.monotonic() >= watchdog:
+                    return "watchdog"
+                engines = []
+                try:
+                    for address in pool.addresses:
+                        response = session.post(
+                            f"http://{address}/areal_generation_progress",
+                            json={},
+                            timeout=2,
+                        )
+                        response.raise_for_status()
+                        engines.append(response.json())
+                except (requests.RequestException, ValueError) as exc:
+                    request_trace.emit(
+                        "adaptive_drain_estimate",
+                        action="stop",
+                        reason="telemetry_error",
+                        error=str(exc),
+                    )
+                    return "telemetry_error"
+                # Every endpoint constructs a fresh CPU snapshot. HTTP timeouts
+                # bound retrieval; monotonic clocks are not comparable across hosts.
+                if (
+                    not engines[0]["budget_valid"]
+                    or not engines[0]["generation_running"]
+                ):
+                    return "budget_invalid"
+                if batch_mode:
+                    accepted = self.staleness_manager.get_stats().accepted
+                    route = pool.drain_snapshot()
+                    needed = target - accepted
+                    prefetch_needed = max(0, self.training_prefetch_target() - accepted)
+                    request_trace.emit(
+                        "batch_drain_prediction_input",
+                        route=route,
+                        engines=engines,
+                        needed=needed,
+                        prefetch_needed=prefetch_needed,
+                    )
+                    started = time.perf_counter()
+                    estimate = self._batch_calibration.estimate(
+                        route, engines, needed, prefetch_needed=prefetch_needed
+                    )
+                    estimate["prediction_seconds"] = time.perf_counter() - started
+                else:
+                    estimate = estimate_drain(
+                        pool.drain_snapshot(),
+                        engines,
+                        target - self.staleness_manager.get_stats().accepted,
+                        getattr(self, "_shared_turnaround_ema", 1.0),
+                    )
+                request_trace.emit(
+                    "batch_drain_estimate" if batch_mode else "adaptive_drain_estimate",
+                    **estimate,
+                )
+                if batch_mode:
+                    # Prediction is CPU work: recheck progress before acting.
+                    if not pool.active_requests(0):
+                        return "empty"
+                    if self.training_prefetch_ready(target):
+                        return "next_batch_ready"
+                    if (
+                        self.get_version() - pool.versions[0]
+                        > self.config.max_head_offpolicyness
+                    ):
+                        return "version_limit"
+                if batch_mode and estimate["action"] == "stop":
+                    return estimate["reason"]
+                if estimate["reason"] == "next_batch_ready":
+                    return "next_batch_ready"
+                votes = votes + 1 if estimate["action"] == "stop" else 0
+                if votes >= 2:
+                    return "migration_faster"
+                if batch_mode:
+                    self._batch_drain_wakeup.wait(0.5)
+                    self._batch_drain_wakeup.clear()
+                else:
+                    time.sleep(0.5)
+
+    def finish_shared_drain(self, deadline: float, target: int) -> None:
+        pool = self._request_pool
+        if os.getenv("AREAL_ADAPTIVE_DRAIN", "0") == "1":
+            reason = self._adaptive_drain_reason(target)
+        else:
+            reason = pool.drain_until(
+                0, deadline, lambda: self.training_prefetch_ready(target)
+            )
+        remaining = pool.active_requests(0)
+        self._batch_transition_started = time.monotonic()
+        request_trace.emit(
+            "shared_drain_decision", reason=reason, request_ids=remaining, target=target
+        )
+        # Even natural completion needs native idle ACK before capacity/model mutation.
+        # On timeout this aborts only the remaining leases, whose clients reroute.
+        self._worker_rpc(0, "pause_generation", http_timeout=60.0)
+        pool.wait_empty(0)
+        self._shared_transition_started = time.monotonic()
+        request_trace.emit(
+            "shared_drain_end", reason=reason, remaining_at_decision=len(remaining)
+        )
+
+    def resume_training_inference(self) -> None:
+        if getattr(self, "_request_pool", None) is None:
+            raise RuntimeError("Concurrent training requires request lease routing")
+        self._worker_rpc(0, "continue_generation", http_timeout=60.0)
+        self._request_pool.open(0, self.get_version())
+        self._worker_rpc(0, "resume", http_timeout=60.0)
+        self._pool_event(
+            "training_inference_resumed", rank=0, version=self.get_version()
+        )
+
+    def wait_shared_publication(self) -> None:
+        future = getattr(self, "_shared_publication", None)
+        if future is not None:
+            future.result()  # Surface failures before another actor update or evaluation.
+
+    def prepare_fixed_publication(self) -> None:
+        self.wait_shared_publication()
+        if self._borrowed_pool is None:
+            raise RuntimeError("Asymmetric publication requires a borrowed replica")
+        self._borrowed_pool.withdraw()
+        pool = getattr(self, "_request_pool", None)
+        if pool is not None:
+            pool.close(1)
+        self._worker_rpc(1, "pause_generation", http_timeout=60.0)
+        if pool is not None:
+            pool.wait_empty(1)
+        self._pool_event("fixed_pause", version=self.get_version())
+
+    def publish_fixed_version(self, version: int) -> None:
+        # Caller has awaited all HCCL buckets and the receiver's load ACK.
+        self._worker_rpc(1, "set_version", version=version, http_timeout=60.0)
+        with self._version_lock:
+            self._version = version
+        self._worker_rpc(1, "continue_generation", http_timeout=60.0)
+        pool = getattr(self, "_request_pool", None)
+        if pool is not None:
+            pool.open(1, version)
+            self._collective_rpc("resume", http_timeout=60.0)
+        else:
+            self._worker_rpc(1, "resume", http_timeout=60.0)
+        self.dispatcher.resume()
+        self._pool_event("fixed_ready", rank=1, version=version, time=time.time())
+
+    def load_shared_snapshot_async(self, meta: WeightUpdateMeta) -> None:
+        self.wait_shared_publication()
+        if meta.version != self.get_version() or not meta.npu_share_snapshot:
+            raise ValueError("Shared snapshot must match the published fixed version")
+        with self._shared_publication_lock:
+            self._shared_loading = True
+            self._shared_publication = get_executor(
+                "shared_publication", max_workers=1
+            ).submit(
+                self._load_shared_snapshot,
+                replace(meta, clear_checkpoint_after_load=False),
+            )
+
+    def _schedule_queue_rebalance(self, version: int) -> None:
+        if os.getenv("AREAL_QUEUE_REBALANCE", "1") != "1":
+            return
+        if os.getenv("AREAL_BATCH_DRAIN_METRICS", "0") != "1":
+            return
+        previous = getattr(self, "_queue_rebalance_future", None)
+        if previous is not None and not previous.done():
+            request_trace.emit(
+                "queue_rebalance_skipped", version=version, reason="worker_busy"
+            )
+            return
+        self._queue_rebalance_future = get_executor(
+            "queue_rebalance", max_workers=1
+        ).submit(self._rebalance_queued_once, version)
+
+    def _rebalance_queued_once(self, version: int) -> None:
+        if os.getenv("AREAL_QUEUE_REBALANCE", "1") != "1":
+            return
+        pool = getattr(self, "_request_pool", None)
+        if pool is None or os.getenv("AREAL_BATCH_DRAIN_METRICS", "0") != "1":
+            return
+        with pool.lock:
+            if not all(pool.ready) or pool.versions != [version, version] or pool.error:
+                return
+        import requests
+
+        from areal.infra.queue_rebalance import plan_rebalance
+
+        reservations = {}
+        submitted = False
+        try:
+            with requests.Session() as session:
+                session.trust_env = False
+                start = time.monotonic()
+                engines = []
+                for address in pool.addresses:
+                    response = session.post(
+                        f"http://{address}/areal_queue_rebalance",
+                        json={"action": "snapshot"},
+                        timeout=2,
+                    )
+                    response.raise_for_status()
+                    engines.append(response.json())
+                overhead = time.monotonic() - start
+                route = pool.drain_snapshot()
+                plan = plan_rebalance(
+                    getattr(self, "_queue_calibration", None), route, engines, overhead
+                )
+                planning_cost = time.monotonic() - start
+                plan["planning_seconds"] = planning_cost
+                if any(
+                    min(p["tail_gain_s"], p["stay_s"] - p["move_s"]) <= planning_cost
+                    for p in plan["predictions"]
+                ):
+                    plan.update(selected=[], reason="planning_cost_exceeds_gain")
+                request_trace.emit("queue_rebalance_plan", version=version, **plan)
+                if not plan["selected"]:
+                    return
+                leases = {r["request_id"]: r["lease_id"] for r in route["active"]}
+                reservations = pool.reserve_rebalance(
+                    {rid: leases[rid] for rid in plan["selected"]}, version
+                )
+                if not reservations:
+                    return
+                native = engines[1]["internal_ids"]
+                ids = [native[rid] for rid in reservations]
+                submitted = True
+                response = session.post(
+                    f"http://{pool.addresses[1]}/areal_queue_rebalance",
+                    json={"action": "abort", "internal_ids": ids},
+                    timeout=2,
+                )
+                response.raise_for_status()
+                acknowledged = set(response.json()["aborted"])
+                pool.cancel_rebalance(
+                    {
+                        rid: lease
+                        for rid, lease in reservations.items()
+                        if native[rid] not in acknowledged
+                    }
+                )
+                request_trace.emit(
+                    "queue_rebalance_result",
+                    version=version,
+                    requested=len(ids),
+                    withdrawn=len(acknowledged),
+                    request_ids=[
+                        rid for rid in reservations if native[rid] in acknowledged
+                    ],
+                    seconds=time.monotonic() - start,
+                )
+        except Exception as exc:
+            # A timed-out optimization cannot grant execution. Keep the source
+            # lease until its ordinary generation HTTP response confirms abort.
+            if not submitted:
+                pool.cancel_rebalance(reservations)
+            request_trace.emit(
+                "queue_rebalance_skipped",
+                version=version,
+                reason=type(exc).__name__,
+                uncertain=submitted,
+            )
+
+    def _load_shared_snapshot(self, meta: WeightUpdateMeta) -> None:
+        started = time.perf_counter()
+        self._pool_event(
+            "shared_load_start", rank=0, version=meta.version, time=time.time()
+        )
+        try:
+            if getattr(self, "_preserve_borrowed_requests", False):
+                # Memory policy has restored the old model and its live KV.
+                # Keep admission closed until all old-version leases complete.
+                request_trace.emit("shared_retained_drain_begin", version=meta.version)
+                self._worker_rpc(0, "continue_generation", http_timeout=60.0)
+                self._request_pool.wait_empty(0, timeout=self.config.request_timeout)
+                request_trace.emit("shared_retained_drain_end", version=meta.version)
+                self._worker_rpc(0, "pause_generation", http_timeout=60.0)
+            request_trace.emit("shared_model_load_begin", version=meta.version)
+            self._worker_rpc(0, "update_weights_from_disk", meta=meta)
+            request_trace.emit("shared_model_load_end", version=meta.version)
+            with self._shared_publication_lock:
+                if meta.version != self.get_version():
+                    raise RuntimeError("Shared publication was superseded before ACK")
+                self._worker_rpc(
+                    0, "set_version", version=meta.version, http_timeout=60.0
+                )
+                self._worker_rpc(0, "continue_generation", http_timeout=60.0)
+                pool = getattr(self, "_request_pool", None)
+                if pool is not None:
+                    pool.open(0, meta.version)
+                self._worker_rpc(0, "resume", http_timeout=60.0)
+                self._borrowed_pool.release(self.staleness_manager.get_stats().accepted)
+                self._shared_loading = False
+                transition = getattr(self, "_shared_transition_started", None)
+                if transition is not None:
+                    elapsed = time.monotonic() - transition
+                    self._shared_turnaround_ema = (
+                        0.7 * getattr(self, "_shared_turnaround_ema", elapsed)
+                        + 0.3 * elapsed
+                    )
+                batch_transition = getattr(self, "_batch_transition_started", None)
+                if batch_transition is not None:
+                    self._batch_publish_seconds = time.monotonic() - batch_transition
+                request_trace.emit("shared_admission_ready", version=meta.version)
+                self._schedule_queue_rebalance(meta.version)
+                self._pool_event(
+                    "returned",
+                    rank=0,
+                    version=meta.version,
+                    routing_state=self._borrowed_pool.state,
+                    seconds=time.perf_counter() - started,
+                    time=time.time(),
+                )
+            # Only the shared reader uses this snapshot; its ACK includes device sync.
+            shutil.rmtree(meta.path, ignore_errors=True)
+        except Exception as exc:
+            self._borrowed_pool.withdraw()
+            self.dispatcher.pause()
+            self.dispatcher.fail_fast(exc)
+            self._pool_event("shared_load_failed", rank=0, version=meta.version)
+            raise
+
     def initialize(
         self,
         role: str,
@@ -193,9 +692,13 @@ class RolloutController:
         )
 
         # Call async scheduler methods synchronously
-        run_async_task(
-            self._async_initialize, job, server_args, server_infos, *args, **kwargs
-        )
+        try:
+            run_async_task(
+                self._async_initialize, job, server_args, server_infos, *args, **kwargs
+            )
+        except BaseException:
+            self._delete_worker_roles()
+            raise
 
         # Initialize staleness manager for global capacity control
         max_concurrent_rollouts = (
@@ -223,7 +726,14 @@ class RolloutController:
         self._dispatcher.initialize(logger=logger)
 
         # Start callback server for weight sync coordination
+        if self._borrowed_pool is not None:
+            self._request_pool = RequestLeasePool(
+                [format_hostport(info.host, info.port) for info in self.server_infos],
+                capacity=server_args["max_num_seqs"],
+            )
         self._start_callback_server()
+        if self._request_pool is not None:
+            self._collective_rpc("configure_request_router", address=self.callback_addr)
 
     async def _async_initialize(
         self,
@@ -235,12 +745,31 @@ class RolloutController:
     ):
         # Create workers via scheduler
         logger.info("Creating workers via scheduler...")
-        worker_ids = self.scheduler.create_workers(job=job)
+        jobs = [job]
+        if self._borrowed_pool is not None:
+            jobs = [
+                replace(job, replicas=1, tasks=job.tasks[:1]),
+                replace(
+                    job,
+                    role=f"{job.role}-fixed",
+                    replicas=1,
+                    tasks=job.tasks[1:2],
+                    scheduling_strategy=SchedulingStrategy(type="separation"),
+                ),
+            ]
+        worker_ids = []
+        try:
+            for part in jobs:
+                self._worker_roles.append(part.role)
+                worker_ids.extend(self.scheduler.create_workers(job=part))
+                self.workers.extend(self.scheduler.get_workers(role=part.role))
+        except Exception:
+            self._delete_worker_roles()
+            raise
         logger.info(f"Workers created: {worker_ids}")
 
         # Wait for workers to be ready
         logger.info("Waiting for workers to be ready...")
-        self.workers = self.scheduler.get_workers(role=job.role)
         logger.info(f"Workers ready: {[w.id for w in self.workers]}")
 
         # Get engine class path for dynamic import on workers
@@ -315,23 +844,35 @@ class RolloutController:
 
         logger.info("All engines are initialized...")
 
+    def _delete_worker_roles(self) -> None:
+        failed = []
+        for role in reversed(self._worker_roles):
+            try:
+                self.scheduler.delete_workers(role=role)
+            except Exception:
+                failed.append(role)
+                logger.error(f"Error deleting {role}: {traceback.format_exc()}")
+        self._worker_roles = list(reversed(failed))
+        if not failed:
+            self.workers.clear()
+
     def destroy(self):
+        try:
+            self.wait_shared_publication()
+        except Exception:
+            logger.exception("Shared publication failed before teardown")
         # Stop background threads and shutdown the async task runner
         if self._dispatcher is not None:
             self._dispatcher.destroy()
 
         self._stop_callback_server()
 
-        self._collective_rpc("destroy", http_timeout=60.0)
-
-        # Delete workers via scheduler
-        if hasattr(self, "_worker_role"):
-            try:
-                self.scheduler.delete_workers(role=self._worker_role)
-                self.workers.clear()
-                logger.info("Workers deleted")
-            except Exception:
-                logger.error(f"Error deleting workers: {traceback.format_exc()}")
+        try:
+            self._collective_rpc("destroy", http_timeout=60.0)
+        except Exception:
+            logger.error(f"Error destroying engines: {traceback.format_exc()}")
+        finally:
+            self._delete_worker_roles()
 
         # Delete proxy workers if initialized
         if self._proxy_started:
@@ -554,6 +1095,12 @@ class RolloutController:
         self._proxy_gateway_port = None
         self._proxy_gateway_host = None
 
+    def _run_callback_control(self, coroutine):
+        # Control callbacks share one asyncio loop, while request lease callbacks
+        # must remain serviceable during a blocking pause/drain operation.
+        with self._callback_control_lock:
+            return self._callback_loop.run_until_complete(coroutine)
+
     def _start_callback_server(self):
         """Start Flask HTTP server to receive callbacks from RolloutCallback."""
         if self._callback_server is not None:
@@ -563,11 +1110,32 @@ class RolloutController:
         app = Flask(__name__)
         app.logger.disabled = True
 
+        @app.route("/callback/request_route", methods=["POST"])
+        def request_route():
+            payload = request.get_json()
+            pool = self._request_pool
+            if pool is None:
+                raise RuntimeError("Request routing is disabled")
+            action = payload.pop("action")
+            if action == "acquire":
+                return jsonify(pool.acquire(**payload))
+            if action == "release":
+                pool.release(**payload)
+            elif action == "cancel":
+                pool.cancel_wait(**payload)
+            elif action == "finish_group":
+                pool.finish_group(**payload)
+            else:
+                raise ValueError("Unknown request route action")
+            if pool.error:
+                self.dispatcher.fail_fast(RuntimeError(pool.error))
+            return jsonify(True)
+
         @app.route("/callback/init_weights_group", methods=["POST"])
         def init_weights_group():
             payload = request.get_json() or {}
             meta = deserialize_value(payload.get("meta"))
-            self._callback_loop.run_until_complete(self.init_weights_update_group(meta))
+            self._run_callback_control(self.init_weights_update_group(meta))
             return jsonify({"status": "ok"})
 
         @app.route("/callback/update_weights_xccl", methods=["POST"])
@@ -575,7 +1143,7 @@ class RolloutController:
             payload = request.get_json() or {}
             meta = deserialize_value(payload.get("meta"))
             param_specs = deserialize_value(payload.get("param_specs"))
-            self._callback_loop.run_until_complete(
+            self._run_callback_control(
                 self.update_weights_from_distributed(meta, param_specs)
             )
             return jsonify({"status": "ok"})
@@ -584,7 +1152,7 @@ class RolloutController:
         def update_weights_disk():
             payload = request.get_json() or {}
             meta = deserialize_value(payload.get("meta"))
-            self._callback_loop.run_until_complete(self.update_weights_from_disk(meta))
+            self._run_callback_control(self.update_weights_from_disk(meta))
             return jsonify({"status": "ok"})
 
         @app.route("/callback/update_weights_awex", methods=["POST"])
@@ -593,19 +1161,19 @@ class RolloutController:
             meta = deserialize_value(payload.get("meta"))
             step_id = payload.get("step_id")
             kwargs = deserialize_value(payload.get("kwargs"))
-            self._callback_loop.run_until_complete(
+            self._run_callback_control(
                 self.update_weights_from_awex(meta, step_id=step_id, kwargs=kwargs)
             )
             return jsonify({"status": "ok"})
 
         @app.route("/callback/pause_generation", methods=["POST"])
         def pause_generation():
-            self._callback_loop.run_until_complete(self.pause_generation())
+            self._run_callback_control(self.pause_generation())
             return jsonify({"status": "ok"})
 
         @app.route("/callback/continue_generation", methods=["POST"])
         def continue_generation():
-            self._callback_loop.run_until_complete(self.continue_generation())
+            self._run_callback_control(self.continue_generation())
             return jsonify({"status": "ok"})
 
         @app.route("/callback/rollout_complete", methods=["POST"])
@@ -627,7 +1195,7 @@ class RolloutController:
         self._callback_host = gethostip()
         self._callback_app = app
         self._callback_server = make_server(
-            self._callback_host, self._callback_port, app, threaded=False
+            self._callback_host, self._callback_port, app, threaded=True
         )
 
         # Suppress Werkzeug access logs (e.g., "POST /callback/rollout_complete 200 -")
@@ -737,6 +1305,12 @@ class RolloutController:
         """
         if not self.workers:
             raise RuntimeError("No workers available to choose from.")
+        if self._borrowed_pool is not None:
+            accepted = self.staleness_manager.get_stats().accepted
+            rank, withdrawn = self._borrowed_pool.choose(accepted)
+            if withdrawn:
+                self._pool_event("withdraw", rank=0, accepted=accepted)
+            return self.workers[rank], rank
         worker = self.workers[self._current_worker_idx]
         rank = self._current_worker_idx
         self._current_worker_idx = (self._current_worker_idx + 1) % len(self.workers)
@@ -802,6 +1376,8 @@ class RolloutController:
             # Choose worker via round-robin
             worker, rank = self._choose_worker()
             engine_name = self._engine_name(rank)
+            if self._borrowed_pool is not None:
+                self._pool_event("dispatch", rank=rank, task_id=pending_task.task_id)
 
             # NOTE: No need to call `on_rollout_submitted` here.
             # This function will be passed to `BatchTaskDispather` where
@@ -854,6 +1430,9 @@ class RolloutController:
                 traj = result
                 if traj is not None:
                     manager.on_rollout_accepted()
+                    wakeup = getattr(self, "_batch_drain_wakeup", None)
+                    if wakeup is not None:
+                        wakeup.set()
                     if self.config.enable_rollout_tracing:
                         logger.info(
                             f"Finish and accept rollout. {self._rollout_stats()}"
@@ -1001,6 +1580,16 @@ class RolloutController:
             self.data_generator, batch_size=dataloader.batch_size, dynamic_bs=dynamic_bs
         )
 
+        if self._borrowed_pool is not None:
+            self._borrowed_pool.batch_ready(len(results))
+            self._pool_event("batch_ready", consumed=self._borrowed_pool.consumed)
+
+        if request_trace.enabled():
+            request_trace.emit(
+                "batch_consumed",
+                batch=getattr(self, "_trace_training_batch", None),
+                task_ids=[r.task_id for r in results if r is not None],
+            )
         # Return list of trajectories
         trajectories = [r.trajectory if r is not None else None for r in results]
         return [t for t in trajectories if t is not None]
@@ -1073,6 +1662,17 @@ class RolloutController:
         )
 
     async def init_weights_update_group(self, meta: WeightUpdateMeta) -> None:
+        if meta.npu_share_fixed:
+            if self._borrowed_pool is None or meta.gen_allocation.world_size != 1:
+                raise ValueError("Fixed publication requires one remote replica")
+            await self.scheduler.async_call_engine(
+                worker_id=self.workers[1].id,
+                engine_name=self._engine_name(1),
+                method="init_weights_update_group",
+                meta=meta,
+                xccl_group_ranks=[0],
+            )
+            return
         tasks = [
             self.scheduler.async_call_engine(
                 worker_id=worker.id,
@@ -1088,9 +1688,18 @@ class RolloutController:
     async def update_weights_from_distributed(
         self, meta: WeightUpdateMeta, param_specs: list[ParamSpec]
     ):
-        await self._collective_rpc_async(
-            "update_weights_from_distributed", meta=meta, param_specs=param_specs
-        )
+        if meta.npu_share_fixed:
+            await self.scheduler.async_call_engine(
+                worker_id=self.workers[1].id,
+                engine_name=self._engine_name(1),
+                method="update_weights_from_distributed",
+                meta=meta,
+                param_specs=param_specs,
+            )
+        else:
+            await self._collective_rpc_async(
+                "update_weights_from_distributed", meta=meta, param_specs=param_specs
+            )
 
     async def update_weights_from_disk(self, meta: WeightUpdateMeta):
         meta.clear_checkpoint_after_load = False
@@ -1108,10 +1717,36 @@ class RolloutController:
         )
 
     async def pause_generation(self):
+        pool = getattr(self, "_request_pool", None)
+        if pool is not None:
+            for rank in range(len(self.workers)):
+                pool.close(rank)
         await self._collective_rpc_async("pause_generation")
+        if pool is not None:
+            for rank in range(len(self.workers)):
+                await asyncio.to_thread(pool.wait_empty, rank)
 
     async def continue_generation(self):
         await self._collective_rpc_async("continue_generation")
+        pool = getattr(self, "_request_pool", None)
+        if pool is not None:
+            for rank in range(len(self.workers)):
+                pool.open(rank, self.get_version())
+
+    def colocation_memory(
+        self,
+        action: str = "status",
+        target_free_bytes: int | None = None,
+        kv_budget_bytes: int | None = None,
+    ):
+        kwargs = {"action": action}
+        if kv_budget_bytes is not None:
+            kwargs["kv_budget_bytes"] = kv_budget_bytes
+        if target_free_bytes is not None:
+            kwargs["target_free_bytes"] = target_free_bytes
+        if self._borrowed_pool is not None:
+            return self._worker_rpc(0, "colocation_memory", **kwargs)
+        return self._collective_rpc("colocation_memory", **kwargs)
 
     def offload(self) -> None:
         """Offload rollout model memory on all inference workers."""
@@ -1125,6 +1760,10 @@ class RolloutController:
         with self._version_lock:
             self._version = version
             self._collective_rpc("set_version", version=version, http_timeout=60.0)
+            pool = getattr(self, "_request_pool", None)
+            if pool is not None:
+                for rank in range(len(self.workers)):
+                    pool.set_version(rank, version)
             if self._proxy_started:
                 self._proxy_collective_rpc(
                     "set_version", version=version, http_timeout=60.0
@@ -1135,11 +1774,16 @@ class RolloutController:
             return self._version
 
     def pause(self):
+        self.wait_shared_publication()
         self.dispatcher.pause()
+        pool = getattr(self, "_request_pool", None)
+        if pool is not None:
+            for rank in range(len(self.workers)):
+                pool.close(rank)
         # Proxy workers hold their own engines against the same inference
         # servers. Without pausing them too they keep issuing generation
         # requests during the weight-update window, while pause_generation is
-        # clearing those servers' caches — which corrupts version attribution
+        # clearing those servers' caches â€” which corrupts version attribution
         # and, for VLM rollouts, kills the engine on a stale multimodal hash.
         # Pause them before the rollout workers so that the fewest requests are
         # still in flight once pause_generation aborts and clears.
@@ -1148,9 +1792,27 @@ class RolloutController:
         self._collective_rpc("pause", http_timeout=60.0)
 
     def resume(self):
+        if self._borrowed_pool is not None and self._shared_publication is not None:
+            with self._shared_publication_lock:
+                if self._shared_publication.done():
+                    self._shared_publication.result()
+                if self._shared_loading:
+                    self._worker_rpc(1, "resume", http_timeout=60.0)
+                else:
+                    self._collective_rpc("resume", http_timeout=60.0)
+                self.dispatcher.resume()
+            return
         self._collective_rpc("resume", http_timeout=60.0)
         if self._proxy_started:
             self._proxy_collective_rpc("resume", http_timeout=60.0)
+        if self._borrowed_pool is not None:
+            self._borrowed_pool.release(self.staleness_manager.get_stats().accepted)
+            self._pool_event(
+                "returned",
+                rank=0,
+                version=self.get_version(),
+                routing_state=self._borrowed_pool.state,
+            )
         self.dispatcher.resume()
 
     def export_stats(self) -> dict[str, float]:

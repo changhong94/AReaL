@@ -73,6 +73,7 @@ python3 train.py --config path/to/config.yaml actor.lr=1e-4 seed=42
 - [ArchonEngine Configuration](section-archon-engine)
 - [ArchonFP8 Configuration](section-archon-fp8)
 - [Awex Configuration](section-awex)
+- [ColocationMemory Configuration](section-colocation-memory)
 - [DPO Configuration](section-dpo)
 - [DPOEngine Configuration](section-dpo-engine)
 - [DatasetSource Configuration](section-dataset-source)
@@ -153,6 +154,8 @@ A dummy place holder of GRPO config for backward compatibility.
 | `vllm`               | [`vLLMConfig`](section-v-llm)                                             | **Required** | -                                                                                                                                                                                                                                                                   |
 | `awex`               | [`AwexConfig`](section-awex)                                              | **Required** | -                                                                                                                                                                                                                                                                   |
 | `scheduler`          | [`SchedulerConfig`](section-scheduler)                                    | **Required** | -                                                                                                                                                                                                                                                                   |
+| `npu_share`          | boolean                                                                   | `False`      | Experimental FSDP/vLLM NPU time sharing; supports one shared replica or a two-replica inference pool. Automatically keep states resident or offload to CPU based on memory budget. Requires rollout colocated with actor, disk weight updates, and no offload.      |
+| `colocation_memory`  | [`ColocationMemoryConfig`](section-colocation-memory)                     | **Required** | -                                                                                                                                                                                                                                                                   |
 | `gconfig`            | [`GenerationHyperparameters`](section-generation-hyperparameters)         | **Required** | -                                                                                                                                                                                                                                                                   |
 | `eval_gconfig`       | [`GenerationHyperparameters`](section-generation-hyperparameters) \| None | `None`       | Generation hyperparameters for evaluation. If None, use gconfig.                                                                                                                                                                                                    |
 | `rollout`            | [`InferenceEngineConfig`](section-inference-engine)                       | **Required** | -                                                                                                                                                                                                                                                                   |
@@ -192,6 +195,8 @@ Configuration for Proximal Policy Optimization (PPO) reinforcement learning expe
 | `vllm`               | [`vLLMConfig`](section-v-llm)                                             | **Required** | -                                                                                                                                                                                                                                                                   |
 | `awex`               | [`AwexConfig`](section-awex)                                              | **Required** | -                                                                                                                                                                                                                                                                   |
 | `scheduler`          | [`SchedulerConfig`](section-scheduler)                                    | **Required** | -                                                                                                                                                                                                                                                                   |
+| `npu_share`          | boolean                                                                   | `False`      | Experimental FSDP/vLLM NPU time sharing; supports one shared replica or a two-replica inference pool. Automatically keep states resident or offload to CPU based on memory budget. Requires rollout colocated with actor, disk weight updates, and no offload.      |
+| `colocation_memory`  | [`ColocationMemoryConfig`](section-colocation-memory)                     | **Required** | -                                                                                                                                                                                                                                                                   |
 | `gconfig`            | [`GenerationHyperparameters`](section-generation-hyperparameters)         | **Required** | -                                                                                                                                                                                                                                                                   |
 | `eval_gconfig`       | [`GenerationHyperparameters`](section-generation-hyperparameters) \| None | `None`       | Generation hyperparameters for evaluation. If None, use gconfig.                                                                                                                                                                                                    |
 | `rollout`            | [`InferenceEngineConfig`](section-inference-engine)                       | **Required** | -                                                                                                                                                                                                                                                                   |
@@ -992,6 +997,19 @@ Configuration for Awex weight updates.
 | `dump_weights_dir_for_validation`   | string          | `""`         | Directory to dump weights for validation.              |
 | `nnodes`                            | integer \| None | `None`       | Total number of nodes for vLLM server (optional).      |
 | `node_rank`                         | integer \| None | `None`       | Node rank for vLLM server (optional).                  |
+
+(section-colocation-memory)=
+
+## ColocationMemory Configuration
+
+Experimental Ascend-only budgeting. Workspace bounds are workload-specific.
+
+| Parameter                 | Type          | Default | Description |
+| ------------------------- | ------------- | ------- | ----------- |
+| `train_workspace_gib`     | float         | `8.0`   | -           |
+| `inference_workspace_gib` | float         | `2.0`   | -           |
+| `safety_margin_gib`       | float         | `2.0`   | -           |
+| `device_budget_gib`       | float \| None | `None`  | -           |
 
 (section-dpo)=
 

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import functools
+import math
 import os
+import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
@@ -53,7 +55,7 @@ from areal.infra.data_service.controller.config import DataServiceConfig
 from areal.infra.data_service.rdataset import RDataset
 from areal.infra.rpc.rtensor import RTensor
 from areal.infra.utils.concurrent import call_maybe_async
-from areal.utils import logging, perf_tracer, seeding, stats_tracker
+from areal.utils import logging, perf_tracer, request_trace, seeding, stats_tracker
 from areal.utils.awex_runtime import prepare_awex_runtime
 from areal.utils.cleanup import run_batch_cleanups
 from areal.utils.dataloader import create_dataloader
@@ -142,8 +144,8 @@ class PPOTrainer:
         )
         self._should_offload_rollout = self._is_actor_rollout_colocated(config)
         self._should_offload_actor = (
-            self._should_offload_rollout or config.actor.offload
-        )
+            self._should_offload_rollout and not config.npu_share
+        ) or config.actor.offload
         self._should_offload_critic = (
             config.critic is not None and config.critic.offload
         )
@@ -153,6 +155,81 @@ class PPOTrainer:
 
         # Validate config before proceeding with weight initialization
         self._validate_cfg()
+
+        if os.getenv("AREAL_TRAIN_PRIORITY_INFERENCE", "0") == "1":
+            if (
+                not self._uses_npu_share_pool
+                or os.getenv("AREAL_DYNAMIC_KV", "1") != "1"
+            ):
+                raise ValueError(
+                    "Training-priority inference requires npu_share with two replicas and dynamic KV"
+                )
+            if os.getenv("AREAL_NPU_SHARE_PAUSE_KEEP", "0") == "1":
+                raise ValueError("Training-priority inference requires migration mode")
+            if (
+                min(
+                    config.colocation_memory.train_workspace_gib,
+                    config.colocation_memory.inference_workspace_gib,
+                    config.colocation_memory.safety_margin_gib,
+                )
+                <= 0
+            ):
+                raise ValueError(
+                    "Training-priority inference requires positive workspace and safety bounds"
+                )
+        drain_seconds = float(os.getenv("AREAL_SHARED_DRAIN_SECONDS", "0"))
+        if not math.isfinite(drain_seconds) or drain_seconds < 0:
+            raise ValueError("Shared drain timeout must be finite and nonnegative")
+        if drain_seconds and os.getenv("AREAL_TRAIN_PRIORITY_INFERENCE", "0") != "1":
+            raise ValueError("Shared drain requires training-priority inference")
+        self._adaptive_drain = os.getenv("AREAL_ADAPTIVE_DRAIN", "0") == "1"
+        if os.getenv("AREAL_BATCH_DRAIN", "0") == "1" and not (
+            self._adaptive_drain and os.getenv("AREAL_BATCH_DRAIN_METRICS", "0") == "1"
+        ):
+            raise ValueError(
+                "Batch drain requires adaptive drain and batch drain metrics"
+            )
+        if self._adaptive_drain:
+            if (
+                os.getenv("AREAL_TRAIN_PRIORITY_INFERENCE", "0") != "1"
+                or os.getenv("AREAL_DRAIN_METRICS", "0") != "1"
+            ):
+                raise ValueError(
+                    "Adaptive drain requires training-priority inference and progress metrics"
+                )
+            if config.rollout.request_timeout <= 0:
+                raise ValueError("Adaptive drain requires a positive failure watchdog")
+        self._shared_drain_seconds = drain_seconds
+        self._shared_drain_deadline = None
+        self._memory_policy = None
+        if config.npu_share:
+            for spec in [
+                *config.actor.scheduling_spec,
+                *config.rollout.scheduling_spec,
+            ]:
+                spec.env_vars.update(
+                    {
+                        "AREAL_AUTO_MEMORY": "1",
+                        "AREAL_KV_SLAB_BLOCKS": "16",
+                        "AREAL_DYNAMIC_KV": os.getenv("AREAL_DYNAMIC_KV", "1"),
+                        "AREAL_DYNAMIC_KV_RESERVE_BYTES": str(
+                            int(
+                                (
+                                    config.colocation_memory.inference_workspace_gib
+                                    + config.colocation_memory.safety_margin_gib
+                                )
+                                * 1024**3
+                            )
+                        ),
+                        "AREAL_DYNAMIC_KV_DEVICE_BUDGET_BYTES": str(
+                            int(
+                                (config.colocation_memory.device_budget_gib or 0)
+                                * 1024**3
+                            )
+                        ),
+                        "PYTORCH_NPU_ALLOC_CONF": "expandable_segments:False",
+                    }
+                )
 
         self._amend_xccl_weight_update_envvar()
 
@@ -173,7 +250,7 @@ class PPOTrainer:
                 "(agent.mode='online')."
             )
 
-        # Create models: actor, critic, ref — each with its own allocation.
+        # Create models: actor, critic, ref â€” each with its own allocation.
         self.actor = self._create_train_engine(config.actor, self.actor_alloc)
         self.critic = None
         if config.critic is not None:
@@ -306,7 +383,7 @@ class PPOTrainer:
                 train_batch_size=config.train_dataset.batch_size,
             )
 
-        # Initialize engines first — the scheduler must know about roles
+        # Initialize engines first â€” the scheduler must know about roles
         # before the data controller can colocate with them.
         engine_init_kwargs = {"addr": None, "ft_spec": ft_spec}
         self.actor.initialize(**engine_init_kwargs, role="actor")
@@ -334,6 +411,18 @@ class PPOTrainer:
         if self._should_offload_actor:
             self._offload_model(self.actor, role="actor")
         # Initialize inference with LoRA path
+        if config.npu_share:
+            from areal.trainer.colocation_memory import ColocationMemoryPolicy
+
+            self._memory_policy = ColocationMemoryPolicy(
+                config.colocation_memory,
+                self.actor.colocation_memory,
+                lambda action, **kwargs: self.rollout.colocation_memory(
+                    action, **kwargs
+                ),
+                logger.info,
+            )
+            self._memory_policy.initial_inference(config.vllm.gpu_memory_utilization)
         self.rollout = self._init_rollout(
             config.rollout, is_eval=False, lora_path=initial_lora_path
         )
@@ -395,6 +484,9 @@ class PPOTrainer:
                     }
                 )
             self.weight_update_meta = WeightUpdateMeta.from_disk(**disk_kwargs)
+            self.weight_update_meta.npu_share_snapshot = config.npu_share
+            if config.npu_share:
+                self.weight_update_meta.gen_allocation = self.rollout_alloc
         elif self.config.actor.weight_update_mode == "xccl":
             # NCCL/XCCL weight update
             xccl_kwargs: dict[str, Any] = {
@@ -461,7 +553,16 @@ class PPOTrainer:
                 f"Invalid weight update mode: {self.config.actor.weight_update_mode}"
             )
 
-        self.actor.connect_engine(self.rollout, self.weight_update_meta)
+        self._fixed_weight_update_meta = None
+        if self._uses_npu_share_pool:
+            # Only actor + fixed replica join this group (two physical NPUs).
+            self._fixed_weight_update_meta = WeightUpdateMeta.from_fsdp_xccl(
+                gen_allocation=ModelAllocation.from_str("vllm:d1p1t1")
+            )
+            self._fixed_weight_update_meta.npu_share_fixed = True
+            self.actor.connect_engine(self.rollout, self._fixed_weight_update_meta)
+        else:
+            self.actor.connect_engine(self.rollout, self.weight_update_meta)
 
         # Set up evaluation (skip in online mode)
         self.evaluator = Evaluator(config.evaluator, ft_spec)
@@ -497,6 +598,21 @@ class PPOTrainer:
 
         self._config_perf_tracer()
         self._apply_initial_offload_policy()
+        if config.npu_share:
+            # Inference has reserved its weights/KV and recovery is complete.
+            # Prepare only from remaining memory; never steal its workspace.
+            memory = config.colocation_memory
+            self.actor.prepare_optimizer_async(
+                reserve_bytes=int(
+                    (memory.inference_workspace_gib + memory.safety_margin_gib)
+                    * 1024**3
+                ),
+                device_budget_bytes=(
+                    int(memory.device_budget_gib * 1024**3)
+                    if memory.device_budget_gib is not None
+                    else None
+                ),
+            )
 
     @staticmethod
     def _is_colocation(strategy: SchedulingStrategy | None) -> bool:
@@ -638,9 +754,120 @@ class PPOTrainer:
         else:
             self._assign_mixed_teacher_logps(rollout_batch)
 
+    @property
+    def _uses_npu_share_pool(self) -> bool:
+        return self.config.npu_share and self.rollout_alloc.parallel.dp_size == 2
+
+    def _start_train_prefetch(self, batch: int) -> None:
+        if not (
+            self._uses_npu_share_pool
+            and os.getenv("AREAL_PARK_TRAIN_CACHE", "0") == "1"
+            and os.getenv("AREAL_OVERLAP_TRAIN_RESTORE", "0") == "1"
+        ):
+            return
+        from areal.trainer.training_prefetch import TrainingRestorePrefetch
+
+        if getattr(self, "_train_prefetch", None) is not None:
+            raise RuntimeError("Previous training prefetch was not joined")
+        target = self.rollout.training_prefetch_target()
+        idle = {}
+
+        def prepare():
+            started = time.monotonic()
+            self.rollout.borrow_for_training()
+            self._memory_policy.train()
+            self.rollout.record_training_ready(
+                time.monotonic() - started, idle["seconds"]
+            )
+
+        def fail(exc):
+            self.rollout.dispatcher.pause()
+            self.rollout.dispatcher.fail_fast(exc)
+
+        request_trace.emit("train_prefetch_armed", batch=batch, target=target)
+        # The single executor queues this AFTER the previous publication and
+        # its stats/cleanup, so there are no concurrent actor RPC owners.
+        self._train_prefetch = TrainingRestorePrefetch(
+            self._step_tail_executor,
+            lambda: self.rollout.training_prefetch_ready(target),
+            prepare,
+            fail,
+            batch,
+            on_wait=lambda seconds: idle.update(seconds=seconds),
+        )
+
+    def _resume_training_inference(self):
+        if os.getenv("AREAL_TRAIN_PRIORITY_INFERENCE", "0") != "1":
+            return
+        if os.getenv("AREAL_NPU_SHARE_PAUSE_KEEP", "0") == "1":
+            raise ValueError("Training-priority inference requires migration mode")
+        if self._memory_policy.concurrent_train():
+            self.rollout.resume_training_inference()
+            self._training_inference_active = True
+            request_trace.emit("training_inference_overlap_begin")
+
+    def _stop_training_inference(self):
+        if not getattr(self, "_training_inference_active", False):
+            return
+        self.rollout.borrow_for_training()
+        self.rollout.colocation_memory("kv_budget_clear")
+        self._training_inference_active = False
+        request_trace.emit("training_inference_overlap_end")
+
+    def _prepare_training_publication(self, allow_drain: bool) -> None:
+        if (
+            os.getenv("AREAL_BATCH_DRAIN_METRICS", "0") == "1"
+            and self._uses_npu_share_pool
+        ):
+            self.rollout.freeze_drain_window()
+        if (
+            allow_drain
+            and (
+                getattr(self, "_shared_drain_seconds", 0) > 0
+                or getattr(self, "_adaptive_drain", False)
+            )
+            and getattr(self, "_training_inference_active", False)
+        ):
+            self._shared_drain_deadline = self.rollout.begin_shared_drain(
+                self._shared_drain_seconds
+            )
+        else:
+            self._stop_training_inference()
+
+    def _finish_training_drain(self, new_version: int) -> None:
+        deadline = getattr(self, "_shared_drain_deadline", None)
+        if deadline is None:
+            return
+        target = (new_version + 1) * self.config.train_dataset.batch_size
+        self.rollout.finish_shared_drain(deadline, target)
+        self.rollout.colocation_memory("kv_budget_clear")
+        self._shared_drain_deadline = None
+        self._training_inference_active = False
+        request_trace.emit("training_inference_overlap_end")
+
     def _offload_rollout(self, is_eval: bool = False):
         rollout = self.rollout if not is_eval else self.eval_rollout
         if rollout is None:
+            return
+
+        if self._uses_npu_share_pool and not is_eval:
+            prefetch = getattr(self, "_train_prefetch", None)
+            if prefetch is not None:
+                request_trace.emit("train_prefetch_join_begin", batch=prefetch.batch)
+                try:
+                    if not prefetch.join(force=True):
+                        raise RuntimeError("Training prefetch was cancelled")
+                finally:
+                    self._train_prefetch = None
+                request_trace.emit("train_prefetch_join_end", batch=prefetch.batch)
+                self._resume_training_inference()
+                return
+            with stats_tracker.record_timing("rollout_borrow"):
+                started = time.monotonic()
+                rollout.borrow_for_training()
+                self._memory_policy.train()
+                rollout.record_training_ready(time.monotonic() - started)
+            self._resume_training_inference()
             return
 
         with (
@@ -659,7 +886,7 @@ class PPOTrainer:
                 category=Category.INSTR,
             ),
         ):
-            if not self._should_offload_rollout:
+            if not self._should_offload_rollout or self.config.npu_share:
                 call_maybe_async(rollout.pause_generation)
 
         with (
@@ -669,56 +896,99 @@ class PPOTrainer:
                 category=Category.IO,
             ),
         ):
-            rollout.offload()
+            if not self.config.npu_share:
+                rollout.offload()
+
+        if getattr(self, "_memory_policy", None) is not None and not is_eval:
+            self._memory_policy.train()
 
     def _onload_rollout(self, is_eval: bool = False) -> None:
-        cleanup_error: Exception | None = None
-
+        """Restore memory only; keep admission closed until weights are published."""
         rollout = self.rollout if not is_eval else self.eval_rollout
         if rollout is None:
             return
-
-        try:
-            with (
-                stats_tracker.record_timing("rollout_onload"),
-                perf_tracer.trace_scope(
-                    "train.rollout_onload",
-                    category=Category.IO,
-                ),
-            ):
+        with (
+            stats_tracker.record_timing("rollout_onload"),
+            perf_tracer.trace_scope("train.rollout_onload", category=Category.IO),
+        ):
+            if not self.config.npu_share:
                 rollout.onload()
-        except Exception as exc:  # noqa: BLE001
-            cleanup_error = exc
 
-        try:
-            with (
-                stats_tracker.record_timing("rollout_continue_generation"),
-                perf_tracer.trace_scope(
-                    "train.rollout_continue_generation",
-                    category=Category.INSTR,
-                ),
-            ):
-                if not self._should_offload_rollout:
-                    call_maybe_async(rollout.continue_generation)
-        except Exception as exc:  # noqa: BLE001
-            if cleanup_error is None:
-                cleanup_error = exc
+    def _publish_weights(self, new_version: int) -> dict[str, float] | None:
+        """Publish weights while admission stays closed; failures leave it closed."""
+        if getattr(self, "_fixed_weight_update_meta", None) is not None:
+            return self._publish_weights_asymmetric(new_version)
+        actor_stats = None
+        versioned_meta = self.weight_update_meta.with_version(new_version)
+        self.actor.update_weights(versioned_meta)
+        if versioned_meta.colocate_mode:
+            actor_stats = self.actor.export_stats()
+            if self._should_offload_actor:
+                self._offload_model(self.actor, role="actor")
+            if getattr(self, "_memory_policy", None) is not None:
+                self._memory_policy.inference()
+            self._onload_rollout()
+            if self._uses_npu_share_pool:
+                # The fixed replica was generating during training. Both native
+                # servers must acknowledge pause before either loads new weights.
+                call_maybe_async(self.rollout.pause_generation)
+            stage_meta = versioned_meta.with_colocate_stage(1)
+            self.actor.update_weights(stage_meta)
+        self.actor.set_version(new_version)
+        if self.critic is not None:
+            self.critic.set_version(new_version)
+        self.rollout.set_version(new_version)
+        if self.eval_rollout is not None:
+            self.eval_rollout.set_version(new_version)
+        if self.config.npu_share:
+            # Stage 0 synchronizes the actor's device in its worker;
+            # stage 1 finishes loading before generation is released.
+            # The dispatcher stays paused through evaluation/cleanup.
+            call_maybe_async(self.rollout.continue_generation)
+        return actor_stats
 
-        try:
-            with (
-                stats_tracker.record_timing("rollout_resume"),
-                perf_tracer.trace_scope(
-                    "train.rollout_resume",
-                    category=Category.INSTR,
-                ),
-            ):
-                rollout.resume()
-        except Exception as exc:  # noqa: BLE001
-            if cleanup_error is None:
-                cleanup_error = exc
+    def _publish_weights_asymmetric(self, new_version: int) -> dict[str, float]:
+        """Prepare the shared snapshot during fixed publication, then restore shared."""
+        self._publish_fixed_weights(new_version)
+        return self._finish_shared_weights(new_version)
 
-        if cleanup_error is not None:
-            raise cleanup_error
+    def _publish_fixed_weights(self, new_version: int) -> None:
+        self.rollout.prepare_fixed_publication()
+        fixed_meta = self._fixed_weight_update_meta.with_version(new_version)
+        fixed_meta.npu_share_snapshot = True
+        fixed_meta.path = self.weight_update_meta.with_version(new_version).path
+        self.actor.update_weights(fixed_meta)
+        self._started_snapshot_version = new_version
+        self.actor.set_version(new_version)
+        self.rollout.publish_fixed_version(new_version)
+
+    def _finish_shared_weights(self, new_version: int) -> dict[str, float]:
+        # Fixed inference is already resumed. Only the background tail waits
+        # for owned CPU bytes before releasing actor device storage.
+        if getattr(self, "_started_snapshot_version", None) != new_version:
+            raise RuntimeError("Shared snapshot was not started for this version")
+        if getattr(self, "_adaptive_drain", False):
+            # Drain continues while both HCCL and the independent CPU snapshot
+            # finish. Only then compare optional further waiting with migration.
+            self.actor.wait_shared_snapshot(new_version)
+            self._finish_training_drain(new_version)
+        else:
+            self._finish_training_drain(new_version)
+            self.actor.wait_shared_snapshot(new_version)
+        snapshot_meta = self.weight_update_meta.with_version(new_version)
+        actor_stats = self.actor.export_stats()
+        with perf_tracer.trace_scope(
+            "train.shared_memory_switch",
+            category=Category.IO,
+            args={"version": new_version},
+        ):
+            request_trace.emit("shared_memory_switch_begin", version=new_version)
+            self._memory_policy.inference()
+            request_trace.emit("shared_memory_switch_end", version=new_version)
+        self.rollout.load_shared_snapshot_async(snapshot_meta)
+        if self.eval_rollout is not None:
+            self.eval_rollout.set_version(new_version)
+        return actor_stats
 
     def _apply_initial_offload_policy(self) -> None:
         if self._should_offload_ref:
@@ -731,6 +1001,43 @@ class PPOTrainer:
             self._offload_model(self.actor, role="actor")
 
     def train(
+        self,
+        workflow: WorkflowLike | None = None,
+        eval_workflow: WorkflowLike | None = None,
+        workflow_kwargs: dict[str, Any] | None = None,
+        eval_workflow_kwargs: dict[str, Any] | None = None,
+        dynamic_filter_fn: Callable[[dict[str, Any]], bool] | str | None = None,
+        total_epochs: int | None = None,
+    ):
+        self._step_tail = None
+        self._train_prefetch = None
+        with ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="npu-step-tail"
+        ) as executor:
+            self._step_tail_executor = executor
+            try:
+                return self._train(
+                    workflow,
+                    eval_workflow,
+                    workflow_kwargs,
+                    eval_workflow_kwargs,
+                    dynamic_filter_fn,
+                    total_epochs,
+                )
+            finally:
+                prefetch = getattr(self, "_train_prefetch", None)
+                if prefetch is not None:
+                    prefetch.cancel()
+                try:
+                    self._wait_step_tail()
+                finally:
+                    if prefetch is not None:
+                        try:
+                            prefetch.join()
+                        finally:
+                            self._train_prefetch = None
+
+    def _train(
         self,
         workflow: WorkflowLike | None = None,
         eval_workflow: WorkflowLike | None = None,
@@ -767,6 +1074,10 @@ class PPOTrainer:
         elif self._requires_proxy_workflow(
             workflow, workflow_kwargs
         ) or self._requires_proxy_workflow(eval_workflow, eval_workflow_kwargs):
+            if self._uses_npu_share_pool:
+                raise ValueError(
+                    "Asymmetric NPU publication does not support proxy workflows"
+                )
             self._ensure_proxy_started()
 
         for global_step in range(start_step, max_steps):
@@ -778,8 +1089,11 @@ class PPOTrainer:
             epoch = global_step // steps_per_epoch
             step = global_step % steps_per_epoch
 
+            if request_trace.enabled():
+                self.rollout._trace_training_batch = global_step + 1
+            self._start_train_prefetch(global_step + 1)
+            prepare_started = time.perf_counter()
             with (
-                stats_tracker.record_timing("rollout"),
                 perf_tracer.trace_scope(
                     "train.rollout",
                     category=Category.COMPUTE,
@@ -797,8 +1111,14 @@ class PPOTrainer:
                     group_size=config.gconfig.n_samples,
                     dynamic_bs=self.config.dynamic_bs,
                 )
+            request_trace.emit("train_batch_answers_ready", batch=global_step + 1)
+            prepare_seconds = time.perf_counter() - prepare_started
+            # No actor RPC, tensor mutation, or next-step stats before this join.
+            self._wait_step_tail()
+            stats_tracker.scalar(**{"timeperf/rollout": prepare_seconds})
             if self._should_offload_rollout:
                 self._offload_rollout()
+            request_trace.emit("train_compute_begin", batch=global_step + 1)
 
             if self.critic is not None:
                 if self._should_offload_critic:
@@ -815,7 +1135,7 @@ class PPOTrainer:
                     for traj, v in zip(rollout_batch, values):
                         traj["values"] = v
                     self.critic.get_device_stats().log("critic values")
-                # Critic stays onloaded — offloaded after ppo_update below
+                # Critic stays onloaded â€” offloaded after ppo_update below
 
             if self.ref is not None:
                 if self._should_offload_ref:
@@ -954,6 +1274,28 @@ class PPOTrainer:
             # calls in update_weights/save are no-ops.
 
             actor_stats = None
+            asymmetric = getattr(self, "_fixed_weight_update_meta", None) is not None
+            evaluation_due = (
+                self._evaluation_due(eval_workflow, epoch, step, global_step)
+                if asymmetric
+                else None
+            )
+            final_step = global_step + 1 >= min(
+                max_steps,
+                config.total_train_steps
+                if config.total_train_steps is not None
+                else max_steps,
+            )
+            self._prepare_training_publication(
+                allow_drain=asymmetric and not final_step and not evaluation_due
+            )
+            terminal_no_eval = asymmetric and final_step and not evaluation_due
+            defer_tail = asymmetric and not evaluation_due and not terminal_no_eval
+            # Preserve cleanup-before-next-read ordering for the data service
+            # before fixed publication opens the next main-loop batch read.
+            data_cleared = defer_tail and self.data_controller is not None
+            if data_cleared:
+                self.data_controller.clear_batches()
 
             with (
                 stats_tracker.record_timing("update_weights"),
@@ -963,111 +1305,167 @@ class PPOTrainer:
                     args={"global_step": global_step},
                 ),
             ):
-                # Use versioned path for weight updates
-                new_version = global_step + 1
-                versioned_meta = self.weight_update_meta.with_version(new_version)
-                self.actor.update_weights(versioned_meta)
-                if versioned_meta.colocate_mode:
+                if terminal_no_eval:
+                    # Checkpoints are already saved. No subsequent consumer needs
+                    # another inference replica, so leave the actor resident and
+                    # both rollout admissions closed until normal shutdown.
+                    self.actor.set_version(global_step + 1)
                     actor_stats = self.actor.export_stats()
-                    self._offload_model(self.actor, role="actor")
-                    self._onload_rollout()
-                    stage_meta = versioned_meta.with_colocate_stage(1)
-                    self.actor.update_weights(stage_meta)
-
-                self.actor.set_version(new_version)
-                if self.critic is not None:
-                    self.critic.set_version(new_version)
-                self.rollout.set_version(new_version)
-                if self.eval_rollout is not None:
-                    self.eval_rollout.set_version(new_version)
-
-            with (
-                stats_tracker.record_timing("eval"),
-                perf_tracer.trace_scope(
-                    "train.eval",
-                    category=Category.COMPUTE,
-                    args={"global_step": global_step},
-                ),
-            ):
-                self._evaluate(
-                    eval_workflow=eval_workflow,
-                    eval_workflow_kwargs=eval_workflow_kwargs,
-                    epoch=epoch,
-                    epoch_step=step,
-                    global_step=global_step,
-                )
-
-            with (
-                stats_tracker.record_timing("clear_batches"),
-                perf_tracer.trace_scope(
-                    "train.clear_batches",
-                    category=Category.INSTR,
-                    args={"global_step": global_step},
-                ),
-            ):
-                # Each role runs in its own Python process with a
-                # process-local ``_fetch_buffer``; one HTTP DELETE to the
-                # storage owner clears ``_storage`` but not per-consumer
-                # caches. Fan out ``clear_batches`` to every role that
-                # localized the batch — see areal-project/AReaL#1209.
-                # SPMD mode never populates ``_fetch_buffer`` (no RTensor
-                # round-trip), so the fan-out is single-controller only.
-                if is_single_controller():
-                    cleanups = [
-                        (
-                            "actor",
-                            lambda: self.actor.clear_batches(rollout_batch, adv_batch),
-                        )
-                    ]
-                    if self.critic is not None:
-                        cleanups.append(
-                            (
-                                "critic",
-                                lambda: self.critic.clear_batches(
-                                    rollout_batch, adv_batch
-                                ),
-                            )
-                        )
-                    if self.ref is not None:
-                        cleanups.append(
-                            ("ref", lambda: self.ref.clear_batches(rollout_batch))
-                        )
-                    if self.data_controller is not None:
-                        cleanups.append(
-                            ("data", lambda: self.data_controller.clear_batches())
-                        )
-                    # Defensive sweep: drain RTensors created by auxiliary RPC
-                    # returns (stats dicts, etc.) that aren't tracked by the
-                    # standard batch lifecycle above. See #1209.
-                    cleanups.append(
-                        ("actor sweep", self.actor.clear_all_local_rtensors)
+                    request_trace.emit(
+                        "terminal_publication_skipped", version=global_step + 1
                     )
-                    if self.critic is not None:
-                        cleanups.append(
-                            ("critic sweep", self.critic.clear_all_local_rtensors)
-                        )
-                    if self.ref is not None:
-                        cleanups.append(
-                            ("ref sweep", self.ref.clear_all_local_rtensors)
-                        )
-                    run_batch_cleanups(cleanups)
+                elif defer_tail:
+                    self._publish_fixed_weights(global_step + 1)
+                else:
+                    actor_stats = self._publish_weights(global_step + 1)
 
+            tail_kwargs = dict(
+                epoch=epoch,
+                step=step,
+                global_step=global_step,
+                rollout_batch=rollout_batch,
+                adv_batch=adv_batch,
+                eval_workflow=eval_workflow,
+                eval_workflow_kwargs=eval_workflow_kwargs,
+                evaluation_due=evaluation_due,
+                data_cleared=data_cleared,
+                resume_rollout=not terminal_no_eval,
+            )
+            if defer_tail:
+                self._step_tail = self._step_tail_executor.submit(
+                    self._finish_asymmetric_step, **tail_kwargs
+                )
+            else:
+                self._finish_step(actor_stats=actor_stats, **tail_kwargs)
+
+        self._wait_step_tail()
+
+        if self._uses_npu_share_pool:
+            self.rollout.wait_shared_publication()
+
+    def _wait_step_tail(self) -> None:
+        future = getattr(self, "_step_tail", None)
+        if future is not None:
             with perf_tracer.trace_scope(
-                "train.log_stats",
+                "train.wait_previous_tail", category=Category.COMM
+            ):
+                future.result()
+            self._step_tail = None
+
+    def _finish_asymmetric_step(self, **kwargs) -> None:
+        try:
+            with perf_tracer.trace_scope(
+                "train.background_publication",
+                category=Category.COMM,
+                args={"global_step": kwargs["global_step"]},
+            ):
+                actor_stats = self._finish_shared_weights(kwargs["global_step"] + 1)
+                self.rollout.wait_shared_publication()
+            self._finish_step(actor_stats=actor_stats, **kwargs)
+        except BaseException as exc:
+            # Wake a main thread blocked in prepare_batch, and keep admission shut.
+            self.rollout.dispatcher.pause()
+            self.rollout.dispatcher.fail_fast(exc)
+            raise
+
+    def _finish_step(
+        self,
+        *,
+        epoch,
+        step,
+        global_step,
+        rollout_batch,
+        adv_batch,
+        eval_workflow,
+        eval_workflow_kwargs,
+        actor_stats,
+        evaluation_due=None,
+        data_cleared=False,
+        resume_rollout=True,
+    ) -> None:
+        with (
+            stats_tracker.record_timing("eval"),
+            perf_tracer.trace_scope(
+                "train.eval",
+                category=Category.COMPUTE,
+                args={"global_step": global_step},
+            ),
+        ):
+            self._evaluate(
+                eval_workflow=eval_workflow,
+                eval_workflow_kwargs=eval_workflow_kwargs,
+                epoch=epoch,
+                epoch_step=step,
+                global_step=global_step,
+                evaluation_due=evaluation_due,
+            )
+
+        with (
+            stats_tracker.record_timing("clear_batches"),
+            perf_tracer.trace_scope(
+                "train.clear_batches",
                 category=Category.INSTR,
                 args={"global_step": global_step},
-            ):
-                self._export_and_commit_stats(
-                    epoch=epoch,
-                    epoch_step=step,
-                    global_step=global_step,
-                    actor_stats=actor_stats,
-                )
+            ),
+        ):
+            # Each role runs in its own Python process with a
+            # process-local ``_fetch_buffer``; one HTTP DELETE to the
+            # storage owner clears ``_storage`` but not per-consumer
+            # caches. Fan out ``clear_batches`` to every role that
+            # localized the batch â€” see areal-project/AReaL#1209.
+            # SPMD mode never populates ``_fetch_buffer`` (no RTensor
+            # round-trip), so the fan-out is single-controller only.
+            if is_single_controller():
+                cleanups = [
+                    (
+                        "actor",
+                        lambda: self.actor.clear_batches(rollout_batch, adv_batch),
+                    )
+                ]
+                if self.critic is not None:
+                    cleanups.append(
+                        (
+                            "critic",
+                            lambda: self.critic.clear_batches(rollout_batch, adv_batch),
+                        )
+                    )
+                if self.ref is not None:
+                    cleanups.append(
+                        ("ref", lambda: self.ref.clear_batches(rollout_batch))
+                    )
+                if self.data_controller is not None and not data_cleared:
+                    cleanups.append(
+                        ("data", lambda: self.data_controller.clear_batches())
+                    )
+                # Defensive sweep: drain RTensors created by auxiliary RPC
+                # returns (stats dicts, etc.) that aren't tracked by the
+                # standard batch lifecycle above. See #1209.
+                cleanups.append(("actor sweep", self.actor.clear_all_local_rtensors))
+                if self.critic is not None:
+                    cleanups.append(
+                        ("critic sweep", self.critic.clear_all_local_rtensors)
+                    )
+                if self.ref is not None:
+                    cleanups.append(("ref sweep", self.ref.clear_all_local_rtensors))
+                run_batch_cleanups(cleanups)
 
-            # Resume rollout
+        with perf_tracer.trace_scope(
+            "train.log_stats",
+            category=Category.INSTR,
+            args={"global_step": global_step},
+        ):
+            self._export_and_commit_stats(
+                epoch=epoch,
+                epoch_step=step,
+                global_step=global_step,
+                actor_stats=actor_stats,
+            )
+
+        # A terminal batch with no evaluation must not admit more prefetch.
+        if resume_rollout:
             self.rollout.resume()
 
-            self._save_perf_tracer(step=global_step)
+        self._save_perf_tracer(step=global_step)
 
     def close(self):
         self.saver.finalize()
@@ -1233,6 +1631,10 @@ class PPOTrainer:
             config.scheduling_strategy = SchedulingStrategy(
                 type=SchedulingStrategyType.colocation, target="rollout"
             )
+            if self._uses_npu_share_pool:
+                # CPU evaluation workers use explicit server addresses below;
+                # the mixed inference pool has two separate scheduler roles.
+                config.scheduling_strategy = SchedulingStrategy(type="separation")
             for spec in config.scheduling_spec:
                 spec.gpu = 0
 
@@ -1288,6 +1690,8 @@ class PPOTrainer:
             )
         else:
             controller = engine_cls.as_controller(config, self.scheduler)
+        if self._uses_npu_share_pool and not is_eval:
+            controller.enable_npu_share_pool()
         init_kwargs = dict(
             role="rollout",
             server_args=server_args,
@@ -1430,6 +1834,10 @@ class PPOTrainer:
         eval_workflow: WorkflowLike,
         eval_workflow_kwargs,
     ):
+        if self._uses_npu_share_pool:
+            # Evaluation shares the native servers; wait until both hold V.
+            self.rollout.wait_shared_publication()
+            self.rollout.pause()
         if self.actor.is_data_parallel_head():
             cnt = 0
             for data in self.valid_dataloader:
@@ -1448,6 +1856,17 @@ class PPOTrainer:
             dist.barrier(group=self.actor.cpu_group)
             current_platform.synchronize()
 
+    def _evaluation_due(self, eval_workflow, epoch, step, global_step) -> bool:
+        if (
+            self.eval_rollout is None
+            or self.valid_dataloader is None
+            or eval_workflow is None
+        ):
+            return False
+        due = []
+        self.evaluator.evaluate(lambda: due.append(True), epoch, step, global_step)
+        return bool(due)
+
     def _evaluate(
         self,
         eval_workflow: WorkflowLike | None,
@@ -1455,12 +1874,17 @@ class PPOTrainer:
         epoch: int,
         epoch_step: int,
         global_step: int,
+        evaluation_due: bool | None = None,
     ):
         if (
             self.eval_rollout is None
             or self.valid_dataloader is None
             or eval_workflow is None
         ):
+            return
+        if evaluation_due is not None:
+            if evaluation_due:
+                self._evaluate_fn(eval_workflow, eval_workflow_kwargs)
             return
         self.evaluator.evaluate(
             functools.partial(
@@ -1494,19 +1918,89 @@ class PPOTrainer:
             dist.barrier(group=self.actor.cpu_group)
             current_platform.synchronize()
 
+    def _validate_npu_share(self) -> None:
+        """Reject combinations that have no exclusive single-device handoff."""
+        config = self.config
+        strategy = config.rollout.scheduling_strategy
+        checks = {
+            "single-controller local scheduler": is_single_controller()
+            and config.scheduler.type == "local",
+            "one FSDP device and one or two single-device vLLM replicas": self.actor_alloc.backend
+            == "fsdp"
+            and self.rollout_alloc.backend == "vllm"
+            and self.actor_alloc.world_size == 1
+            and self.rollout_alloc.parallel.tp_size == 1
+            and self.rollout_alloc.parallel.pp_size == 1
+            and self.rollout_alloc.parallel.dp_size in (1, 2),
+            "rollout forked on actor's device": self._is_colocation(strategy)
+            and strategy.target == "actor"
+            and strategy.fork
+            and not self._is_colocation(config.actor.scheduling_strategy),
+            "v1 controllers": config.actor._version == config.rollout._version == "v1",
+            "disk weight updates": config.actor.weight_update_mode == "disk",
+            "recovery disabled": config.recover.mode == "disabled",
+            "offload disabled": not config.enable_offload and not config.actor.offload,
+            "no auxiliary models": config.ref is None
+            and config.critic is None
+            and config.teacher is None,
+            "full-model eager execution": not config.actor.use_lora
+            and not config.rollout.use_lora
+            and config.vllm.enforce_eager,
+            "compatible batch admission": (
+                config.rollout.max_head_offpolicyness >= 1
+                if self._uses_npu_share_pool
+                else config.rollout.max_head_offpolicyness == 0
+            ),
+            "fixed-size batches for borrowed inference": not self._uses_npu_share_pool
+            or not config.dynamic_bs,
+            "inline rollout": config.rollout.agent is None
+            or config.rollout.agent.mode == "inline",
+        }
+        failed = [name for name, valid in checks.items() if not valid]
+        if failed:
+            raise ValueError("npu_share requires: " + "; ".join(failed))
+
     def _validate_cfg(self):
         """validate config for incompatible settings before weight initialization, to avoid wasted resources on spawning workers and loading models."""
         rollout_backend = self.rollout_alloc.backend
         actor_backend = self.actor_alloc.backend
+        memory = self.config.colocation_memory
+        if self.config.npu_share:
+            if self.config.vllm.distributed_executor_backend != "uni":
+                raise ValueError("Adaptive memory requires vLLM uni executor")
+            if not self.config.actor.fsdp.memory_efficient_load:
+                raise ValueError(
+                    "Adaptive memory requires FSDP memory_efficient_load for managed storage"
+                )
+            if (
+                self.config.actor.fsdp.offload_params
+                or self.config.actor.fsdp.per_layer_optim_step
+                or self.config.actor.optimizer.type != "adam"
+            ):
+                raise ValueError(
+                    "Adaptive memory requires ordinary AdamW without FSDP CPU offload"
+                )
+            bounds = [
+                memory.train_workspace_gib,
+                memory.inference_workspace_gib,
+                memory.safety_margin_gib,
+            ]
+            if memory.device_budget_gib is not None:
+                bounds.append(memory.device_budget_gib)
+            if any(not math.isfinite(x) or x <= 0 for x in bounds):
+                raise ValueError("Adaptive memory budgets must be finite and positive")
         requires_train_engine_offload = any(
             (
-                self._should_offload_rollout,
+                self._should_offload_rollout and not self.config.npu_share,
                 self._should_offload_actor,
                 self._should_offload_critic,
                 self._should_offload_ref,
                 self._should_offload_teacher,
             )
         )
+
+        if self.config.npu_share:
+            self._validate_npu_share()
 
         if requires_train_engine_offload and not self.config.enable_offload:
             raise ValueError(

@@ -260,6 +260,10 @@ class VLLMBackend:
         else:
             endpoint = "/areal_update_weights"
             payload = {"model_path": str(meta.path)}
+            if meta.npu_share_snapshot:
+                if meta.version is None:
+                    raise ValueError("Snapshot publication requires a version")
+                payload["snapshot_version"] = meta.version
 
         return WeightUpdateRequests(
             requests=[HttpRequest(endpoint=endpoint, payload=payload)]
@@ -554,6 +558,12 @@ class RemotevLLMEngine(InferenceEngine):
     def set_proxy_gateway_addr(self, addr: str) -> None:
         self._engine.set_proxy_gateway_addr(addr)
 
+    def configure_request_router(self, address: str) -> None:
+        self._engine.configure_request_router(address)
+
+    async def _finish_request_group(self, task_id: int | None, is_eval: bool):
+        await self._engine._finish_request_group(task_id, is_eval)
+
     async def agenerate(self, req: ModelRequest) -> ModelResponse:
         """Asynchronously generate a response for the given request."""
         return await self._engine.agenerate(req)
@@ -674,8 +684,21 @@ class RemotevLLMEngine(InferenceEngine):
     def pause_generation(self):
         return self._engine.pause_generation()
 
+    def pause_generation_preserve(self):
+        return self._engine.pause_generation_preserve()
+
     def continue_generation(self):
         return self._engine.continue_generation()
+
+    def colocation_memory(
+        self,
+        action: str = "status",
+        target_free_bytes: int | None = None,
+        kv_budget_bytes: int | None = None,
+    ):
+        return self._engine.colocation_memory(
+            action, target_free_bytes=target_free_bytes, kv_budget_bytes=kv_budget_bytes
+        )
 
     def launch_server(self, server_args: dict[str, Any]) -> LocalInfServerInfo:
         return self._engine.launch_server(server_args)

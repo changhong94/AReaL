@@ -719,9 +719,20 @@ class TrainController:
         self._check_rollout_engine_connected()
         self._custom_function_call("update_weights", meta=meta)
 
+    def wait_shared_snapshot(self, version: int):
+        self._custom_function_call("wait_shared_snapshot", version=version)
+
     def offload(self) -> None:
         """Offload model parameters to CPU across all train workers."""
         self._custom_function_call("offload")
+
+    def colocation_memory(self, action: str = "status") -> dict:
+        return self._custom_function_call("colocation_memory", action)
+
+    def prepare_optimizer_async(self, reserve_bytes: int, device_budget_bytes=None):
+        return self._custom_function_call(
+            "prepare_optimizer_async", reserve_bytes, device_budget_bytes
+        )
 
     def onload(self) -> None:
         """Onload model parameters to GPU across all train workers."""
