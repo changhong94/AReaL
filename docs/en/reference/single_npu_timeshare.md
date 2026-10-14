@@ -866,3 +866,57 @@ Events are `queue_rebalance_plan`, `queue_rebalance_source_ack`,
 estimates, tail gain, and query/planning cost. These events are not recorded when
 request tracing is disabled. The feature introduces neither extra NPU synchronization
 nor periodic polling.
+
+## Dated comparison figures: 2026-10-14
+
+These English figures redraw the `fixed` and `latest` arms of
+`queue-rebalance-comparison01`, measured on October 14, 2026 (America/Vancouver). The
+strategy reference is `eacd8c4b`; the measurements precede that commit's packaging,
+formatting, and documentation changes. They are not a fresh benchmark of the exact
+committed tree. Both arms used the same instrumented source snapshot; the fixed arm is
+fixed execution mode, not pristine upstream code.
+
+The workload is Qwen2.5-1.5B-Instruct on 96 GSM8K questions, six answers per question,
+16 concurrent questions, one epoch, and six batches. The fixed loop took 175.36 seconds
+and the shared loop took 151.73 seconds (13.48% shorter). Generated output totals were
+137,455 and 138,920 tokens respectively. Output lengths and batch membership can differ;
+this single pair does not establish a universal speedup. The shared arm enabled rolling
+three-batch adaptive draining and queued-request rebalancing, but no requests were
+reassigned by rebalancing in this run.
+
+### Phase timeline
+
+Blocks show start time, end time, and duration in seconds.
+
+![Fixed and shared phase timelines](assets/npu-sharing/2026-10-14/2026-10-14_phase_timeline.png)
+
+### Request timelines
+
+Open the full-resolution images to inspect individual requests. Answers remain grouped
+by question; shading distinguishes queue and execution windows, hollow segments indicate
+pauses, and stars mark the last consumed answer in each batch.
+
+- [Fixed two-NPU request timeline](assets/npu-sharing/2026-10-14/2026-10-14_requests_fixed.png)
+- [Shared two-NPU request timeline](assets/npu-sharing/2026-10-14/2026-10-14_requests_shared.png)
+
+### NPU compute and HBM utilization
+
+Samples are approximately two seconds apart and can miss short peaks. HBM usage includes
+allocated, cached, and reserved memory. Stars indicate timing only, not utilization
+values.
+
+![Fixed and shared NPU utilization](assets/npu-sharing/2026-10-14/2026-10-14_npu_utilization.png)
+
+### Generated tokens per second
+
+Colors identify weight versions. One-second bins are reconstructed from single-token
+decode-window end times, excluding prompt processing and KV replay; they are not exact
+token emission timestamps. All 846 fixed segments match the reported output counts. Of
+974 shared segments, 972 match, with offsetting +1 and -1 token differences in the
+remaining two. Aggregate token totals match.
+
+![Fixed and shared token throughput by weight version](assets/npu-sharing/2026-10-14/2026-10-14_tokens_per_second.png)
+
+The [provenance manifest](assets/npu-sharing/2026-10-14/provenance.json) records
+settings, source evidence checksum, limitations, and image checksums. All image
+filenames and visible date stamps use October 14, 2026.

@@ -1,0 +1,85 @@
+{
+  "rendered_at": "2026-10-14T16:25:26.423300-07:00",
+  "measurement_date": "2026-10-14",
+  "timezone": "America/Vancouver",
+  "strategy_reference_commit": "eacd8c4b7ac7c8e5c718bf95377f0b64b6e7d099",
+  "provenance_note": "Measurements precede the reference commit packaging, formatting and documentation changes; this is not a fresh benchmark of that exact commit.",
+  "source_run": "queue-rebalance-comparison01",
+  "evidence_sha256": "79ef4d8d4b72ab7566447cedf1cd671a9dd377e9c79b455d0f82a2c52432dda6",
+  "workload": {
+    "model": "Qwen2.5-1.5B-Instruct",
+    "dataset": "GSM8K",
+    "questions": 96,
+    "answers_per_question": 6,
+    "concurrent_questions": 16,
+    "epochs": 1,
+    "batches": 6
+  },
+  "arms": {
+    "fixed": {
+      "loop_seconds": 175.36376667022705,
+      "output_tokens": 137455,
+      "npu_share": false
+    },
+    "latest": {
+      "loop_seconds": 151.72616529464722,
+      "output_tokens": 138920,
+      "npu_share": true,
+      "queue_rebalance": true,
+      "requests_rebalanced": 0
+    }
+  },
+  "limitations": [
+    "Both arms use the same instrumented source snapshot; fixed mode is not pristine upstream.",
+    "Generated lengths and batch membership may differ. A single pair does not establish a universal speedup.",
+    "Utilization is sampled approximately every two seconds; brief peaks may be missed. HBM usage includes cached and reserved allocations.",
+    "Token bins use single-token decode-window end times, not exact token emission timestamps. All 846 fixed segments match; 972 of 974 shared segments match, with offsetting +1 and -1 differences. Aggregate totals match."
+  ],
+  "figures": [
+    {
+      "file": "2026-10-14_npu_utilization.png",
+      "bytes": 204669,
+      "pixels": [
+        2938,
+        1951
+      ],
+      "sha256": "b25b93dfb481cf42187f83baefe05d5b36cf6eef8c9dacd5de41fdb39d4a79ff"
+    },
+    {
+      "file": "2026-10-14_phase_timeline.png",
+      "bytes": 343109,
+      "pixels": [
+        5138,
+        2944
+      ],
+      "sha256": "5f2e81693907f14a55aa6879053e5d39f4f20555b06feb57532f8834cd78143d"
+    },
+    {
+      "file": "2026-10-14_requests_fixed.png",
+      "bytes": 624417,
+      "pixels": [
+        2789,
+        10845
+      ],
+      "sha256": "bd57128c2513528feeca5a4bc64aa4a5220d7d75342fd028e62bc703b1797228"
+    },
+    {
+      "file": "2026-10-14_requests_shared.png",
+      "bytes": 842474,
+      "pixels": [
+        2878,
+        14382
+      ],
+      "sha256": "77da38cb789a9b54cb128685df00b27ac99c555c0116ba1f4952875764bf2a77"
+    },
+    {
+      "file": "2026-10-14_tokens_per_second.png",
+      "bytes": 183173,
+      "pixels": [
+        3447,
+        2540
+      ],
+      "sha256": "c4bb3c4cb502a90ac7d811108b85c5c4f2a193c1224b347626301ff0ed72da00"
+    }
+  ]
+}
