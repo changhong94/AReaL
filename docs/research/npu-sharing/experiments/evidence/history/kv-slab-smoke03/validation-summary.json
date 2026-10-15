@@ -1,0 +1,153 @@
+{
+  "status": "passed",
+  "scope": "Qwen2.5-1.5B-Instruct, single Ascend 910B2, uni/eager, whole-KV physical reclaim",
+  "optimizer_steps": 2,
+  "optimizer_continuity": true,
+  "versions": {
+    "rollout": {
+      "1->1": 8,
+      "0->0": 8
+    },
+    "eval-rollout": {
+      "2->2": 8
+    }
+  },
+  "kv_initialization": [
+    {
+      "managed_bytes": 16206790656,
+      "blocks_per_slab": 16,
+      "logical_slab_bytes_per_layer": 2097152,
+      "physical_reclaim_granularity": "whole_kv_pool"
+    }
+  ],
+  "slab_pool": [
+    {
+      "blocks_per_slab": 16,
+      "slabs": 276,
+      "empty_slabs": 276,
+      "partial_slabs": 0,
+      "used_blocks": 0,
+      "free_blocks": 4409,
+      "allocation_count": 0,
+      "free_count": 0,
+      "high_watermark": 0
+    }
+  ],
+  "slab_transition_stats": [
+    {
+      "blocks_per_slab": 16,
+      "slabs": 276,
+      "empty_slabs": 276,
+      "partial_slabs": 0,
+      "used_blocks": 0,
+      "free_blocks": 4409,
+      "allocation_count": 21,
+      "free_count": 21,
+      "high_watermark": 14
+    },
+    {
+      "blocks_per_slab": 16,
+      "slabs": 276,
+      "empty_slabs": 276,
+      "partial_slabs": 0,
+      "used_blocks": 0,
+      "free_blocks": 4409,
+      "allocation_count": 21,
+      "free_count": 21,
+      "high_watermark": 14
+    },
+    {
+      "blocks_per_slab": 16,
+      "slabs": 276,
+      "empty_slabs": 276,
+      "partial_slabs": 0,
+      "used_blocks": 0,
+      "free_blocks": 4409,
+      "allocation_count": 21,
+      "free_count": 21,
+      "high_watermark": 14
+    },
+    {
+      "blocks_per_slab": 16,
+      "slabs": 276,
+      "empty_slabs": 276,
+      "partial_slabs": 0,
+      "used_blocks": 0,
+      "free_blocks": 4409,
+      "allocation_count": 43,
+      "free_count": 43,
+      "high_watermark": 17
+    },
+    {
+      "blocks_per_slab": 16,
+      "slabs": 276,
+      "empty_slabs": 276,
+      "partial_slabs": 0,
+      "used_blocks": 0,
+      "free_blocks": 4409,
+      "allocation_count": 43,
+      "free_count": 43,
+      "high_watermark": 17
+    },
+    {
+      "blocks_per_slab": 16,
+      "slabs": 276,
+      "empty_slabs": 276,
+      "partial_slabs": 0,
+      "used_blocks": 0,
+      "free_blocks": 4409,
+      "allocation_count": 43,
+      "free_count": 43,
+      "high_watermark": 17
+    }
+  ],
+  "memory_transitions": [
+    {
+      "state": "released",
+      "managed_bytes": 16206790656,
+      "changed": true,
+      "free_bytes_before": 37750288384,
+      "free_bytes_after": 54051450880
+    },
+    {
+      "state": "mapped",
+      "managed_bytes": 16206790656,
+      "changed": true,
+      "free_bytes_before": 35114008576,
+      "free_bytes_after": 18907217920
+    },
+    {
+      "state": "mapped",
+      "managed_bytes": 16206790656,
+      "changed": false
+    },
+    {
+      "state": "released",
+      "managed_bytes": 16206790656,
+      "changed": true,
+      "free_bytes_before": 18810716160,
+      "free_bytes_after": 35111878656
+    },
+    {
+      "state": "mapped",
+      "managed_bytes": 16206790656,
+      "changed": true,
+      "free_bytes_before": 28222865408,
+      "free_bytes_after": 12016214016
+    },
+    {
+      "state": "mapped",
+      "managed_bytes": 16206790656,
+      "changed": false
+    }
+  ],
+  "release_free_memory_delta_bytes": [
+    16301162496,
+    16301162496
+  ],
+  "initialize_seconds": 237.92894196510315,
+  "train_loop_seconds": 90.46831178665161,
+  "eval_seconds": 11.741308212280273,
+  "sampled_peak_hbm_mib": 54192,
+  "busy_restored": true
+}

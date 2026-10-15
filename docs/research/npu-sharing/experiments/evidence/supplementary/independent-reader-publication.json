@@ -1,0 +1,124 @@
+[
+  {
+    "name": "fixed16",
+    "loop": 94.23913979530334,
+    "tokens": 44406,
+    "unique_prompts": 45,
+    "save": 12.353441953659058,
+    "publication": [
+      3.4525251388549805,
+      2.398077964782715,
+      2.452709913253784
+    ]
+  },
+  {
+    "name": "shared16_before",
+    "loop": 104.06862211227417,
+    "tokens": 46650,
+    "unique_prompts": 46,
+    "save": 13.356231927871704,
+    "publication": [
+      4.089078426361084,
+      4.015683174133301
+    ],
+    "hccl_ack": [
+      {
+        "version": 1,
+        "snapshot_submit_seconds": 2.4443981051445007,
+        "time": 44.55903363227844,
+        "mode": "bounded_queue"
+      },
+      {
+        "version": 2,
+        "snapshot_submit_seconds": 1.9687688536942005,
+        "time": 67.40172100067139,
+        "mode": "bounded_queue"
+      }
+    ],
+    "snapshot": [
+      3.5493314266204834,
+      2.5033459663391113
+    ],
+    "load": [
+      0.8096141815185547,
+      0.8709304332733154
+    ],
+    "snapshot_intervals": [
+      {
+        "event": "shared_snapshot_export_begin",
+        "version": 1,
+        "time": 41.1977322101593
+      },
+      {
+        "event": "shared_snapshot_export_end",
+        "version": 1,
+        "time": 44.747063636779785
+      },
+      {
+        "event": "shared_snapshot_export_begin",
+        "version": 2,
+        "time": 64.4186658859253
+      },
+      {
+        "event": "shared_snapshot_export_end",
+        "version": 2,
+        "time": 66.9220118522644
+      }
+    ]
+  },
+  {
+    "name": "shared16",
+    "loop": 101.26252675056458,
+    "tokens": 46616,
+    "unique_prompts": 45,
+    "save": 12.143856763839722,
+    "publication": [
+      2.0677578449249268,
+      1.7414627075195312
+    ],
+    "hccl_ack": [
+      {
+        "version": 1,
+        "snapshot_submit_seconds": 0.0,
+        "time": 45.060580253601074,
+        "mode": "independent_reader"
+      },
+      {
+        "version": 2,
+        "snapshot_submit_seconds": 0.0,
+        "time": 65.40459156036377,
+        "mode": "independent_reader"
+      }
+    ],
+    "snapshot": [
+      2.050461769104004,
+      2.787644624710083
+    ],
+    "load": [
+      0.8845293521881104,
+      0.8222391605377197
+    ],
+    "snapshot_intervals": [
+      {
+        "event": "shared_snapshot_export_begin",
+        "version": 1,
+        "time": 43.57108473777771
+      },
+      {
+        "event": "shared_snapshot_export_end",
+        "version": 1,
+        "time": 45.621546506881714
+      },
+      {
+        "event": "shared_snapshot_export_begin",
+        "version": 2,
+        "time": 64.8024468421936
+      },
+      {
+        "event": "shared_snapshot_export_end",
+        "version": 2,
+        "time": 67.59009146690369
+      }
+    ]
+  }
+]

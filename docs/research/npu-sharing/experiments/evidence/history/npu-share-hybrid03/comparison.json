@@ -1,0 +1,1926 @@
+{
+  "results": {
+    "baseline_xccl": {
+      "run": "/tmp/huawei/areal-runs/npu-share-ab01/baseline",
+      "updates": 16,
+      "training_question_slots": 256,
+      "loop_seconds": 397.31874084472656,
+      "through_last_publish_seconds": 340.5620276927948,
+      "initialization_seconds": 316.2990596294403,
+      "stage_seconds": {
+        "loop": 397.31874084472656,
+        "train.checkpoint": 0.0007007122039794922,
+        "train.clear_batches": 0.3173658847808838,
+        "train.compute_advantage": 12.74057912826538,
+        "train.eval": 56.55499029159546,
+        "train.log_stats": 2.389442205429077,
+        "train.ppo_update": 59.46848201751709,
+        "train.recompute_logp": 16.87027096748352,
+        "train.rollout": 222.84782767295837,
+        "train.save": 11.259780645370483,
+        "train.update_weights": 14.538987636566162
+      },
+      "borrowed_switch_seconds": 0,
+      "npu_seconds_loop": 794.6374816894531,
+      "metrics": {
+        "loop": {
+          "1": {
+            "aicore": {
+              "samples": 199,
+              "mean": 11.5678391959799,
+              "max": 100.0
+            },
+            "hbm_used_mb": {
+              "samples": 199,
+              "mean": 38643.37688442211,
+              "max": 42235.0
+            },
+            "power_w": {
+              "samples": 199,
+              "mean": 130.12663316582913,
+              "max": 312.2
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 199,
+              "mean": 13.256281407035177,
+              "max": 70.0
+            },
+            "hbm_used_mb": {
+              "samples": 199,
+              "mean": 29682.94974874372,
+              "max": 29782.0
+            },
+            "power_w": {
+              "samples": 199,
+              "mean": 124.78994974874372,
+              "max": 291.3
+            }
+          }
+        },
+        "train.checkpoint": {
+          "1": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          },
+          "2": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          }
+        },
+        "train.clear_batches": {
+          "1": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          },
+          "2": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          }
+        },
+        "train.compute_advantage": {
+          "1": {
+            "aicore": {
+              "samples": 6,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 6,
+              "mean": 37496.833333333336,
+              "max": 42232.0
+            },
+            "power_w": {
+              "samples": 6,
+              "mean": 132.41666666666666,
+              "max": 154.7
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 6,
+              "mean": 13.5,
+              "max": 14.0
+            },
+            "hbm_used_mb": {
+              "samples": 6,
+              "mean": 29639.0,
+              "max": 29781.0
+            },
+            "power_w": {
+              "samples": 6,
+              "mean": 121.13333333333334,
+              "max": 122.2
+            }
+          }
+        },
+        "train.eval": {
+          "1": {
+            "aicore": {
+              "samples": 29,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 29,
+              "mean": 42234.862068965514,
+              "max": 42235.0
+            },
+            "power_w": {
+              "samples": 29,
+              "mean": 102.98275862068965,
+              "max": 115.7
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 29,
+              "mean": 8.241379310344827,
+              "max": 15.0
+            },
+            "hbm_used_mb": {
+              "samples": 29,
+              "mean": 29780.96551724138,
+              "max": 29781.0
+            },
+            "power_w": {
+              "samples": 29,
+              "mean": 116.44827586206897,
+              "max": 125.0
+            }
+          }
+        },
+        "train.log_stats": {
+          "1": {
+            "aicore": {
+              "samples": 1,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 1,
+              "mean": 42220.0,
+              "max": 42220.0
+            },
+            "power_w": {
+              "samples": 1,
+              "mean": 126.1,
+              "max": 126.1
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 1,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 1,
+              "mean": 29781.0,
+              "max": 29781.0
+            },
+            "power_w": {
+              "samples": 1,
+              "mean": 113.3,
+              "max": 113.3
+            }
+          }
+        },
+        "train.ppo_update": {
+          "1": {
+            "aicore": {
+              "samples": 31,
+              "mean": 62.516129032258064,
+              "max": 100.0
+            },
+            "hbm_used_mb": {
+              "samples": 31,
+              "mean": 41117.32258064516,
+              "max": 42235.0
+            },
+            "power_w": {
+              "samples": 31,
+              "mean": 237.05483870967743,
+              "max": 312.2
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 31,
+              "mean": 13.774193548387096,
+              "max": 18.0
+            },
+            "hbm_used_mb": {
+              "samples": 31,
+              "mean": 29726.064516129034,
+              "max": 29781.0
+            },
+            "power_w": {
+              "samples": 31,
+              "mean": 122.8258064516129,
+              "max": 129.8
+            }
+          }
+        },
+        "train.recompute_logp": {
+          "1": {
+            "aicore": {
+              "samples": 9,
+              "mean": 40.0,
+              "max": 83.0
+            },
+            "hbm_used_mb": {
+              "samples": 9,
+              "mean": 38119.22222222222,
+              "max": 42233.0
+            },
+            "power_w": {
+              "samples": 9,
+              "mean": 197.2888888888889,
+              "max": 296.0
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 9,
+              "mean": 13.777777777777779,
+              "max": 19.0
+            },
+            "hbm_used_mb": {
+              "samples": 9,
+              "mean": 29686.222222222223,
+              "max": 29781.0
+            },
+            "power_w": {
+              "samples": 9,
+              "mean": 124.14444444444445,
+              "max": 129.8
+            }
+          }
+        },
+        "train.rollout": {
+          "1": {
+            "aicore": {
+              "samples": 112,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 112,
+              "mean": 36844.69642857143,
+              "max": 42233.0
+            },
+            "power_w": {
+              "samples": 112,
+              "mean": 103.3875,
+              "max": 112.4
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 112,
+              "mean": 15.044642857142858,
+              "max": 70.0
+            },
+            "hbm_used_mb": {
+              "samples": 112,
+              "mean": 29644.8125,
+              "max": 29782.0
+            },
+            "power_w": {
+              "samples": 112,
+              "mean": 128.50535714285715,
+              "max": 291.3
+            }
+          }
+        },
+        "train.save": {
+          "1": {
+            "aicore": {
+              "samples": 6,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 6,
+              "mean": 42234.5,
+              "max": 42235.0
+            },
+            "power_w": {
+              "samples": 6,
+              "mean": 107.16666666666667,
+              "max": 119.7
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 6,
+              "mean": 13.666666666666666,
+              "max": 17.0
+            },
+            "hbm_used_mb": {
+              "samples": 6,
+              "mean": 29781.166666666668,
+              "max": 29782.0
+            },
+            "power_w": {
+              "samples": 6,
+              "mean": 124.33333333333334,
+              "max": 130.6
+            }
+          }
+        },
+        "train.update_weights": {
+          "1": {
+            "aicore": {
+              "samples": 4,
+              "mean": 1.0,
+              "max": 3.0
+            },
+            "hbm_used_mb": {
+              "samples": 4,
+              "mean": 39517.5,
+              "max": 42232.0
+            },
+            "power_w": {
+              "samples": 4,
+              "mean": 130.3,
+              "max": 178.2
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 4,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 4,
+              "mean": 29568.25,
+              "max": 29781.0
+            },
+            "power_w": {
+              "samples": 4,
+              "mean": 110.45,
+              "max": 117.0
+            }
+          }
+        }
+      },
+      "responses": {
+        "rollout": {
+          "count": 1088,
+          "generated_tokens": 282127,
+          "mean_reward": 0.7711397058823529,
+          "versions": {
+            "15->16": 3,
+            "15->15": 49,
+            "14->15": 43,
+            "13->15": 9,
+            "14->14": 5,
+            "13->14": 49,
+            "13->13": 22,
+            "12->13": 37,
+            "11->13": 15,
+            "12->12": 7,
+            "11->12": 36,
+            "11->11": 37,
+            "10->11": 47,
+            "10->10": 5,
+            "9->11": 5,
+            "9->10": 41,
+            "9->9": 18,
+            "8->9": 56,
+            "8->10": 1,
+            "8->8": 7,
+            "7->9": 2,
+            "7->8": 41,
+            "6->8": 3,
+            "6->7": 47,
+            "7->7": 21,
+            "6->6": 10,
+            "5->6": 45,
+            "5->7": 3,
+            "4->5": 34,
+            "4->6": 2,
+            "5->5": 12,
+            "3->6": 1,
+            "3->5": 11,
+            "3->4": 38,
+            "4->4": 20,
+            "3->3": 14,
+            "2->4": 2,
+            "2->3": 46,
+            "2->2": 36,
+            "1->2": 33,
+            "1->3": 2,
+            "1->1": 25,
+            "0->2": 3,
+            "0->1": 40,
+            "0->0": 105
+          }
+        },
+        "eval-rollout": {
+          "count": 64,
+          "generated_tokens": 18944,
+          "mean_reward": 0.625,
+          "versions": {
+            "16->16": 64
+          }
+        }
+      },
+      "generations_completed_during_ppo": 233,
+      "policy_counts": {},
+      "dispatch_counts": {},
+      "busy_restored": true,
+      "note": "One run per arm. Sampled AI Core activity is not peak FLOPS efficiency. Generated tokens include completed asynchronous prefetch. Training batches can differ in completion order and random answers. Baseline uses XCCL; shared uses disk."
+    },
+    "shared_hf": {
+      "run": "/tmp/huawei/areal-runs/npu-share-ab01/shared",
+      "updates": 16,
+      "training_question_slots": 256,
+      "loop_seconds": 459.4206666946411,
+      "through_last_publish_seconds": 409.7101345062256,
+      "initialization_seconds": 323.59909439086914,
+      "stage_seconds": {
+        "loop": 459.4206666946411,
+        "train.checkpoint": 0.0006275177001953125,
+        "train.clear_batches": 0.2985408306121826,
+        "train.compute_advantage": 13.326801776885986,
+        "train.eval": 49.61647272109985,
+        "train.log_stats": 0.8254523277282715,
+        "train.ppo_update": 64.73638796806335,
+        "train.recompute_logp": 17.236282110214233,
+        "train.rollout": 164.6166751384735,
+        "train.rollout_onload": 3.24249267578125e-05,
+        "train.save": 9.755485773086548,
+        "train.update_weights": 124.68942284584045
+      },
+      "borrowed_switch_seconds": 13.941181421279907,
+      "npu_seconds_loop": 918.8413333892822,
+      "metrics": {
+        "loop": {
+          "1": {
+            "aicore": {
+              "samples": 229,
+              "mean": 14.676855895196507,
+              "max": 100.0
+            },
+            "hbm_used_mb": {
+              "samples": 229,
+              "mean": 44111.720524017466,
+              "max": 48904.0
+            },
+            "power_w": {
+              "samples": 229,
+              "mean": 134.8471615720524,
+              "max": 306.3
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 229,
+              "mean": 10.633187772925764,
+              "max": 73.0
+            },
+            "hbm_used_mb": {
+              "samples": 229,
+              "mean": 28905.454148471617,
+              "max": 28984.0
+            },
+            "power_w": {
+              "samples": 229,
+              "mean": 120.08646288209607,
+              "max": 213.8
+            }
+          }
+        },
+        "train.checkpoint": {
+          "1": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          },
+          "2": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          }
+        },
+        "train.clear_batches": {
+          "1": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          },
+          "2": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          }
+        },
+        "train.compute_advantage": {
+          "1": {
+            "aicore": {
+              "samples": 8,
+              "mean": 9.625,
+              "max": 77.0
+            },
+            "hbm_used_mb": {
+              "samples": 8,
+              "mean": 29957.375,
+              "max": 31581.0
+            },
+            "power_w": {
+              "samples": 8,
+              "mean": 138.7375,
+              "max": 295.6
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 8,
+              "mean": 11.625,
+              "max": 13.0
+            },
+            "hbm_used_mb": {
+              "samples": 8,
+              "mean": 28924.375,
+              "max": 28983.0
+            },
+            "power_w": {
+              "samples": 8,
+              "mean": 121.85000000000001,
+              "max": 125.7
+            }
+          }
+        },
+        "train.eval": {
+          "1": {
+            "aicore": {
+              "samples": 25,
+              "mean": 5.4,
+              "max": 12.0
+            },
+            "hbm_used_mb": {
+              "samples": 25,
+              "mean": 48896.8,
+              "max": 48904.0
+            },
+            "power_w": {
+              "samples": 25,
+              "mean": 113.384,
+              "max": 123.6
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 25,
+              "mean": 8.08,
+              "max": 12.0
+            },
+            "hbm_used_mb": {
+              "samples": 25,
+              "mean": 28940.8,
+              "max": 28948.0
+            },
+            "power_w": {
+              "samples": 25,
+              "mean": 117.084,
+              "max": 121.6
+            }
+          }
+        },
+        "train.log_stats": {
+          "1": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          },
+          "2": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          }
+        },
+        "train.ppo_update": {
+          "1": {
+            "aicore": {
+              "samples": 31,
+              "mean": 62.41935483870968,
+              "max": 100.0
+            },
+            "hbm_used_mb": {
+              "samples": 31,
+              "mean": 40820.67741935484,
+              "max": 45466.0
+            },
+            "power_w": {
+              "samples": 31,
+              "mean": 231.93870967741935,
+              "max": 306.3
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 31,
+              "mean": 12.193548387096774,
+              "max": 14.0
+            },
+            "hbm_used_mb": {
+              "samples": 31,
+              "mean": 28925.58064516129,
+              "max": 28984.0
+            },
+            "power_w": {
+              "samples": 31,
+              "mean": 120.27096774193548,
+              "max": 126.4
+            }
+          }
+        },
+        "train.recompute_logp": {
+          "1": {
+            "aicore": {
+              "samples": 8,
+              "mean": 28.75,
+              "max": 76.0
+            },
+            "hbm_used_mb": {
+              "samples": 8,
+              "mean": 26761.75,
+              "max": 31565.0
+            },
+            "power_w": {
+              "samples": 8,
+              "mean": 171.8,
+              "max": 288.1
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 8,
+              "mean": 13.125,
+              "max": 19.0
+            },
+            "hbm_used_mb": {
+              "samples": 8,
+              "mean": 28917.875,
+              "max": 28947.0
+            },
+            "power_w": {
+              "samples": 8,
+              "mean": 122.7,
+              "max": 126.8
+            }
+          }
+        },
+        "train.rollout": {
+          "1": {
+            "aicore": {
+              "samples": 84,
+              "mean": 10.488095238095237,
+              "max": 58.0
+            },
+            "hbm_used_mb": {
+              "samples": 84,
+              "mean": 46581.79761904762,
+              "max": 48904.0
+            },
+            "power_w": {
+              "samples": 84,
+              "mean": 121.92738095238096,
+              "max": 203.9
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 84,
+              "mean": 11.55952380952381,
+              "max": 73.0
+            },
+            "hbm_used_mb": {
+              "samples": 84,
+              "mean": 28891.059523809523,
+              "max": 28956.0
+            },
+            "power_w": {
+              "samples": 84,
+              "mean": 122.05833333333334,
+              "max": 213.8
+            }
+          }
+        },
+        "train.rollout_onload": {
+          "1": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          },
+          "2": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          }
+        },
+        "train.save": {
+          "1": {
+            "aicore": {
+              "samples": 5,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 5,
+              "mean": 45465.4,
+              "max": 45466.0
+            },
+            "power_w": {
+              "samples": 5,
+              "mean": 104.36,
+              "max": 110.1
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 5,
+              "mean": 11.8,
+              "max": 13.0
+            },
+            "hbm_used_mb": {
+              "samples": 5,
+              "mean": 28947.0,
+              "max": 28947.0
+            },
+            "power_w": {
+              "samples": 5,
+              "mean": 121.02,
+              "max": 123.0
+            }
+          }
+        },
+        "train.update_weights": {
+          "1": {
+            "aicore": {
+              "samples": 61,
+              "mean": 1.6885245901639345,
+              "max": 74.0
+            },
+            "hbm_used_mb": {
+              "samples": 61,
+              "mean": 45095.44262295082,
+              "max": 48742.0
+            },
+            "power_w": {
+              "samples": 61,
+              "mean": 111.5672131147541,
+              "max": 261.7
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 61,
+              "mean": 8.426229508196721,
+              "max": 14.0
+            },
+            "hbm_used_mb": {
+              "samples": 61,
+              "mean": 28892.311475409835,
+              "max": 28984.0
+            },
+            "power_w": {
+              "samples": 61,
+              "mean": 117.14426229508197,
+              "max": 123.1
+            }
+          }
+        }
+      },
+      "responses": {
+        "rollout": {
+          "count": 1096,
+          "generated_tokens": 270195,
+          "mean_reward": 0.7627737226277372,
+          "versions": {
+            "14->16": 4,
+            "14->15": 20,
+            "15->16": 7,
+            "15->15": 61,
+            "14->14": 32,
+            "13->15": 1,
+            "13->14": 34,
+            "13->13": 25,
+            "12->14": 7,
+            "12->15": 2,
+            "12->13": 21,
+            "12->12": 30,
+            "11->13": 3,
+            "11->12": 28,
+            "11->11": 45,
+            "9->11": 5,
+            "9->10": 24,
+            "9->12": 1,
+            "10->11": 24,
+            "10->10": 32,
+            "9->9": 34,
+            "8->8": 29,
+            "8->10": 1,
+            "8->9": 22,
+            "7->9": 8,
+            "7->8": 19,
+            "3->9": 1,
+            "3->4": 17,
+            "3->5": 8,
+            "7->7": 61,
+            "6->7": 36,
+            "6->6": 24,
+            "5->6": 27,
+            "5->5": 41,
+            "4->6": 4,
+            "3->6": 1,
+            "4->5": 16,
+            "3->3": 37,
+            "4->4": 36,
+            "2->4": 1,
+            "2->3": 25,
+            "2->2": 34,
+            "0->3": 4,
+            "0->1": 25,
+            "0->0": 111,
+            "1->2": 24,
+            "1->1": 44
+          }
+        },
+        "eval-rollout": {
+          "count": 64,
+          "generated_tokens": 19076,
+          "mean_reward": 0.65625,
+          "versions": {
+            "16->16": 64
+          }
+        }
+      },
+      "generations_completed_during_ppo": 141,
+      "policy_counts": {
+        "initial_inference:resident": 1,
+        "train:release_kv": 16,
+        "inference:resident": 16
+      },
+      "dispatch_counts": {
+        "0": 72,
+        "1": 218
+      },
+      "busy_restored": true,
+      "note": "One run per arm. Sampled AI Core activity is not peak FLOPS efficiency. Generated tokens include completed asynchronous prefetch. Training batches can differ in completion order and random answers. Baseline uses XCCL; shared uses disk."
+    },
+    "shared_snapshot": {
+      "run": "/tmp/huawei/areal-runs/npu-share-fast01/shared",
+      "updates": 16,
+      "training_question_slots": 256,
+      "loop_seconds": 426.57594871520996,
+      "through_last_publish_seconds": 393.5996971130371,
+      "initialization_seconds": 323.551212310791,
+      "stage_seconds": {
+        "loop": 426.57594871520996,
+        "train.checkpoint": 0.001027822494506836,
+        "train.clear_batches": 0.3354785442352295,
+        "train.compute_advantage": 13.987086057662964,
+        "train.eval": 32.87997364997864,
+        "train.log_stats": 0.8798630237579346,
+        "train.ppo_update": 67.67646265029907,
+        "train.recompute_logp": 18.775359630584717,
+        "train.rollout": 182.91664004325867,
+        "train.rollout_onload": 3.2901763916015625e-05,
+        "train.save": 11.471410036087036,
+        "train.update_weights": 83.1597580909729
+      },
+      "borrowed_switch_seconds": 14.10158634185791,
+      "npu_seconds_loop": 853.1518974304199,
+      "metrics": {
+        "loop": {
+          "1": {
+            "aicore": {
+              "samples": 214,
+              "mean": 14.462616822429906,
+              "max": 100.0
+            },
+            "hbm_used_mb": {
+              "samples": 214,
+              "mean": 43604.97196261682,
+              "max": 49529.0
+            },
+            "power_w": {
+              "samples": 214,
+              "mean": 135.6878504672897,
+              "max": 301.0
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 214,
+              "mean": 10.66822429906542,
+              "max": 46.0
+            },
+            "hbm_used_mb": {
+              "samples": 214,
+              "mean": 28917.5,
+              "max": 29016.0
+            },
+            "power_w": {
+              "samples": 214,
+              "mean": 120.24766355140187,
+              "max": 233.7
+            }
+          }
+        },
+        "train.checkpoint": {
+          "1": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          },
+          "2": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          }
+        },
+        "train.clear_batches": {
+          "1": {
+            "aicore": {
+              "samples": 1,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 1,
+              "mean": 48721.0,
+              "max": 48721.0
+            },
+            "power_w": {
+              "samples": 1,
+              "mean": 109.7,
+              "max": 109.7
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 1,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 1,
+              "mean": 28743.0,
+              "max": 28743.0
+            },
+            "power_w": {
+              "samples": 1,
+              "mean": 107.7,
+              "max": 107.7
+            }
+          }
+        },
+        "train.compute_advantage": {
+          "1": {
+            "aicore": {
+              "samples": 8,
+              "mean": 0.125,
+              "max": 1.0
+            },
+            "hbm_used_mb": {
+              "samples": 8,
+              "mean": 31544.125,
+              "max": 31565.0
+            },
+            "power_w": {
+              "samples": 8,
+              "mean": 122.5,
+              "max": 169.8
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 8,
+              "mean": 12.625,
+              "max": 14.0
+            },
+            "hbm_used_mb": {
+              "samples": 8,
+              "mean": 28941.125,
+              "max": 28983.0
+            },
+            "power_w": {
+              "samples": 8,
+              "mean": 121.5625,
+              "max": 125.1
+            }
+          }
+        },
+        "train.eval": {
+          "1": {
+            "aicore": {
+              "samples": 17,
+              "mean": 7.411764705882353,
+              "max": 12.0
+            },
+            "hbm_used_mb": {
+              "samples": 17,
+              "mean": 48892.529411764706,
+              "max": 48904.0
+            },
+            "power_w": {
+              "samples": 17,
+              "mean": 116.76470588235294,
+              "max": 122.5
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 17,
+              "mean": 7.588235294117647,
+              "max": 12.0
+            },
+            "hbm_used_mb": {
+              "samples": 17,
+              "mean": 28949.882352941175,
+              "max": 28961.0
+            },
+            "power_w": {
+              "samples": 17,
+              "mean": 115.13529411764706,
+              "max": 121.8
+            }
+          }
+        },
+        "train.log_stats": {
+          "1": {
+            "aicore": {
+              "samples": 1,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 1,
+              "mean": 48721.0,
+              "max": 48721.0
+            },
+            "power_w": {
+              "samples": 1,
+              "mean": 110.0,
+              "max": 110.0
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 1,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 1,
+              "mean": 28798.0,
+              "max": 28798.0
+            },
+            "power_w": {
+              "samples": 1,
+              "mean": 107.8,
+              "max": 107.8
+            }
+          }
+        },
+        "train.ppo_update": {
+          "1": {
+            "aicore": {
+              "samples": 34,
+              "mean": 53.794117647058826,
+              "max": 100.0
+            },
+            "hbm_used_mb": {
+              "samples": 34,
+              "mean": 40732.41176470588,
+              "max": 45446.0
+            },
+            "power_w": {
+              "samples": 34,
+              "mean": 214.86470588235295,
+              "max": 301.0
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 34,
+              "mean": 12.176470588235293,
+              "max": 14.0
+            },
+            "hbm_used_mb": {
+              "samples": 34,
+              "mean": 28938.235294117647,
+              "max": 29015.0
+            },
+            "power_w": {
+              "samples": 34,
+              "mean": 121.17058823529412,
+              "max": 127.8
+            }
+          }
+        },
+        "train.recompute_logp": {
+          "1": {
+            "aicore": {
+              "samples": 8,
+              "mean": 29.125,
+              "max": 76.0
+            },
+            "hbm_used_mb": {
+              "samples": 8,
+              "mean": 26409.625,
+              "max": 30347.0
+            },
+            "power_w": {
+              "samples": 8,
+              "mean": 170.075,
+              "max": 285.6
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 8,
+              "mean": 12.625,
+              "max": 13.0
+            },
+            "hbm_used_mb": {
+              "samples": 8,
+              "mean": 28926.0,
+              "max": 28954.0
+            },
+            "power_w": {
+              "samples": 8,
+              "mean": 119.925,
+              "max": 122.2
+            }
+          }
+        },
+        "train.rollout": {
+          "1": {
+            "aicore": {
+              "samples": 89,
+              "mean": 8.865168539325843,
+              "max": 12.0
+            },
+            "hbm_used_mb": {
+              "samples": 89,
+              "mean": 46273.2808988764,
+              "max": 48884.0
+            },
+            "power_w": {
+              "samples": 89,
+              "mean": 120.88426966292135,
+              "max": 168.6
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 89,
+              "mean": 11.640449438202246,
+              "max": 46.0
+            },
+            "hbm_used_mb": {
+              "samples": 89,
+              "mean": 28911.573033707864,
+              "max": 28983.0
+            },
+            "power_w": {
+              "samples": 89,
+              "mean": 122.70898876404495,
+              "max": 233.7
+            }
+          }
+        },
+        "train.rollout_onload": {
+          "1": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          },
+          "2": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          }
+        },
+        "train.save": {
+          "1": {
+            "aicore": {
+              "samples": 6,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 6,
+              "mean": 45445.166666666664,
+              "max": 45446.0
+            },
+            "power_w": {
+              "samples": 6,
+              "mean": 105.41666666666667,
+              "max": 112.7
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 6,
+              "mean": 12.166666666666666,
+              "max": 16.0
+            },
+            "hbm_used_mb": {
+              "samples": 6,
+              "mean": 28959.0,
+              "max": 28959.0
+            },
+            "power_w": {
+              "samples": 6,
+              "mean": 121.41666666666667,
+              "max": 125.4
+            }
+          }
+        },
+        "train.update_weights": {
+          "1": {
+            "aicore": {
+              "samples": 41,
+              "mean": 2.658536585365854,
+              "max": 72.0
+            },
+            "hbm_used_mb": {
+              "samples": 41,
+              "mean": 44207.34146341463,
+              "max": 49529.0
+            },
+            "power_w": {
+              "samples": 41,
+              "mean": 115.4390243902439,
+              "max": 211.0
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 41,
+              "mean": 7.7560975609756095,
+              "max": 14.0
+            },
+            "hbm_used_mb": {
+              "samples": 41,
+              "mean": 28891.048780487807,
+              "max": 29016.0
+            },
+            "power_w": {
+              "samples": 41,
+              "mean": 116.29512195121951,
+              "max": 124.3
+            }
+          }
+        }
+      },
+      "responses": {
+        "rollout": {
+          "count": 1108,
+          "generated_tokens": 287346,
+          "mean_reward": 0.7653429602888087,
+          "versions": {
+            "15->16": 15,
+            "15->15": 61,
+            "13->15": 6,
+            "13->16": 1,
+            "14->15": 24,
+            "14->16": 1,
+            "14->14": 23,
+            "13->14": 41,
+            "12->14": 2,
+            "12->13": 36,
+            "12->15": 1,
+            "13->13": 24,
+            "11->11": 15,
+            "11->12": 43,
+            "11->13": 2,
+            "12->12": 17,
+            "10->12": 5,
+            "10->11": 40,
+            "10->10": 19,
+            "9->11": 2,
+            "9->10": 35,
+            "9->9": 43,
+            "8->10": 3,
+            "8->9": 32,
+            "8->8": 13,
+            "7->9": 8,
+            "7->8": 30,
+            "7->7": 34,
+            "6->7": 53,
+            "6->6": 11,
+            "5->7": 3,
+            "5->6": 42,
+            "5->5": 11,
+            "4->5": 23,
+            "4->6": 3,
+            "4->4": 62,
+            "3->4": 32,
+            "3->5": 2,
+            "3->3": 22,
+            "2->4": 5,
+            "2->2": 40,
+            "2->3": 23,
+            "0->3": 1,
+            "0->2": 9,
+            "1->2": 26,
+            "0->1": 29,
+            "1->1": 26,
+            "0->0": 109
+          }
+        },
+        "eval-rollout": {
+          "count": 64,
+          "generated_tokens": 18867,
+          "mean_reward": 0.765625,
+          "versions": {
+            "16->16": 64
+          }
+        }
+      },
+      "generations_completed_during_ppo": 189,
+      "policy_counts": {
+        "initial_inference:resident": 1,
+        "train:release_kv": 16,
+        "inference:resident": 16
+      },
+      "dispatch_counts": {
+        "0": 60,
+        "1": 233
+      },
+      "busy_restored": true,
+      "note": "One run per arm. Sampled AI Core activity is not peak FLOPS efficiency. Generated tokens include completed asynchronous prefetch. Training batches can differ in completion order and random answers. Baseline uses XCCL; shared uses disk."
+    },
+    "shared_hybrid": {
+      "run": "/tmp/huawei/areal-runs/npu-share-hybrid03/shared",
+      "updates": 16,
+      "training_question_slots": 256,
+      "loop_seconds": 389.89360189437866,
+      "through_last_publish_seconds": 356.35928869247437,
+      "initialization_seconds": 325.25696849823,
+      "stage_seconds": {
+        "loop": 389.89360189437866,
+        "train.checkpoint": 0.0008249282836914062,
+        "train.clear_batches": 0.3216581344604492,
+        "train.compute_advantage": 12.731312036514282,
+        "train.eval": 33.44152212142944,
+        "train.log_stats": 9.989570140838623,
+        "train.ppo_update": 65.02268481254578,
+        "train.recompute_logp": 17.466323137283325,
+        "train.rollout": 159.6780984401703,
+        "train.save": 10.930646419525146,
+        "train.update_weights": 66.97829842567444
+      },
+      "borrowed_switch_seconds": 12.939708948135376,
+      "npu_seconds_loop": 779.7872037887573,
+      "metrics": {
+        "loop": {
+          "1": {
+            "aicore": {
+              "samples": 195,
+              "mean": 16.22051282051282,
+              "max": 100.0
+            },
+            "hbm_used_mb": {
+              "samples": 195,
+              "mean": 43450.45128205128,
+              "max": 49351.0
+            },
+            "power_w": {
+              "samples": 195,
+              "mean": 138.84512820512822,
+              "max": 303.3
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 195,
+              "mean": 11.835897435897436,
+              "max": 65.0
+            },
+            "hbm_used_mb": {
+              "samples": 195,
+              "mean": 29302.676923076924,
+              "max": 29561.0
+            },
+            "power_w": {
+              "samples": 195,
+              "mean": 121.56307692307692,
+              "max": 246.8
+            }
+          }
+        },
+        "train.checkpoint": {
+          "1": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          },
+          "2": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          }
+        },
+        "train.clear_batches": {
+          "1": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          },
+          "2": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          }
+        },
+        "train.compute_advantage": {
+          "1": {
+            "aicore": {
+              "samples": 6,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 6,
+              "mean": 29785.833333333332,
+              "max": 32003.0
+            },
+            "power_w": {
+              "samples": 6,
+              "mean": 118.6,
+              "max": 137.3
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 6,
+              "mean": 12.333333333333334,
+              "max": 13.0
+            },
+            "hbm_used_mb": {
+              "samples": 6,
+              "mean": 29289.166666666668,
+              "max": 29403.0
+            },
+            "power_w": {
+              "samples": 6,
+              "mean": 121.6,
+              "max": 124.9
+            }
+          }
+        },
+        "train.eval": {
+          "1": {
+            "aicore": {
+              "samples": 17,
+              "mean": 9.352941176470589,
+              "max": 24.0
+            },
+            "hbm_used_mb": {
+              "samples": 17,
+              "mean": 49349.35294117647,
+              "max": 49351.0
+            },
+            "power_w": {
+              "samples": 17,
+              "mean": 120.82941176470588,
+              "max": 176.5
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 17,
+              "mean": 10.117647058823529,
+              "max": 13.0
+            },
+            "hbm_used_mb": {
+              "samples": 17,
+              "mean": 29452.29411764706,
+              "max": 29461.0
+            },
+            "power_w": {
+              "samples": 17,
+              "mean": 118.45882352941176,
+              "max": 125.3
+            }
+          }
+        },
+        "train.log_stats": {
+          "1": {
+            "aicore": {
+              "samples": 2,
+              "mean": 18.0,
+              "max": 36.0
+            },
+            "hbm_used_mb": {
+              "samples": 2,
+              "mean": 47546.0,
+              "max": 49115.0
+            },
+            "power_w": {
+              "samples": 2,
+              "mean": 113.85,
+              "max": 114.9
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 2,
+              "mean": 12.0,
+              "max": 13.0
+            },
+            "hbm_used_mb": {
+              "samples": 2,
+              "mean": 29351.0,
+              "max": 29397.0
+            },
+            "power_w": {
+              "samples": 2,
+              "mean": 118.1,
+              "max": 118.3
+            }
+          }
+        },
+        "train.ppo_update": {
+          "1": {
+            "aicore": {
+              "samples": 32,
+              "mean": 57.59375,
+              "max": 100.0
+            },
+            "hbm_used_mb": {
+              "samples": 32,
+              "mean": 40810.78125,
+              "max": 45885.0
+            },
+            "power_w": {
+              "samples": 32,
+              "mean": 225.365625,
+              "max": 303.3
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 32,
+              "mean": 13.0625,
+              "max": 19.0
+            },
+            "hbm_used_mb": {
+              "samples": 32,
+              "mean": 29332.125,
+              "max": 29429.0
+            },
+            "power_w": {
+              "samples": 32,
+              "mean": 122.05,
+              "max": 130.8
+            }
+          }
+        },
+        "train.recompute_logp": {
+          "1": {
+            "aicore": {
+              "samples": 10,
+              "mean": 31.1,
+              "max": 82.0
+            },
+            "hbm_used_mb": {
+              "samples": 10,
+              "mean": 27867.3,
+              "max": 32461.0
+            },
+            "power_w": {
+              "samples": 10,
+              "mean": 171.85,
+              "max": 280.3
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 10,
+              "mean": 12.8,
+              "max": 14.0
+            },
+            "hbm_used_mb": {
+              "samples": 10,
+              "mean": 29313.1,
+              "max": 29397.0
+            },
+            "power_w": {
+              "samples": 10,
+              "mean": 120.87,
+              "max": 124.2
+            }
+          }
+        },
+        "train.rollout": {
+          "1": {
+            "aicore": {
+              "samples": 80,
+              "mean": 8.9875,
+              "max": 48.0
+            },
+            "hbm_used_mb": {
+              "samples": 80,
+              "mean": 46795.3875,
+              "max": 49323.0
+            },
+            "power_w": {
+              "samples": 80,
+              "mean": 119.35,
+              "max": 165.9
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 80,
+              "mean": 11.3375,
+              "max": 22.0
+            },
+            "hbm_used_mb": {
+              "samples": 80,
+              "mean": 29249.7875,
+              "max": 29403.0
+            },
+            "power_w": {
+              "samples": 80,
+              "mean": 119.44375,
+              "max": 137.8
+            }
+          }
+        },
+        "train.save": {
+          "1": {
+            "aicore": {
+              "samples": 6,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 6,
+              "mean": 45885.0,
+              "max": 45885.0
+            },
+            "power_w": {
+              "samples": 6,
+              "mean": 109.26666666666667,
+              "max": 135.8
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 6,
+              "mean": 13.666666666666666,
+              "max": 23.0
+            },
+            "hbm_used_mb": {
+              "samples": 6,
+              "mean": 29377.0,
+              "max": 29377.0
+            },
+            "power_w": {
+              "samples": 6,
+              "mean": 124.26666666666667,
+              "max": 141.6
+            }
+          }
+        },
+        "train.update_weights": {
+          "1": {
+            "aicore": {
+              "samples": 36,
+              "mean": 2.2222222222222223,
+              "max": 73.0
+            },
+            "hbm_used_mb": {
+              "samples": 36,
+              "mean": 41934.416666666664,
+              "max": 45885.0
+            },
+            "power_w": {
+              "samples": 36,
+              "mean": 117.84444444444445,
+              "max": 250.9
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 36,
+              "mean": 11.694444444444445,
+              "max": 65.0
+            },
+            "hbm_used_mb": {
+              "samples": 36,
+              "mean": 29299.055555555555,
+              "max": 29561.0
+            },
+            "power_w": {
+              "samples": 36,
+              "mean": 127.075,
+              "max": 246.8
+            }
+          }
+        }
+      },
+      "responses": {
+        "rollout": {
+          "count": 1136,
+          "generated_tokens": 279073,
+          "mean_reward": 0.7482394366197183,
+          "versions": {
+            "16->16": 12,
+            "15->16": 37,
+            "14->16": 8,
+            "14->15": 40,
+            "15->15": 43,
+            "14->14": 24,
+            "12->14": 4,
+            "12->15": 2,
+            "12->13": 47,
+            "13->14": 39,
+            "12->12": 5,
+            "13->13": 13,
+            "11->13": 2,
+            "11->12": 48,
+            "11->11": 20,
+            "10->11": 44,
+            "10->12": 1,
+            "10->10": 11,
+            "9->11": 6,
+            "9->10": 46,
+            "9->9": 40,
+            "8->9": 38,
+            "7->9": 11,
+            "8->8": 6,
+            "6->7": 41,
+            "6->9": 1,
+            "7->8": 30,
+            "6->8": 2,
+            "7->7": 27,
+            "6->6": 20,
+            "5->7": 3,
+            "5->6": 46,
+            "5->5": 23,
+            "3->4": 48,
+            "3->6": 1,
+            "4->5": 33,
+            "4->4": 27,
+            "3->5": 2,
+            "2->5": 1,
+            "2->4": 3,
+            "3->3": 17,
+            "2->3": 37,
+            "2->2": 23,
+            "0->1": 41,
+            "0->2": 4,
+            "0->3": 2,
+            "1->3": 1,
+            "1->2": 38,
+            "1->1": 29,
+            "0->0": 89
+          }
+        },
+        "eval-rollout": {
+          "count": 64,
+          "generated_tokens": 17616,
+          "mean_reward": 0.625,
+          "versions": {
+            "16->16": 64
+          }
+        }
+      },
+      "generations_completed_during_ppo": 185,
+      "policy_counts": {
+        "initial_inference:resident": 1,
+        "train:release_kv": 16,
+        "inference:resident": 16
+      },
+      "dispatch_counts": {
+        "0": 44,
+        "1": 256
+      },
+      "busy_restored": true,
+      "note": "One run per arm. Sampled AI Core activity is not peak FLOPS efficiency. Generated tokens include completed asynchronous prefetch. Training batches can differ in completion order and random answers. Baseline uses XCCL; shared uses disk.",
+      "through_last_shared_ready_seconds": 356.9891605377197
+    }
+  },
+  "publication": {
+    "fixed_ready_mean_seconds": 0.8928411155939102,
+    "shared_ready_lag_mean_seconds": 3.9602429419755936,
+    "shared_load_mean_seconds": 0.6738617309601977,
+    "fixed_generations_completed_while_shared_unready": 150,
+    "per_version": [
+      {
+        "version": 1,
+        "fixed_ready_seconds": 1.6057441234588623,
+        "shared_lag_seconds": 4.288508653640747,
+        "load_seconds": 0.9141873102635145
+      },
+      {
+        "version": 2,
+        "fixed_ready_seconds": 0.7192056179046631,
+        "shared_lag_seconds": 3.8865909576416016,
+        "load_seconds": 0.6316227409988642
+      },
+      {
+        "version": 3,
+        "fixed_ready_seconds": 0.6706595420837402,
+        "shared_lag_seconds": 3.9787063598632812,
+        "load_seconds": 0.6712809633463621
+      },
+      {
+        "version": 4,
+        "fixed_ready_seconds": 0.7982149124145508,
+        "shared_lag_seconds": 3.856657028198242,
+        "load_seconds": 0.643496798351407
+      },
+      {
+        "version": 5,
+        "fixed_ready_seconds": 0.6972100734710693,
+        "shared_lag_seconds": 4.227147579193115,
+        "load_seconds": 0.6787324845790863
+      },
+      {
+        "version": 6,
+        "fixed_ready_seconds": 0.7895605564117432,
+        "shared_lag_seconds": 4.406441688537598,
+        "load_seconds": 0.6780624128878117
+      },
+      {
+        "version": 7,
+        "fixed_ready_seconds": 1.372133731842041,
+        "shared_lag_seconds": 3.857546329498291,
+        "load_seconds": 0.6453835796564817
+      },
+      {
+        "version": 8,
+        "fixed_ready_seconds": 0.7304165363311768,
+        "shared_lag_seconds": 3.871389150619507,
+        "load_seconds": 0.6642066836357117
+      },
+      {
+        "version": 9,
+        "fixed_ready_seconds": 0.8378262519836426,
+        "shared_lag_seconds": 3.8716068267822266,
+        "load_seconds": 0.6520902067422867
+      },
+      {
+        "version": 10,
+        "fixed_ready_seconds": 0.6956212520599365,
+        "shared_lag_seconds": 3.91920804977417,
+        "load_seconds": 0.6731518134474754
+      },
+      {
+        "version": 11,
+        "fixed_ready_seconds": 0.7954130172729492,
+        "shared_lag_seconds": 3.8858656883239746,
+        "load_seconds": 0.6714936774224043
+      },
+      {
+        "version": 12,
+        "fixed_ready_seconds": 0.7835443019866943,
+        "shared_lag_seconds": 3.907191514968872,
+        "load_seconds": 0.676025902852416
+      },
+      {
+        "version": 13,
+        "fixed_ready_seconds": 1.3109524250030518,
+        "shared_lag_seconds": 3.8576626777648926,
+        "load_seconds": 0.6654541753232479
+      },
+      {
+        "version": 14,
+        "fixed_ready_seconds": 0.7787811756134033,
+        "shared_lag_seconds": 3.8524279594421387,
+        "load_seconds": 0.6414206549525261
+      },
+      {
+        "version": 15,
+        "fixed_ready_seconds": 0.7428748607635498,
+        "shared_lag_seconds": 3.8513171672821045,
+        "load_seconds": 0.6392455026507378
+      },
+      {
+        "version": 16,
+        "fixed_ready_seconds": 0.9572994709014893,
+        "shared_lag_seconds": 3.8456194400787354,
+        "load_seconds": 0.6359327882528305
+      }
+    ]
+  }
+}

@@ -1,0 +1,50 @@
+[
+  {
+    "run": "fixed16",
+    "init": 315.18578910827637,
+    "loop": 94.23913979530334,
+    "close_seconds": 13.311573028564453,
+    "train_through_close": 107.5507128238678,
+    "output_tokens": 44406,
+    "consumed_answers": 192,
+    "reward_mean": 0.75,
+    "terminal_publication_skipped": 0,
+    "unique_consumed_prompts": 45,
+    "concurrency": 16,
+    "shared": false,
+    "save_seconds": 12.353441953659058,
+    "training_done": 79.24042820930481
+  },
+  {
+    "run": "shared16",
+    "init": 326.6950755119324,
+    "loop": 104.06862211227417,
+    "close_seconds": 17.446221113204956,
+    "train_through_close": 121.51484322547913,
+    "output_tokens": 46650,
+    "consumed_answers": 192,
+    "reward_mean": 0.703125,
+    "terminal_publication_skipped": 1,
+    "unique_consumed_prompts": 46,
+    "concurrency": 16,
+    "shared": true,
+    "save_seconds": 13.356231927871704,
+    "training_done": 90.186763048172
+  },
+  {
+    "run": "shared16",
+    "init": 319.7788667678833,
+    "loop": 101.26252675056458,
+    "close_seconds": 16.872663974761963,
+    "train_through_close": 118.13519072532654,
+    "output_tokens": 46616,
+    "consumed_answers": 192,
+    "reward_mean": 0.734375,
+    "terminal_publication_skipped": 1,
+    "unique_consumed_prompts": 45,
+    "concurrency": 16,
+    "shared": true,
+    "save_seconds": 12.143856763839722,
+    "training_done": 88.72941374778748
+  }
+]

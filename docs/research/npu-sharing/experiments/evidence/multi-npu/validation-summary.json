@@ -1,0 +1,26 @@
+{
+  "requests": 192,
+  "loop_seconds": 79.50983595848083,
+  "shared_ppo_overlap": [
+    {
+      "1": {
+        "windows": 44,
+        "intersection_seconds": 2.5797057151794434
+      },
+      "2": {
+        "windows": 44,
+        "intersection_seconds": 2.5834126472473145
+      }
+    },
+    {
+      "1": {
+        "windows": 0,
+        "intersection_seconds": 0
+      },
+      "2": {
+        "windows": 0,
+        "intersection_seconds": 0
+      }
+    }
+  ]
+}

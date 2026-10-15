@@ -1,0 +1,38 @@
+{
+  "status": "passed",
+  "train_questions": 4,
+  "eval_questions": 2,
+  "responses_per_question": 4,
+  "optimizer_steps": 2,
+  "optimizer_continuity": true,
+  "grad_norms": [
+    3.521930245319045,
+    2.889215899160686
+  ],
+  "versions": {
+    "rollout": {
+      "counts": {
+        "1->1": 8,
+        "0->0": 8
+      },
+      "mean_reward": {
+        "1->1": 0.75,
+        "0->0": 0.25
+      }
+    },
+    "eval-rollout": {
+      "counts": {
+        "2->2": 8
+      },
+      "mean_reward": {
+        "2->2": 0.875
+      }
+    }
+  },
+  "initialize_seconds": 258.3319547176361,
+  "train_loop_seconds": 90.7452940940857,
+  "eval_seconds": 12.639594793319702,
+  "sampled_peak_hbm_mib": 52112,
+  "busy_restored": true,
+  "image": "areal-timeshare:ascend-v0.26-a2-dev1"
+}

@@ -1,0 +1,605 @@
+{
+  "fixed": {
+    "run": "fixed",
+    "loop": 83.95870232582092,
+    "init": 279.8247094154358,
+    "close_seconds": 12.440768480300903,
+    "output_tokens": 46422,
+    "consumed_answers": 192,
+    "consumed_questions": 48,
+    "batches": [
+      {
+        "batch": 1,
+        "ready": 24.527631998062134,
+        "compute_begin": 24.52779746055603,
+        "post_answer_wait": 0.00016546249389648438,
+        "tokens": 14017,
+        "tasks": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          13,
+          14,
+          15,
+          16
+        ],
+        "same_task_set_as_overlap": false
+      },
+      {
+        "batch": 2,
+        "ready": 47.25334191322327,
+        "compute_begin": 47.25349307060242,
+        "post_answer_wait": 0.00015115737915039062,
+        "tokens": 14889,
+        "tasks": [
+          12,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          32,
+          36
+        ],
+        "same_task_set_as_overlap": false
+      },
+      {
+        "batch": 3,
+        "ready": 66.4742259979248,
+        "compute_begin": 66.47437691688538,
+        "post_answer_wait": 0.00015091896057128906,
+        "tokens": 17516,
+        "tasks": [
+          23,
+          31,
+          33,
+          34,
+          35,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47
+        ],
+        "same_task_set_as_overlap": false
+      }
+    ],
+    "train": [
+      {
+        "name": "rollout",
+        "start": 0.013252019882202148,
+        "end": 24.527608156204224,
+        "batch": 1
+      },
+      {
+        "name": "recompute_logp",
+        "start": 24.52797508239746,
+        "end": 26.391010999679565,
+        "batch": 1
+      },
+      {
+        "name": "compute_advantage",
+        "start": 26.391088008880615,
+        "end": 27.252037048339844,
+        "batch": 1
+      },
+      {
+        "name": "ppo_update",
+        "start": 27.252119064331055,
+        "end": 32.010372161865234,
+        "batch": 1
+      },
+      {
+        "name": "save",
+        "start": 32.010454177856445,
+        "end": 32.01055097579956,
+        "batch": 1
+      },
+      {
+        "name": "checkpoint",
+        "start": 32.010591983795166,
+        "end": 32.01063108444214,
+        "batch": 1
+      },
+      {
+        "name": "update_weights",
+        "start": 32.013286113739014,
+        "end": 35.5166380405426,
+        "batch": 1
+      },
+      {
+        "name": "eval",
+        "start": 35.516826152801514,
+        "end": 35.51697897911072,
+        "batch": 1
+      },
+      {
+        "name": "clear_batches",
+        "start": 35.51701903343201,
+        "end": 35.53555107116699,
+        "batch": 1
+      },
+      {
+        "name": "log_stats",
+        "start": 35.535593032836914,
+        "end": 35.68588209152222,
+        "batch": 1
+      },
+      {
+        "name": "rollout",
+        "start": 35.701910972595215,
+        "end": 47.2533221244812,
+        "batch": 2
+      },
+      {
+        "name": "recompute_logp",
+        "start": 47.25365400314331,
+        "end": 48.443355083465576,
+        "batch": 2
+      },
+      {
+        "name": "compute_advantage",
+        "start": 48.44341206550598,
+        "end": 49.131779193878174,
+        "batch": 2
+      },
+      {
+        "name": "ppo_update",
+        "start": 49.13184213638306,
+        "end": 52.82366609573364,
+        "batch": 2
+      },
+      {
+        "name": "save",
+        "start": 52.823726177215576,
+        "end": 52.823798179626465,
+        "batch": 2
+      },
+      {
+        "name": "checkpoint",
+        "start": 52.823827028274536,
+        "end": 52.82386612892151,
+        "batch": 2
+      },
+      {
+        "name": "update_weights",
+        "start": 52.82648706436157,
+        "end": 55.17493915557861,
+        "batch": 2
+      },
+      {
+        "name": "eval",
+        "start": 55.17547416687012,
+        "end": 55.17562699317932,
+        "batch": 2
+      },
+      {
+        "name": "clear_batches",
+        "start": 55.17566418647766,
+        "end": 55.194637060165405,
+        "batch": 2
+      },
+      {
+        "name": "log_stats",
+        "start": 55.194677114486694,
+        "end": 55.335071086883545,
+        "batch": 2
+      },
+      {
+        "name": "rollout",
+        "start": 55.350372076034546,
+        "end": 66.47420811653137,
+        "batch": 3
+      },
+      {
+        "name": "recompute_logp",
+        "start": 66.474534034729,
+        "end": 67.60389018058777,
+        "batch": 3
+      },
+      {
+        "name": "compute_advantage",
+        "start": 67.60394597053528,
+        "end": 68.41775417327881,
+        "batch": 3
+      },
+      {
+        "name": "ppo_update",
+        "start": 68.41781497001648,
+        "end": 72.45427417755127,
+        "batch": 3
+      },
+      {
+        "name": "save",
+        "start": 72.45432996749878,
+        "end": 83.5822241306305,
+        "batch": 3
+      },
+      {
+        "name": "checkpoint",
+        "start": 83.58229398727417,
+        "end": 83.58234119415283,
+        "batch": 3
+      },
+      {
+        "name": "update_weights",
+        "start": 83.58532810211182,
+        "end": 83.87968897819519,
+        "batch": 3
+      },
+      {
+        "name": "eval",
+        "start": 83.88020515441895,
+        "end": 83.88035607337952,
+        "batch": 3
+      },
+      {
+        "name": "clear_batches",
+        "start": 83.88039207458496,
+        "end": 83.89831399917603,
+        "batch": 3
+      },
+      {
+        "name": "log_stats",
+        "start": 83.89835500717163,
+        "end": 83.94562602043152,
+        "batch": 3
+      }
+    ],
+    "terminal_publications_skipped": 1,
+    "device_windows": 1126,
+    "settings": {
+      "npu_share": false,
+      "concurrency": 16,
+      "device_trace": true
+    },
+    "base": 1791568114.8466356
+  },
+  "overlap": {
+    "run": "overlap",
+    "loop": 83.14123964309692,
+    "init": 318.05589723587036,
+    "close_seconds": 15.542424440383911,
+    "output_tokens": 44754,
+    "consumed_answers": 192,
+    "consumed_questions": 48,
+    "batches": [
+      {
+        "batch": 1,
+        "ready": 25.353578567504883,
+        "compute_begin": 25.35418176651001,
+        "post_answer_wait": 0.0006031990051269531,
+        "tokens": 12477,
+        "tasks": [
+          1,
+          2,
+          3,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ],
+        "prefetch_begin": 20.405532121658325,
+        "prefetch_ready": 21.593637704849243,
+        "prefetch_hidden": 1.188105583190918,
+        "prefetch_exposed": 0
+      },
+      {
+        "batch": 2,
+        "ready": 47.21579384803772,
+        "compute_begin": 47.21637511253357,
+        "post_answer_wait": 0.0005812644958496094,
+        "tokens": 16018,
+        "tasks": [
+          0,
+          4,
+          12,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          27,
+          28,
+          29,
+          32,
+          33,
+          37
+        ],
+        "prefetch_begin": 41.249977827072144,
+        "prefetch_ready": 42.385841846466064,
+        "prefetch_hidden": 1.135864019393921,
+        "prefetch_exposed": 0
+      },
+      {
+        "batch": 3,
+        "ready": 64.68903517723083,
+        "compute_begin": 64.68965339660645,
+        "post_answer_wait": 0.0006182193756103516,
+        "tokens": 16259,
+        "tasks": [
+          26,
+          30,
+          31,
+          34,
+          35,
+          36,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47
+        ],
+        "prefetch_begin": 58.42020845413208,
+        "prefetch_ready": 59.456761837005615,
+        "prefetch_hidden": 1.0365533828735352,
+        "prefetch_exposed": 0
+      }
+    ],
+    "train": [
+      {
+        "name": "rollout",
+        "start": 0.014946937561035156,
+        "end": 25.353555917739868,
+        "batch": 1
+      },
+      {
+        "name": "recompute_logp",
+        "start": 25.354365825653076,
+        "end": 27.211086750030518,
+        "batch": 1
+      },
+      {
+        "name": "compute_advantage",
+        "start": 27.211163759231567,
+        "end": 28.05511975288391,
+        "batch": 1
+      },
+      {
+        "name": "ppo_update",
+        "start": 28.055208921432495,
+        "end": 32.933247804641724,
+        "batch": 1
+      },
+      {
+        "name": "save",
+        "start": 32.9333279132843,
+        "end": 32.9334237575531,
+        "batch": 1
+      },
+      {
+        "name": "checkpoint",
+        "start": 32.933464765548706,
+        "end": 32.933512926101685,
+        "batch": 1
+      },
+      {
+        "name": "update_weights",
+        "start": 32.93997287750244,
+        "end": 35.00654578208923,
+        "batch": 1
+      },
+      {
+        "name": "shared_memory_switch",
+        "start": 36.171260833740234,
+        "end": 37.53064775466919,
+        "batch": 0
+      },
+      {
+        "name": "background_publication",
+        "start": 35.007638931274414,
+        "end": 39.138147830963135,
+        "batch": 1
+      },
+      {
+        "name": "eval",
+        "start": 39.13869881629944,
+        "end": 39.13888883590698,
+        "batch": 1
+      },
+      {
+        "name": "clear_batches",
+        "start": 39.13897490501404,
+        "end": 39.16152787208557,
+        "batch": 1
+      },
+      {
+        "name": "log_stats",
+        "start": 39.16159272193909,
+        "end": 39.25282287597656,
+        "batch": 1
+      },
+      {
+        "name": "rollout",
+        "start": 35.01064872741699,
+        "end": 47.21577191352844,
+        "batch": 2
+      },
+      {
+        "name": "wait_previous_tail",
+        "start": 47.21593976020813,
+        "end": 47.215948820114136,
+        "batch": 0
+      },
+      {
+        "name": "recompute_logp",
+        "start": 47.216524839401245,
+        "end": 48.41557192802429,
+        "batch": 2
+      },
+      {
+        "name": "compute_advantage",
+        "start": 48.41563892364502,
+        "end": 49.35362982749939,
+        "batch": 2
+      },
+      {
+        "name": "ppo_update",
+        "start": 49.35370588302612,
+        "end": 53.00898480415344,
+        "batch": 2
+      },
+      {
+        "name": "save",
+        "start": 53.00905895233154,
+        "end": 53.0091347694397,
+        "batch": 2
+      },
+      {
+        "name": "checkpoint",
+        "start": 53.00916385650635,
+        "end": 53.00921082496643,
+        "batch": 2
+      },
+      {
+        "name": "update_weights",
+        "start": 53.01466774940491,
+        "end": 54.005228757858276,
+        "batch": 2
+      },
+      {
+        "name": "shared_memory_switch",
+        "start": 55.529727935791016,
+        "end": 56.799235820770264,
+        "batch": 0
+      },
+      {
+        "name": "background_publication",
+        "start": 54.036980867385864,
+        "end": 58.32348990440369,
+        "batch": 2
+      },
+      {
+        "name": "eval",
+        "start": 58.3243408203125,
+        "end": 58.32485795021057,
+        "batch": 2
+      },
+      {
+        "name": "clear_batches",
+        "start": 58.32492280006409,
+        "end": 58.34728789329529,
+        "batch": 2
+      },
+      {
+        "name": "log_stats",
+        "start": 58.34733772277832,
+        "end": 58.401750802993774,
+        "batch": 2
+      },
+      {
+        "name": "rollout",
+        "start": 54.039827823638916,
+        "end": 64.68901371955872,
+        "batch": 3
+      },
+      {
+        "name": "wait_previous_tail",
+        "start": 64.68918180465698,
+        "end": 64.68918776512146,
+        "batch": 0
+      },
+      {
+        "name": "recompute_logp",
+        "start": 64.68981790542603,
+        "end": 65.87923288345337,
+        "batch": 3
+      },
+      {
+        "name": "compute_advantage",
+        "start": 65.87928676605225,
+        "end": 66.66808772087097,
+        "batch": 3
+      },
+      {
+        "name": "ppo_update",
+        "start": 66.66815686225891,
+        "end": 70.32929491996765,
+        "batch": 3
+      },
+      {
+        "name": "save",
+        "start": 70.32935786247253,
+        "end": 82.76336479187012,
+        "batch": 3
+      },
+      {
+        "name": "checkpoint",
+        "start": 82.76349377632141,
+        "end": 82.76358389854431,
+        "batch": 3
+      },
+      {
+        "name": "update_weights",
+        "start": 82.76750874519348,
+        "end": 83.04978585243225,
+        "batch": 3
+      },
+      {
+        "name": "eval",
+        "start": 83.05049681663513,
+        "end": 83.05066776275635,
+        "batch": 3
+      },
+      {
+        "name": "clear_batches",
+        "start": 83.05070972442627,
+        "end": 83.07145190238953,
+        "batch": 3
+      },
+      {
+        "name": "log_stats",
+        "start": 83.07150387763977,
+        "end": 83.12441372871399,
+        "batch": 3
+      }
+    ],
+    "terminal_publications_skipped": 1,
+    "device_windows": 1554,
+    "settings": {
+      "npu_share": true,
+      "concurrency": 16,
+      "device_trace": true
+    },
+    "base": 1791568617.0000496
+  }
+}

@@ -1,0 +1,32 @@
+[
+  {
+    "name": "inference-fixed-output-summary.json",
+    "source": "C:\\Users\\h00866744\\Documents\\Codex\\2026-09-24\\l\\outputs\\inference118\\summary.json",
+    "sha256": "5fa7b9f549579e560a18e46f2a8f2bc4f5dd7cfbc182feb1325a7eacc768ab9f"
+  },
+  {
+    "name": "independent-reader-comparison.json",
+    "source": "C:\\Users\\h00866744\\Documents\\Codex\\2026-09-24\\l\\outputs\\npu-share-hybrid\\independent-reader01\\comparison.json",
+    "sha256": "a84f2daeb9bbfa346ff2e0850147acff7c872b5d60bcbfffbbcbae55ca48967d"
+  },
+  {
+    "name": "independent-reader-publication.json",
+    "source": "C:\\Users\\h00866744\\Documents\\Codex\\2026-09-24\\l\\outputs\\npu-share-hybrid\\independent-reader01\\publication-comparison.json",
+    "sha256": "e309040be2e8c944022d934eaf72ab5372c88f61f6d631104f66436f45ffd89c"
+  },
+  {
+    "name": "sibling-diagnosis.json",
+    "source": "C:\\Users\\h00866744\\Documents\\Codex\\2026-09-24\\l\\outputs\\refined-drain01\\sibling-diagnosis.json",
+    "sha256": "f206d4ae4e43650719ab8f7afbe36796e50dc8c72002d3d76ea96eab47850c5d"
+  },
+  {
+    "name": "pressure-memory-timeline.json",
+    "source": "C:\\Users\\h00866744\\Documents\\Codex\\2026-09-24\\l\\outputs\\npu-share-hybrid\\pressure-memory02-comparison\\timeline-data.json",
+    "sha256": "6386ee6a66647b3835ef5d23a7ed4c49a8389408f7b2afeb431deeac9e8db24b"
+  },
+  {
+    "name": "withdraw-one-timeline.json",
+    "source": "C:\\Users\\h00866744\\Documents\\Codex\\2026-09-24\\l\\outputs\\npu-share-hybrid\\withdraw-one01-comparison\\timeline-data.json",
+    "sha256": "0c811a6816e5bae9fcb6a72d96f5dd458c2343f9459d7cd143aa2fd088df8347"
+  }
+]

@@ -1,0 +1,65 @@
+[
+  {
+    "batch": 1,
+    "input_sha256": "377b8f0d94bb2f4970abf97efffec538b4ed210b14f69d9464bb29ad01542812",
+    "microbatches": 5,
+    "tokens": 17795,
+    "question_groups": 16,
+    "answers": 64,
+    "fixed_seconds": 4.394210983067751,
+    "shared_seconds": 4.8941297475248575,
+    "difference_seconds": 0.4999187644571066,
+    "fixed_components": {
+      "fsdp_engine.forward": 0.78103,
+      "fsdp_engine.backward": 2.197759,
+      "fsdp_engine.step": 0.783235
+    },
+    "shared_components": {
+      "fsdp_engine.forward": 0.781131,
+      "fsdp_engine.backward": 2.173187,
+      "fsdp_engine.step": 1.244392
+    }
+  },
+  {
+    "batch": 2,
+    "input_sha256": "fa7c5c4b75279348b249168c584f1ae9022d47b7742a4a6f280f9f409c7f5c04",
+    "microbatches": 6,
+    "tokens": 23204,
+    "question_groups": 16,
+    "answers": 64,
+    "fixed_seconds": 3.4725424870848656,
+    "shared_seconds": 3.7259326335042715,
+    "difference_seconds": 0.25339014641940594,
+    "fixed_components": {
+      "fsdp_engine.forward": 0.931968,
+      "fsdp_engine.backward": 1.966345,
+      "fsdp_engine.step": 0.024452
+    },
+    "shared_components": {
+      "fsdp_engine.forward": 0.933724,
+      "fsdp_engine.backward": 2.215303,
+      "fsdp_engine.step": 0.024398
+    }
+  },
+  {
+    "batch": 3,
+    "input_sha256": "3abc2e7035ae83b3cc80aea01c15c1019169d4213943ff5c24c33b64df4513cc",
+    "microbatches": 6,
+    "tokens": 21963,
+    "question_groups": 16,
+    "answers": 64,
+    "fixed_seconds": 3.4075347874313593,
+    "shared_seconds": 3.6622764077037573,
+    "difference_seconds": 0.254741620272398,
+    "fixed_components": {
+      "fsdp_engine.forward": 1.014493,
+      "fsdp_engine.backward": 1.894097,
+      "fsdp_engine.step": 0.028502
+    },
+    "shared_components": {
+      "fsdp_engine.forward": 0.915777,
+      "fsdp_engine.backward": 2.173201,
+      "fsdp_engine.step": 0.02381
+    }
+  }
+]

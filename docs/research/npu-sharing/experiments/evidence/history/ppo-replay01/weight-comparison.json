@@ -1,0 +1,24 @@
+[
+  {
+    "a": "capture",
+    "b": "fixed",
+    "total_elements": 1777088000,
+    "changed_elements": 4710574,
+    "changed_fraction": 0.0026507263568264485,
+    "max_abs_difference": 1.52587890625e-05,
+    "mean_abs_difference": 7.214254423638134e-09,
+    "rms_difference": 2.0669485365375618e-07,
+    "changed_tensors": 241
+  },
+  {
+    "a": "fixed",
+    "b": "shared",
+    "total_elements": 1777088000,
+    "changed_elements": 5200312,
+    "changed_fraction": 0.0029263109086325495,
+    "max_abs_difference": 1.52587890625e-05,
+    "mean_abs_difference": 8.161495709472636e-09,
+    "rms_difference": 2.1977467488631717e-07,
+    "changed_tensors": 235
+  }
+]

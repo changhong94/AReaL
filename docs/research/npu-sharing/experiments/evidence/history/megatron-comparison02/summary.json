@@ -1,0 +1,61 @@
+{
+  "settings": {
+    "engine": "megatron",
+    "rl": "math",
+    "concurrency": 16,
+    "timezone": "America/Vancouver"
+  },
+  "questions": 96,
+  "answers": 576,
+  "batches": 6,
+  "loop_seconds": {
+    "fixed": 159.02403736114502,
+    "latest": 147.96437001228333
+  },
+  "reduction_percent": 6.954714225840641,
+  "token_audit": {
+    "fixed": {
+      "reconstructed": 138800,
+      "reported": 138799,
+      "segment_differences": {
+        "generate-tokens-f7de53d4e99541b2a400cfd512bfabe4-937a6354": 1
+      }
+    },
+    "latest": {
+      "reconstructed": 137648,
+      "reported": 137648,
+      "segment_differences": {}
+    }
+  },
+  "utilization_sample_means": {
+    "fixed": {
+      "1_aicore": 18.569620253164558,
+      "1_hbm_used_pct": 61.67343719096123,
+      "2_aicore": 11.810126582278482,
+      "2_hbm_used_pct": 44.01865126211432
+    },
+    "latest": {
+      "1_aicore": 31.35135135135135,
+      "1_hbm_used_pct": 62.3492060480891,
+      "2_aicore": 11.18918918918919,
+      "2_hbm_used_pct": 12.926524394267314
+    }
+  },
+  "figures": [
+    "figures/2026-10-15_phases/overview.png",
+    "figures/2026-10-15_requests/fixed_001.png",
+    "figures/2026-10-15_requests/fixed_002.png",
+    "figures/2026-10-15_requests/fixed_003.png",
+    "figures/2026-10-15_requests/fixed_004.png",
+    "figures/2026-10-15_requests/fixed_005.png",
+    "figures/2026-10-15_requests/fixed_006.png",
+    "figures/2026-10-15_requests/latest_001.png",
+    "figures/2026-10-15_requests/latest_002.png",
+    "figures/2026-10-15_requests/latest_003.png",
+    "figures/2026-10-15_requests/latest_004.png",
+    "figures/2026-10-15_requests/latest_005.png",
+    "figures/2026-10-15_requests/latest_006.png",
+    "figures/2026-10-15_utilization/overview.png",
+    "figures/2026-10-15_tokens/overview.png"
+  ]
+}

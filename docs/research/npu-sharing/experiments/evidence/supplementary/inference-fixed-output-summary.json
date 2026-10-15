@@ -1,0 +1,185 @@
+{
+  "status": "complete",
+  "groups": [
+    {
+      "concurrency_total": 16,
+      "1": {
+        "repeats": 2,
+        "elapsed_each_s": [
+          101.18939330801368,
+          101.85021324083209
+        ],
+        "elapsed_mean_s": 101.51980327442288,
+        "output_tokens_per_second_mean": 322.77788221427267,
+        "request_p50_mean_s": 12.551251821685582,
+        "request_p95_mean_s": 13.501132586039603,
+        "card_seconds_mean": 101.51980327442288,
+        "npu_sample_count": 98,
+        "aicore_mean_by_device": {
+          "2": 10.714285714285714
+        },
+        "request_latency_mean_by_port": {
+          "18200": 12.688541464340233
+        }
+      },
+      "2": {
+        "repeats": 2,
+        "elapsed_each_s": [
+          126.91597895696759,
+          128.92567940428853
+        ],
+        "elapsed_mean_s": 127.92082918062806,
+        "output_tokens_per_second_mean": 256.1742468609972,
+        "request_p50_mean_s": 15.064167770091444,
+        "request_p95_mean_s": 17.581165158189833,
+        "card_seconds_mean": 255.84165836125612,
+        "npu_sample_count": 124,
+        "aicore_mean_by_device": {
+          "2": 6.451612903225806,
+          "3": 8.193548387096774
+        },
+        "request_latency_mean_by_port": {
+          "18200": 17.440435782962595,
+          "18201": 12.609238064047531
+        }
+      },
+      "speed_ratio": 0.7936143310255898,
+      "card_seconds_ratio": 2.5201157814468838
+    },
+    {
+      "concurrency_total": 32,
+      "1": {
+        "repeats": 2,
+        "elapsed_each_s": [
+          52.51297059841454,
+          56.40498615987599
+        ],
+        "elapsed_mean_s": 54.458978379145265,
+        "output_tokens_per_second_mean": 602.4698825078922,
+        "request_p50_mean_s": 13.591714417096227,
+        "request_p95_mean_s": 13.836112490855157,
+        "card_seconds_mean": 54.458978379145265,
+        "npu_sample_count": 53,
+        "aicore_mean_by_device": {
+          "2": 13.981132075471699
+        },
+        "request_latency_mean_by_port": {
+          "18200": 13.604171315899293
+        }
+      },
+      "2": {
+        "repeats": 2,
+        "elapsed_each_s": [
+          52.2167983520776,
+          52.2842967286706
+        ],
+        "elapsed_mean_s": 52.2505475403741,
+        "output_tokens_per_second_mean": 627.1324457512444,
+        "request_p50_mean_s": 12.824758464470506,
+        "request_p95_mean_s": 13.349697663448751,
+        "card_seconds_mean": 104.5010950807482,
+        "npu_sample_count": 51,
+        "aicore_mean_by_device": {
+          "2": 10.764705882352942,
+          "3": 10.333333333333334
+        },
+        "request_latency_mean_by_port": {
+          "18200": 12.588044863048708,
+          "18201": 13.076295578895952
+        }
+      },
+      "speed_ratio": 1.0422661760063798,
+      "card_seconds_ratio": 1.9188956199877276
+    },
+    {
+      "concurrency_total": 64,
+      "1": {
+        "repeats": 2,
+        "elapsed_each_s": [
+          39.95471864938736,
+          40.63962217234075
+        ],
+        "elapsed_mean_s": 40.297170410864055,
+        "output_tokens_per_second_mean": 813.2175609196712,
+        "request_p50_mean_s": 20.035541478544474,
+        "request_p95_mean_s": 20.30519487708807,
+        "card_seconds_mean": 40.297170410864055,
+        "npu_sample_count": 38,
+        "aicore_mean_by_device": {
+          "2": 12.763157894736842
+        },
+        "request_latency_mean_by_port": {
+          "18200": 20.084260234842077
+        }
+      },
+      "2": {
+        "repeats": 2,
+        "elapsed_each_s": [
+          27.98597113415599,
+          27.557252418249846
+        ],
+        "elapsed_mean_s": 27.771611776202917,
+        "output_tokens_per_second_mean": 1179.9802120931863,
+        "request_p50_mean_s": 13.425861994735897,
+        "request_p95_mean_s": 13.998786822892725,
+        "card_seconds_mean": 55.543223552405834,
+        "npu_sample_count": 26,
+        "aicore_mean_by_device": {
+          "2": 14.307692307692308,
+          "3": 14.115384615384615
+        },
+        "request_latency_mean_by_port": {
+          "18200": 12.975053671587375,
+          "18201": 13.894853294070344
+        }
+      },
+      "speed_ratio": 1.4510202265391778,
+      "card_seconds_ratio": 1.378340538208893
+    },
+    {
+      "concurrency_total": 128,
+      "1": {
+        "repeats": 2,
+        "elapsed_each_s": [
+          17.277495136484504,
+          17.581946101039648
+        ],
+        "elapsed_mean_s": 17.429720618762076,
+        "output_tokens_per_second_mean": 1880.150597573681,
+        "request_p50_mean_s": 17.197568092495203,
+        "request_p95_mean_s": 17.308969943784177,
+        "card_seconds_mean": 17.429720618762076,
+        "npu_sample_count": 17,
+        "aicore_mean_by_device": {
+          "2": 24.529411764705884
+        },
+        "request_latency_mean_by_port": {
+          "18200": 17.172194093072903
+        }
+      },
+      "2": {
+        "repeats": 2,
+        "elapsed_each_s": [
+          19.362869303673506,
+          19.4737596437335
+        ],
+        "elapsed_mean_s": 19.418314473703504,
+        "output_tokens_per_second_mean": 1687.4928663876271,
+        "request_p50_mean_s": 17.12496420321986,
+        "request_p95_mean_s": 19.307004609145224,
+        "card_seconds_mean": 38.83662894740701,
+        "npu_sample_count": 19,
+        "aicore_mean_by_device": {
+          "2": 14,
+          "3": 15.894736842105264
+        },
+        "request_latency_mean_by_port": {
+          "18200": 19.27769532443199,
+          "18201": 15.015818066385691
+        }
+      },
+      "speed_ratio": 0.8975918400315124,
+      "card_seconds_ratio": 2.228184249012095
+    }
+  ]
+}

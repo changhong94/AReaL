@@ -1,0 +1,766 @@
+{
+  "reviewed_head": "7eccfe95e1ca4140755f501ed3dff1e2be3e1c31",
+  "note": "Current reviewed files, not necessarily the historical measured source. Historical snapshots take precedence.",
+  "files": [
+    {
+      "research_id": "R002",
+      "path": "areal/trainer/rl_trainer.py",
+      "sha256": "b7ae54a610d691246f733b670146c6e7f9ca17de7b86beed51502d8e73e4323b"
+    },
+    {
+      "research_id": "R002",
+      "path": "areal/trainer/colocation_memory.py",
+      "sha256": "85de17bfac87decdb3af792a85610cec23d2222e762ab05449233c9dd674de3b"
+    },
+    {
+      "research_id": "R002",
+      "path": "areal/engine/vllm_ext/dynamic_kv.py",
+      "sha256": "db6cdb902efe549c95dd6f63e58e2294af372bf6df28cd96dd443b0089dd85c1"
+    },
+    {
+      "research_id": "R002",
+      "path": "areal/engine/vllm_ext/kv_slab_adapter.py",
+      "sha256": "ffbb46f7b0f7e904c6128f747a9c4fcecd84adb957f1ae43e7a3eada69f1bfed"
+    },
+    {
+      "research_id": "R002",
+      "path": "areal/trainer/rl_trainer.py",
+      "sha256": "b7ae54a610d691246f733b670146c6e7f9ca17de7b86beed51502d8e73e4323b"
+    },
+    {
+      "research_id": "R002",
+      "path": "areal/trainer/colocation_memory.py",
+      "sha256": "85de17bfac87decdb3af792a85610cec23d2222e762ab05449233c9dd674de3b"
+    },
+    {
+      "research_id": "R002",
+      "path": "areal/engine/vllm_ext/dynamic_kv.py",
+      "sha256": "db6cdb902efe549c95dd6f63e58e2294af372bf6df28cd96dd443b0089dd85c1"
+    },
+    {
+      "research_id": "R002",
+      "path": "areal/engine/vllm_ext/kv_slab_adapter.py",
+      "sha256": "ffbb46f7b0f7e904c6128f747a9c4fcecd84adb957f1ae43e7a3eada69f1bfed"
+    },
+    {
+      "research_id": "R003",
+      "path": "areal/trainer/rl_trainer.py",
+      "sha256": "b7ae54a610d691246f733b670146c6e7f9ca17de7b86beed51502d8e73e4323b"
+    },
+    {
+      "research_id": "R003",
+      "path": "areal/engine/fsdp_engine.py",
+      "sha256": "742dd8877d75f9388c847b745e1df74df3ff4446cd9bed2deb36793b516f1ed4"
+    },
+    {
+      "research_id": "R003",
+      "path": "areal/engine/weight_snapshot.py",
+      "sha256": "8481c049fcf7c9e8cd2c20eed529ef73b88a0829baaa2b3ed877139862f81b78"
+    },
+    {
+      "research_id": "R003",
+      "path": "areal/infra/controller/rollout_controller.py",
+      "sha256": "09ed7dc02dde6b75abdd09f9eacea6e5537a86e3c85b75185b6f9453de153bcd"
+    },
+    {
+      "research_id": "R003",
+      "path": "areal/trainer/rl_trainer.py",
+      "sha256": "b7ae54a610d691246f733b670146c6e7f9ca17de7b86beed51502d8e73e4323b"
+    },
+    {
+      "research_id": "R003",
+      "path": "areal/engine/fsdp_engine.py",
+      "sha256": "742dd8877d75f9388c847b745e1df74df3ff4446cd9bed2deb36793b516f1ed4"
+    },
+    {
+      "research_id": "R003",
+      "path": "areal/engine/weight_snapshot.py",
+      "sha256": "8481c049fcf7c9e8cd2c20eed529ef73b88a0829baaa2b3ed877139862f81b78"
+    },
+    {
+      "research_id": "R003",
+      "path": "areal/infra/controller/rollout_controller.py",
+      "sha256": "09ed7dc02dde6b75abdd09f9eacea6e5537a86e3c85b75185b6f9453de153bcd"
+    },
+    {
+      "research_id": "R004",
+      "path": "areal/infra/adaptive_drain.py",
+      "sha256": "394b43a62045933457c4a09e11181498a497c9aabb5d6c38e7a5f3aec70f84f2"
+    },
+    {
+      "research_id": "R004",
+      "path": "areal/infra/batch_drain.py",
+      "sha256": "a3656281d7cd115410643e5ecc0a3985012d19dc62b17b41af5aba9c74d08a82"
+    },
+    {
+      "research_id": "R004",
+      "path": "areal/infra/rolling_drain.py",
+      "sha256": "d9e8c4abd3318bfac559fa311418e6ba37d375303fbc81bbbe25ac47d69ee8e9"
+    },
+    {
+      "research_id": "R004",
+      "path": "areal/infra/drain_prediction.py",
+      "sha256": "1c6129dc2b90ba7fa790479b9397e4d050a61bf596d29ac7b09083ec6126472c"
+    },
+    {
+      "research_id": "R004",
+      "path": "areal/infra/controller/rollout_controller.py",
+      "sha256": "09ed7dc02dde6b75abdd09f9eacea6e5537a86e3c85b75185b6f9453de153bcd"
+    },
+    {
+      "research_id": "R004",
+      "path": "areal/infra/adaptive_drain.py",
+      "sha256": "394b43a62045933457c4a09e11181498a497c9aabb5d6c38e7a5f3aec70f84f2"
+    },
+    {
+      "research_id": "R004",
+      "path": "areal/infra/batch_drain.py",
+      "sha256": "a3656281d7cd115410643e5ecc0a3985012d19dc62b17b41af5aba9c74d08a82"
+    },
+    {
+      "research_id": "R004",
+      "path": "areal/infra/rolling_drain.py",
+      "sha256": "d9e8c4abd3318bfac559fa311418e6ba37d375303fbc81bbbe25ac47d69ee8e9"
+    },
+    {
+      "research_id": "R004",
+      "path": "areal/infra/drain_prediction.py",
+      "sha256": "1c6129dc2b90ba7fa790479b9397e4d050a61bf596d29ac7b09083ec6126472c"
+    },
+    {
+      "research_id": "R004",
+      "path": "areal/infra/controller/rollout_controller.py",
+      "sha256": "09ed7dc02dde6b75abdd09f9eacea6e5537a86e3c85b75185b6f9453de153bcd"
+    },
+    {
+      "research_id": "R005",
+      "path": "areal/infra/queue_rebalance.py",
+      "sha256": "695a2d0292256c5b9374f00869ce64d103416a14d3a40ca398d2f9dd9b643aa3"
+    },
+    {
+      "research_id": "R005",
+      "path": "areal/infra/request_router.py",
+      "sha256": "4e83ed494ebe4293393f24f6955f53841e4a1d3bd838f4df10a9784c7f579e70"
+    },
+    {
+      "research_id": "R005",
+      "path": "areal/engine/vllm_ext/queue_rebalance.py",
+      "sha256": "d13721b77d24b8e0ee19d97f0013413f87028b642173a344b856438ff53c972e"
+    },
+    {
+      "research_id": "R005",
+      "path": "areal/infra/controller/rollout_controller.py",
+      "sha256": "09ed7dc02dde6b75abdd09f9eacea6e5537a86e3c85b75185b6f9453de153bcd"
+    },
+    {
+      "research_id": "R005",
+      "path": "areal/infra/queue_rebalance.py",
+      "sha256": "695a2d0292256c5b9374f00869ce64d103416a14d3a40ca398d2f9dd9b643aa3"
+    },
+    {
+      "research_id": "R005",
+      "path": "areal/infra/request_router.py",
+      "sha256": "4e83ed494ebe4293393f24f6955f53841e4a1d3bd838f4df10a9784c7f579e70"
+    },
+    {
+      "research_id": "R005",
+      "path": "areal/engine/vllm_ext/queue_rebalance.py",
+      "sha256": "d13721b77d24b8e0ee19d97f0013413f87028b642173a344b856438ff53c972e"
+    },
+    {
+      "research_id": "R005",
+      "path": "areal/infra/controller/rollout_controller.py",
+      "sha256": "09ed7dc02dde6b75abdd09f9eacea6e5537a86e3c85b75185b6f9453de153bcd"
+    },
+    {
+      "research_id": "R006",
+      "path": "areal/engine/vllm_ext/kv_slab.py",
+      "sha256": "0d635c6eda7d83bcc19ac958d0fff8296188c0bcf558c579f0f3300049701b2a"
+    },
+    {
+      "research_id": "R006",
+      "path": "areal/engine/vllm_ext/kv_slab_adapter.py",
+      "sha256": "ffbb46f7b0f7e904c6128f747a9c4fcecd84adb957f1ae43e7a3eada69f1bfed"
+    },
+    {
+      "research_id": "R006",
+      "path": "areal/engine/vllm_ext/dynamic_kv.py",
+      "sha256": "db6cdb902efe549c95dd6f63e58e2294af372bf6df28cd96dd443b0089dd85c1"
+    },
+    {
+      "research_id": "R006",
+      "path": "areal/engine/vllm_ext/dynamic_kv_allocator.cpp",
+      "sha256": "6dd168e376d4783248d041be0560163c05f48c14107bcdab491895bf1334d661"
+    },
+    {
+      "research_id": "R006",
+      "path": "licenses/FineServe.txt",
+      "sha256": "4059fda76066849cef16946e1d30de2d0206faf96ffc6d89ada437dd568d30d4"
+    },
+    {
+      "research_id": "R006",
+      "path": "areal/engine/vllm_ext/kv_slab.py",
+      "sha256": "0d635c6eda7d83bcc19ac958d0fff8296188c0bcf558c579f0f3300049701b2a"
+    },
+    {
+      "research_id": "R006",
+      "path": "areal/engine/vllm_ext/kv_slab_adapter.py",
+      "sha256": "ffbb46f7b0f7e904c6128f747a9c4fcecd84adb957f1ae43e7a3eada69f1bfed"
+    },
+    {
+      "research_id": "R006",
+      "path": "areal/engine/vllm_ext/dynamic_kv.py",
+      "sha256": "db6cdb902efe549c95dd6f63e58e2294af372bf6df28cd96dd443b0089dd85c1"
+    },
+    {
+      "research_id": "R006",
+      "path": "areal/engine/vllm_ext/dynamic_kv_allocator.cpp",
+      "sha256": "6dd168e376d4783248d041be0560163c05f48c14107bcdab491895bf1334d661"
+    },
+    {
+      "research_id": "R006",
+      "path": "licenses/FineServe.txt",
+      "sha256": "4059fda76066849cef16946e1d30de2d0206faf96ffc6d89ada437dd568d30d4"
+    },
+    {
+      "research_id": "R007",
+      "path": "areal/trainer/rl_trainer.py",
+      "sha256": "b7ae54a610d691246f733b670146c6e7f9ca17de7b86beed51502d8e73e4323b"
+    },
+    {
+      "research_id": "R007",
+      "path": "areal/infra/borrowed_rollout.py",
+      "sha256": "5352b91357d8c141785af0419851c2d7c801231eea2a2ad2d924a3cf84954aa1"
+    },
+    {
+      "research_id": "R007",
+      "path": "areal/infra/controller/rollout_controller.py",
+      "sha256": "09ed7dc02dde6b75abdd09f9eacea6e5537a86e3c85b75185b6f9453de153bcd"
+    },
+    {
+      "research_id": "R007",
+      "path": "areal/api/cli_args.py",
+      "sha256": "aea7db76d7f6ece5a1666c51bf4e61a1044b8905c7018b389800e53f7d526e44"
+    },
+    {
+      "research_id": "R007",
+      "path": "areal/trainer/rl_trainer.py",
+      "sha256": "b7ae54a610d691246f733b670146c6e7f9ca17de7b86beed51502d8e73e4323b"
+    },
+    {
+      "research_id": "R007",
+      "path": "areal/infra/borrowed_rollout.py",
+      "sha256": "5352b91357d8c141785af0419851c2d7c801231eea2a2ad2d924a3cf84954aa1"
+    },
+    {
+      "research_id": "R007",
+      "path": "areal/infra/controller/rollout_controller.py",
+      "sha256": "09ed7dc02dde6b75abdd09f9eacea6e5537a86e3c85b75185b6f9453de153bcd"
+    },
+    {
+      "research_id": "R007",
+      "path": "areal/api/cli_args.py",
+      "sha256": "aea7db76d7f6ece5a1666c51bf4e61a1044b8905c7018b389800e53f7d526e44"
+    },
+    {
+      "research_id": "R008",
+      "path": "areal/engine/weight_snapshot.py",
+      "sha256": "8481c049fcf7c9e8cd2c20eed529ef73b88a0829baaa2b3ed877139862f81b78"
+    },
+    {
+      "research_id": "R008",
+      "path": "areal/engine/fsdp_engine.py",
+      "sha256": "742dd8877d75f9388c847b745e1df74df3ff4446cd9bed2deb36793b516f1ed4"
+    },
+    {
+      "research_id": "R008",
+      "path": "areal/engine/vllm_ext/vllm_worker_extension.py",
+      "sha256": "f6623051aeaa8bff431aaa6cd50529b1774a6a15f6e7a2404946718a6372f499"
+    },
+    {
+      "research_id": "R008",
+      "path": "areal/engine/weight_snapshot.py",
+      "sha256": "8481c049fcf7c9e8cd2c20eed529ef73b88a0829baaa2b3ed877139862f81b78"
+    },
+    {
+      "research_id": "R008",
+      "path": "areal/engine/fsdp_engine.py",
+      "sha256": "742dd8877d75f9388c847b745e1df74df3ff4446cd9bed2deb36793b516f1ed4"
+    },
+    {
+      "research_id": "R008",
+      "path": "areal/engine/vllm_ext/vllm_worker_extension.py",
+      "sha256": "f6623051aeaa8bff431aaa6cd50529b1774a6a15f6e7a2404946718a6372f499"
+    },
+    {
+      "research_id": "R009",
+      "path": "areal/engine/fsdp_engine.py",
+      "sha256": "742dd8877d75f9388c847b745e1df74df3ff4446cd9bed2deb36793b516f1ed4"
+    },
+    {
+      "research_id": "R009",
+      "path": "areal/engine/weight_snapshot.py",
+      "sha256": "8481c049fcf7c9e8cd2c20eed529ef73b88a0829baaa2b3ed877139862f81b78"
+    },
+    {
+      "research_id": "R009",
+      "path": "tests/test_fused_snapshot_publication.py",
+      "sha256": "280e1630c1602862247b40fc88295470fcff6787b6831d38238511978909a9d0"
+    },
+    {
+      "research_id": "R009",
+      "path": "areal/engine/fsdp_engine.py",
+      "sha256": "742dd8877d75f9388c847b745e1df74df3ff4446cd9bed2deb36793b516f1ed4"
+    },
+    {
+      "research_id": "R009",
+      "path": "areal/engine/weight_snapshot.py",
+      "sha256": "8481c049fcf7c9e8cd2c20eed529ef73b88a0829baaa2b3ed877139862f81b78"
+    },
+    {
+      "research_id": "R009",
+      "path": "tests/test_fused_snapshot_publication.py",
+      "sha256": "280e1630c1602862247b40fc88295470fcff6787b6831d38238511978909a9d0"
+    },
+    {
+      "research_id": "R010",
+      "path": "areal/trainer/rl_trainer.py",
+      "sha256": "b7ae54a610d691246f733b670146c6e7f9ca17de7b86beed51502d8e73e4323b"
+    },
+    {
+      "research_id": "R010",
+      "path": "areal/trainer/training_prefetch.py",
+      "sha256": "9e03efd3b11b10b52b0e03c84df6f95c90e1c8ae2b32e1b94c17473fd8b68fdd"
+    },
+    {
+      "research_id": "R010",
+      "path": "areal/trainer/rl_trainer.py",
+      "sha256": "b7ae54a610d691246f733b670146c6e7f9ca17de7b86beed51502d8e73e4323b"
+    },
+    {
+      "research_id": "R010",
+      "path": "areal/trainer/training_prefetch.py",
+      "sha256": "9e03efd3b11b10b52b0e03c84df6f95c90e1c8ae2b32e1b94c17473fd8b68fdd"
+    },
+    {
+      "research_id": "R011",
+      "path": "areal/trainer/rl_trainer.py",
+      "sha256": "b7ae54a610d691246f733b670146c6e7f9ca17de7b86beed51502d8e73e4323b"
+    },
+    {
+      "research_id": "R011",
+      "path": "areal/trainer/rl_trainer.py",
+      "sha256": "b7ae54a610d691246f733b670146c6e7f9ca17de7b86beed51502d8e73e4323b"
+    },
+    {
+      "research_id": "R012",
+      "path": "areal/infra/request_router.py",
+      "sha256": "4e83ed494ebe4293393f24f6955f53841e4a1d3bd838f4df10a9784c7f579e70"
+    },
+    {
+      "research_id": "R012",
+      "path": "areal/infra/borrowed_rollout.py",
+      "sha256": "5352b91357d8c141785af0419851c2d7c801231eea2a2ad2d924a3cf84954aa1"
+    },
+    {
+      "research_id": "R012",
+      "path": "areal/infra/controller/rollout_controller.py",
+      "sha256": "09ed7dc02dde6b75abdd09f9eacea6e5537a86e3c85b75185b6f9453de153bcd"
+    },
+    {
+      "research_id": "R012",
+      "path": "areal/engine/vllm_ext/areal_vllm_server.py",
+      "sha256": "8e137c0c9933da97a2da03998777cea6723d3542487163f66395927498155b13"
+    },
+    {
+      "research_id": "R012",
+      "path": "areal/infra/request_router.py",
+      "sha256": "4e83ed494ebe4293393f24f6955f53841e4a1d3bd838f4df10a9784c7f579e70"
+    },
+    {
+      "research_id": "R012",
+      "path": "areal/infra/borrowed_rollout.py",
+      "sha256": "5352b91357d8c141785af0419851c2d7c801231eea2a2ad2d924a3cf84954aa1"
+    },
+    {
+      "research_id": "R012",
+      "path": "areal/infra/controller/rollout_controller.py",
+      "sha256": "09ed7dc02dde6b75abdd09f9eacea6e5537a86e3c85b75185b6f9453de153bcd"
+    },
+    {
+      "research_id": "R012",
+      "path": "areal/engine/vllm_ext/areal_vllm_server.py",
+      "sha256": "8e137c0c9933da97a2da03998777cea6723d3542487163f66395927498155b13"
+    },
+    {
+      "research_id": "R013",
+      "path": "areal/infra/request_router.py",
+      "sha256": "4e83ed494ebe4293393f24f6955f53841e4a1d3bd838f4df10a9784c7f579e70"
+    },
+    {
+      "research_id": "R013",
+      "path": "areal/infra/borrowed_rollout.py",
+      "sha256": "5352b91357d8c141785af0419851c2d7c801231eea2a2ad2d924a3cf84954aa1"
+    },
+    {
+      "research_id": "R013",
+      "path": "areal/infra/controller/rollout_controller.py",
+      "sha256": "09ed7dc02dde6b75abdd09f9eacea6e5537a86e3c85b75185b6f9453de153bcd"
+    },
+    {
+      "research_id": "R013",
+      "path": "areal/infra/request_router.py",
+      "sha256": "4e83ed494ebe4293393f24f6955f53841e4a1d3bd838f4df10a9784c7f579e70"
+    },
+    {
+      "research_id": "R013",
+      "path": "areal/infra/borrowed_rollout.py",
+      "sha256": "5352b91357d8c141785af0419851c2d7c801231eea2a2ad2d924a3cf84954aa1"
+    },
+    {
+      "research_id": "R013",
+      "path": "areal/infra/controller/rollout_controller.py",
+      "sha256": "09ed7dc02dde6b75abdd09f9eacea6e5537a86e3c85b75185b6f9453de153bcd"
+    },
+    {
+      "research_id": "R014",
+      "path": "areal/engine/fsdp_engine.py",
+      "sha256": "742dd8877d75f9388c847b745e1df74df3ff4446cd9bed2deb36793b516f1ed4"
+    },
+    {
+      "research_id": "R014",
+      "path": "areal/engine/colocation_memory.py",
+      "sha256": "1d02b24e3d1fc6721d5aaca527393a0a64c8358f473c44878f9b0a1eb78181ee"
+    },
+    {
+      "research_id": "R014",
+      "path": "areal/trainer/colocation_memory.py",
+      "sha256": "85de17bfac87decdb3af792a85610cec23d2222e762ab05449233c9dd674de3b"
+    },
+    {
+      "research_id": "R014",
+      "path": "areal/engine/fsdp_engine.py",
+      "sha256": "742dd8877d75f9388c847b745e1df74df3ff4446cd9bed2deb36793b516f1ed4"
+    },
+    {
+      "research_id": "R014",
+      "path": "areal/engine/colocation_memory.py",
+      "sha256": "1d02b24e3d1fc6721d5aaca527393a0a64c8358f473c44878f9b0a1eb78181ee"
+    },
+    {
+      "research_id": "R014",
+      "path": "areal/trainer/colocation_memory.py",
+      "sha256": "85de17bfac87decdb3af792a85610cec23d2222e762ab05449233c9dd674de3b"
+    },
+    {
+      "research_id": "R015",
+      "path": "areal/engine/colocation_memory.py",
+      "sha256": "1d02b24e3d1fc6721d5aaca527393a0a64c8358f473c44878f9b0a1eb78181ee"
+    },
+    {
+      "research_id": "R015",
+      "path": "areal/engine/fsdp_engine.py",
+      "sha256": "742dd8877d75f9388c847b745e1df74df3ff4446cd9bed2deb36793b516f1ed4"
+    },
+    {
+      "research_id": "R015",
+      "path": "areal/trainer/training_prefetch.py",
+      "sha256": "9e03efd3b11b10b52b0e03c84df6f95c90e1c8ae2b32e1b94c17473fd8b68fdd"
+    },
+    {
+      "research_id": "R015",
+      "path": "areal/trainer/rl_trainer.py",
+      "sha256": "b7ae54a610d691246f733b670146c6e7f9ca17de7b86beed51502d8e73e4323b"
+    },
+    {
+      "research_id": "R015",
+      "path": "areal/engine/colocation_memory.py",
+      "sha256": "1d02b24e3d1fc6721d5aaca527393a0a64c8358f473c44878f9b0a1eb78181ee"
+    },
+    {
+      "research_id": "R015",
+      "path": "areal/engine/fsdp_engine.py",
+      "sha256": "742dd8877d75f9388c847b745e1df74df3ff4446cd9bed2deb36793b516f1ed4"
+    },
+    {
+      "research_id": "R015",
+      "path": "areal/trainer/training_prefetch.py",
+      "sha256": "9e03efd3b11b10b52b0e03c84df6f95c90e1c8ae2b32e1b94c17473fd8b68fdd"
+    },
+    {
+      "research_id": "R015",
+      "path": "areal/trainer/rl_trainer.py",
+      "sha256": "b7ae54a610d691246f733b670146c6e7f9ca17de7b86beed51502d8e73e4323b"
+    },
+    {
+      "research_id": "R016",
+      "path": "areal/engine/vllm_ext/ascend_kernel_warmup.py",
+      "sha256": "8a45a9516305c42dedac50359daa1bd17f5c17cdb05415f73dc96aba2a5c2d69"
+    },
+    {
+      "research_id": "R016",
+      "path": "areal/engine/vllm_ext/vllm_worker_extension.py",
+      "sha256": "f6623051aeaa8bff431aaa6cd50529b1774a6a15f6e7a2404946718a6372f499"
+    },
+    {
+      "research_id": "R016",
+      "path": "areal/engine/vllm_ext/ascend_kernel_warmup.py",
+      "sha256": "8a45a9516305c42dedac50359daa1bd17f5c17cdb05415f73dc96aba2a5c2d69"
+    },
+    {
+      "research_id": "R016",
+      "path": "areal/engine/vllm_ext/vllm_worker_extension.py",
+      "sha256": "f6623051aeaa8bff431aaa6cd50529b1774a6a15f6e7a2404946718a6372f499"
+    },
+    {
+      "research_id": "R017",
+      "path": "areal/engine/colocation_memory.py",
+      "sha256": "1d02b24e3d1fc6721d5aaca527393a0a64c8358f473c44878f9b0a1eb78181ee"
+    },
+    {
+      "research_id": "R017",
+      "path": "areal/trainer/colocation_memory.py",
+      "sha256": "85de17bfac87decdb3af792a85610cec23d2222e762ab05449233c9dd674de3b"
+    },
+    {
+      "research_id": "R017",
+      "path": "areal/engine/fsdp_engine.py",
+      "sha256": "742dd8877d75f9388c847b745e1df74df3ff4446cd9bed2deb36793b516f1ed4"
+    },
+    {
+      "research_id": "R017",
+      "path": "areal/engine/vllm_ext/vllm_worker_extension.py",
+      "sha256": "f6623051aeaa8bff431aaa6cd50529b1774a6a15f6e7a2404946718a6372f499"
+    },
+    {
+      "research_id": "R017",
+      "path": "areal/engine/colocation_memory.py",
+      "sha256": "1d02b24e3d1fc6721d5aaca527393a0a64c8358f473c44878f9b0a1eb78181ee"
+    },
+    {
+      "research_id": "R017",
+      "path": "areal/trainer/colocation_memory.py",
+      "sha256": "85de17bfac87decdb3af792a85610cec23d2222e762ab05449233c9dd674de3b"
+    },
+    {
+      "research_id": "R017",
+      "path": "areal/engine/fsdp_engine.py",
+      "sha256": "742dd8877d75f9388c847b745e1df74df3ff4446cd9bed2deb36793b516f1ed4"
+    },
+    {
+      "research_id": "R017",
+      "path": "areal/engine/vllm_ext/vllm_worker_extension.py",
+      "sha256": "f6623051aeaa8bff431aaa6cd50529b1774a6a15f6e7a2404946718a6372f499"
+    },
+    {
+      "research_id": "R018",
+      "path": "areal/infra/controller/rollout_controller.py",
+      "sha256": "09ed7dc02dde6b75abdd09f9eacea6e5537a86e3c85b75185b6f9453de153bcd"
+    },
+    {
+      "research_id": "R018",
+      "path": "areal/engine/vllm_ext/dynamic_kv.py",
+      "sha256": "db6cdb902efe549c95dd6f63e58e2294af372bf6df28cd96dd443b0089dd85c1"
+    },
+    {
+      "research_id": "R018",
+      "path": "areal/engine/vllm_ext/vllm_worker_extension.py",
+      "sha256": "f6623051aeaa8bff431aaa6cd50529b1774a6a15f6e7a2404946718a6372f499"
+    },
+    {
+      "research_id": "R018",
+      "path": "areal/infra/controller/rollout_controller.py",
+      "sha256": "09ed7dc02dde6b75abdd09f9eacea6e5537a86e3c85b75185b6f9453de153bcd"
+    },
+    {
+      "research_id": "R018",
+      "path": "areal/engine/vllm_ext/dynamic_kv.py",
+      "sha256": "db6cdb902efe549c95dd6f63e58e2294af372bf6df28cd96dd443b0089dd85c1"
+    },
+    {
+      "research_id": "R018",
+      "path": "areal/engine/vllm_ext/vllm_worker_extension.py",
+      "sha256": "f6623051aeaa8bff431aaa6cd50529b1774a6a15f6e7a2404946718a6372f499"
+    },
+    {
+      "research_id": "R019",
+      "path": "areal/infra/rolling_drain.py",
+      "sha256": "d9e8c4abd3318bfac559fa311418e6ba37d375303fbc81bbbe25ac47d69ee8e9"
+    },
+    {
+      "research_id": "R019",
+      "path": "areal/infra/drain_prediction.py",
+      "sha256": "1c6129dc2b90ba7fa790479b9397e4d050a61bf596d29ac7b09083ec6126472c"
+    },
+    {
+      "research_id": "R019",
+      "path": "areal/infra/rolling_drain.py",
+      "sha256": "d9e8c4abd3318bfac559fa311418e6ba37d375303fbc81bbbe25ac47d69ee8e9"
+    },
+    {
+      "research_id": "R019",
+      "path": "areal/infra/drain_prediction.py",
+      "sha256": "1c6129dc2b90ba7fa790479b9397e4d050a61bf596d29ac7b09083ec6126472c"
+    },
+    {
+      "research_id": "R021",
+      "path": "areal/engine/megatron_engine.py",
+      "sha256": "fa6fb71cb25421dfe8e698fec41a7fada1ca3fb581c2a77d927f244d1e5d8acb"
+    },
+    {
+      "research_id": "R021",
+      "path": "areal/trainer/rl_trainer.py",
+      "sha256": "b7ae54a610d691246f733b670146c6e7f9ca17de7b86beed51502d8e73e4323b"
+    },
+    {
+      "research_id": "R021",
+      "path": "areal/engine/colocation_memory.py",
+      "sha256": "1d02b24e3d1fc6721d5aaca527393a0a64c8358f473c44878f9b0a1eb78181ee"
+    },
+    {
+      "research_id": "R021",
+      "path": "benchmark/npu_share/run_bench.py",
+      "sha256": "d7aaf1e5d754cc6a8f6746180715cd9ddc12294d5df59f30dfb7a04d49b10a2d"
+    },
+    {
+      "research_id": "R021",
+      "path": "areal/engine/megatron_engine.py",
+      "sha256": "fa6fb71cb25421dfe8e698fec41a7fada1ca3fb581c2a77d927f244d1e5d8acb"
+    },
+    {
+      "research_id": "R021",
+      "path": "areal/trainer/rl_trainer.py",
+      "sha256": "b7ae54a610d691246f733b670146c6e7f9ca17de7b86beed51502d8e73e4323b"
+    },
+    {
+      "research_id": "R021",
+      "path": "areal/engine/colocation_memory.py",
+      "sha256": "1d02b24e3d1fc6721d5aaca527393a0a64c8358f473c44878f9b0a1eb78181ee"
+    },
+    {
+      "research_id": "R021",
+      "path": "benchmark/npu_share/run_bench.py",
+      "sha256": "d7aaf1e5d754cc6a8f6746180715cd9ddc12294d5df59f30dfb7a04d49b10a2d"
+    },
+    {
+      "research_id": "R022",
+      "path": "areal/infra/scheduler/local.py",
+      "sha256": "7b1fac759ed0ba0a0ab1ebd520be1170fc676401ada1eda9da83c0478771161b"
+    },
+    {
+      "research_id": "R022",
+      "path": "areal/infra/controller/rollout_controller.py",
+      "sha256": "09ed7dc02dde6b75abdd09f9eacea6e5537a86e3c85b75185b6f9453de153bcd"
+    },
+    {
+      "research_id": "R022",
+      "path": "areal/infra/controller/train_controller.py",
+      "sha256": "982ab7d2f31c57f03223b0e9c10dfce4c03a66774764973a71962a446f3c7f53"
+    },
+    {
+      "research_id": "R022",
+      "path": "areal/trainer/colocation_memory.py",
+      "sha256": "85de17bfac87decdb3af792a85610cec23d2222e762ab05449233c9dd674de3b"
+    },
+    {
+      "research_id": "R022",
+      "path": "areal/engine/vllm_ext/dynamic_kv.py",
+      "sha256": "db6cdb902efe549c95dd6f63e58e2294af372bf6df28cd96dd443b0089dd85c1"
+    },
+    {
+      "research_id": "R022",
+      "path": "areal/engine/vllm_ext/kv_slab.py",
+      "sha256": "0d635c6eda7d83bcc19ac958d0fff8296188c0bcf558c579f0f3300049701b2a"
+    },
+    {
+      "research_id": "R022",
+      "path": "areal/engine/vllm_remote.py",
+      "sha256": "c9e6027c5ac90d48f456a95ba53fd2d1ab1ab5adf93e93e3ac48598e573dac24"
+    },
+    {
+      "research_id": "R022",
+      "path": "areal/infra/scheduler/local.py",
+      "sha256": "7b1fac759ed0ba0a0ab1ebd520be1170fc676401ada1eda9da83c0478771161b"
+    },
+    {
+      "research_id": "R022",
+      "path": "areal/infra/controller/rollout_controller.py",
+      "sha256": "09ed7dc02dde6b75abdd09f9eacea6e5537a86e3c85b75185b6f9453de153bcd"
+    },
+    {
+      "research_id": "R022",
+      "path": "areal/infra/controller/train_controller.py",
+      "sha256": "982ab7d2f31c57f03223b0e9c10dfce4c03a66774764973a71962a446f3c7f53"
+    },
+    {
+      "research_id": "R022",
+      "path": "areal/trainer/colocation_memory.py",
+      "sha256": "85de17bfac87decdb3af792a85610cec23d2222e762ab05449233c9dd674de3b"
+    },
+    {
+      "research_id": "R022",
+      "path": "areal/engine/vllm_ext/dynamic_kv.py",
+      "sha256": "db6cdb902efe549c95dd6f63e58e2294af372bf6df28cd96dd443b0089dd85c1"
+    },
+    {
+      "research_id": "R022",
+      "path": "areal/engine/vllm_ext/kv_slab.py",
+      "sha256": "0d635c6eda7d83bcc19ac958d0fff8296188c0bcf558c579f0f3300049701b2a"
+    },
+    {
+      "research_id": "R022",
+      "path": "areal/engine/vllm_remote.py",
+      "sha256": "c9e6027c5ac90d48f456a95ba53fd2d1ab1ab5adf93e93e3ac48598e573dac24"
+    },
+    {
+      "research_id": "R023",
+      "path": "areal/utils/request_trace.py",
+      "sha256": "8cdca62b9e8b126d14076407e56f1887eb74e01aff09e01032cb8b13e7cae859"
+    },
+    {
+      "research_id": "R023",
+      "path": "areal/engine/vllm_ext/areal_vllm_server.py",
+      "sha256": "8e137c0c9933da97a2da03998777cea6723d3542487163f66395927498155b13"
+    },
+    {
+      "research_id": "R023",
+      "path": "benchmark/npu_share/run_bench.py",
+      "sha256": "d7aaf1e5d754cc6a8f6746180715cd9ddc12294d5df59f30dfb7a04d49b10a2d"
+    },
+    {
+      "research_id": "R023",
+      "path": "benchmark/npu_share/render.py",
+      "sha256": "5df0b83f3638617e53b03b634ec10f705ca0554160c9b8f39595a03626631364"
+    },
+    {
+      "research_id": "R023",
+      "path": "areal/utils/request_trace.py",
+      "sha256": "8cdca62b9e8b126d14076407e56f1887eb74e01aff09e01032cb8b13e7cae859"
+    },
+    {
+      "research_id": "R023",
+      "path": "areal/engine/vllm_ext/areal_vllm_server.py",
+      "sha256": "8e137c0c9933da97a2da03998777cea6723d3542487163f66395927498155b13"
+    },
+    {
+      "research_id": "R023",
+      "path": "benchmark/npu_share/run_bench.py",
+      "sha256": "d7aaf1e5d754cc6a8f6746180715cd9ddc12294d5df59f30dfb7a04d49b10a2d"
+    },
+    {
+      "research_id": "R023",
+      "path": "benchmark/npu_share/render.py",
+      "sha256": "5df0b83f3638617e53b03b634ec10f705ca0554160c9b8f39595a03626631364"
+    },
+    {
+      "research_id": "R024",
+      "path": "areal/infra/controller/rollout_controller.py",
+      "sha256": "09ed7dc02dde6b75abdd09f9eacea6e5537a86e3c85b75185b6f9453de153bcd"
+    },
+    {
+      "research_id": "R024",
+      "path": "areal/infra/controller/rollout_controller.py",
+      "sha256": "09ed7dc02dde6b75abdd09f9eacea6e5537a86e3c85b75185b6f9453de153bcd"
+    }
+  ]
+}

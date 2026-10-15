@@ -1,0 +1,68 @@
+[
+  {
+    "batch": 1,
+    "input_sha256": "377b8f0d94bb2f4970abf97efffec538b4ed210b14f69d9464bb29ad01542812",
+    "microbatches": 5,
+    "tokens": 17795,
+    "question_groups": 16,
+    "answers": 64,
+    "fixed_seconds": 4.4836513083428144,
+    "shared_seconds": 4.259302135556936,
+    "old_fixed_seconds": 4.394210983067751,
+    "old_shared_seconds": 4.8941297475248575,
+    "fixed_components": {
+      "fsdp_engine.forward": 0.77954,
+      "fsdp_engine.backward": 2.271978,
+      "fsdp_engine.step": 0.780146
+    },
+    "shared_components": {
+      "fsdp_engine.forward": 0.785143,
+      "fsdp_engine.backward": 2.152945,
+      "fsdp_engine.step": 0.632397
+    }
+  },
+  {
+    "batch": 2,
+    "input_sha256": "fa7c5c4b75279348b249168c584f1ae9022d47b7742a4a6f280f9f409c7f5c04",
+    "microbatches": 6,
+    "tokens": 23204,
+    "question_groups": 16,
+    "answers": 64,
+    "fixed_seconds": 3.4817126877605915,
+    "shared_seconds": 3.7019063606858253,
+    "old_fixed_seconds": 3.4725424870848656,
+    "old_shared_seconds": 3.7259326335042715,
+    "fixed_components": {
+      "fsdp_engine.forward": 0.906697,
+      "fsdp_engine.backward": 1.98877,
+      "fsdp_engine.step": 0.024007
+    },
+    "shared_components": {
+      "fsdp_engine.forward": 0.939587,
+      "fsdp_engine.backward": 2.172036,
+      "fsdp_engine.step": 0.02414
+    }
+  },
+  {
+    "batch": 3,
+    "input_sha256": "3abc2e7035ae83b3cc80aea01c15c1019169d4213943ff5c24c33b64df4513cc",
+    "microbatches": 6,
+    "tokens": 21963,
+    "question_groups": 16,
+    "answers": 64,
+    "fixed_seconds": 3.310660742223263,
+    "shared_seconds": 3.6706701647490263,
+    "old_fixed_seconds": 3.4075347874313593,
+    "old_shared_seconds": 3.6622764077037573,
+    "fixed_components": {
+      "fsdp_engine.forward": 0.955065,
+      "fsdp_engine.backward": 1.894641,
+      "fsdp_engine.step": 0.023789
+    },
+    "shared_components": {
+      "fsdp_engine.forward": 0.936121,
+      "fsdp_engine.backward": 2.167723,
+      "fsdp_engine.step": 0.024168
+    }
+  }
+]

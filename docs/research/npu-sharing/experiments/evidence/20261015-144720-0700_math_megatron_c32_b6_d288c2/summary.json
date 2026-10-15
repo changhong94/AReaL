@@ -1,0 +1,73 @@
+{
+  "settings": {
+    "rl": "math",
+    "engine": "megatron",
+    "concurrency": 32,
+    "batches": 6,
+    "batch_size": 16,
+    "answers": 6,
+    "questions": 96,
+    "seed": 1,
+    "max_new_tokens": 1024,
+    "timezone": "America/Vancouver",
+    "created": "20261015-144720-0700",
+    "timeout": 3600,
+    "container_prefix": "areal-bench-047936deb018",
+    "image": "areal-timeshare:megatron-v0.18-a2-dev1",
+    "devices": [
+      1,
+      2
+    ],
+    "npu_count": 2,
+    "inference_tp": 1,
+    "allocation": {
+      "total": 2,
+      "training": 1,
+      "dedicated_inference": 1,
+      "shared_inference_max": 2
+    },
+    "inference_replicas": 1,
+    "image_id": "sha256:ece82abbdc0981f2d20d8748e56c7db4d9ef660a3ccb621684bc98667de83dd5"
+  },
+  "questions": 96,
+  "answers": 576,
+  "batches": 6,
+  "loop_seconds": {
+    "fixed": 120.97866296768188,
+    "latest": 109.64508891105652
+  },
+  "reduction_percent": 9.368242116920245,
+  "token_audit": {
+    "fixed": {
+      "reconstructed": 139706,
+      "reported": 139706,
+      "segment_differences": {}
+    },
+    "latest": {
+      "reconstructed": 137748,
+      "reported": 137748,
+      "segment_differences": {}
+    }
+  },
+  "utilization_sample_means": {
+    "fixed": {
+      "1_aicore": 23.4,
+      "1_hbm_used_pct": 70.20619710286458,
+      "2_aicore": 12.7,
+      "2_hbm_used_pct": 43.92974853515625
+    },
+    "latest": {
+      "1_aicore": 33.90909090909091,
+      "1_hbm_used_pct": 64.8739346590909,
+      "2_aicore": 12.472727272727273,
+      "2_hbm_used_pct": 14.038779518821023
+    }
+  },
+  "figures": [
+    "figures/2026-10-15_phases/overview.png",
+    "figures/2026-10-15_requests/fixed_001.png",
+    "figures/2026-10-15_requests/latest_001.png",
+    "figures/2026-10-15_utilization/overview.png",
+    "figures/2026-10-15_tokens/overview.png"
+  ]
+}

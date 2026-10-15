@@ -1,0 +1,52 @@
+{
+  "loop_seconds": 200.82795596122742,
+  "ppo": [
+    {
+      "batch": 1,
+      "ppo_seconds": 19.51118803024292,
+      "inference_window_seconds": 18.427316904067993,
+      "inference_requests": 39,
+      "hbm_peak_gib": 47.240234375
+    },
+    {
+      "batch": 2,
+      "ppo_seconds": 19.427032947540283,
+      "inference_window_seconds": 18.454126596450806,
+      "inference_requests": 6,
+      "hbm_peak_gib": 47.09765625
+    },
+    {
+      "batch": 3,
+      "ppo_seconds": 18.851050853729248,
+      "inference_window_seconds": 0,
+      "inference_requests": 0,
+      "hbm_peak_gib": 46.98828125
+    }
+  ],
+  "budgets": [
+    {
+      "admitted": true,
+      "kv_budget_bytes": 13202655232,
+      "reserved_growth_bytes": 27649693696,
+      "capacity_blocks": 3584
+    },
+    {
+      "admitted": true,
+      "kv_budget_bytes": 894507008,
+      "reserved_growth_bytes": 27649693696,
+      "capacity_blocks": 224
+    },
+    {
+      "admitted": true,
+      "kv_budget_bytes": 892176384,
+      "reserved_growth_bytes": 27649693696,
+      "capacity_blocks": 224
+    }
+  ],
+  "answers": 288,
+  "sandboxes_deleted": 288,
+  "global_sandbox_peak": 4,
+  "overlap_begins": 3,
+  "overlap_ends": 3,
+  "busy_restored": true
+}

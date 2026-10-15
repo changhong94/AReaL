@@ -1,0 +1,23 @@
+{
+  "derived_from": "/root/areal-research-artifacts/history-20261015/hundred-batches01/timeline-data.json",
+  "source_sha256": "9ded1193ae14c8f01de3c0587bad5984f7a3b1824631619c64bcfa43e04fa76b",
+  "method": "Keep scalar fields from each arm of retained timeline-data.json; no recomputation of end time.",
+  "arms": [
+    {
+      "arm": "fixed",
+      "end": 2715.657749414444,
+      "tokens": 2675704,
+      "initialization": 283.1802747249603,
+      "questions": 1600,
+      "answers": 9600
+    },
+    {
+      "arm": "overlap",
+      "end": 2380.913074731827,
+      "tokens": 2742018,
+      "initialization": 300.2214844226837,
+      "questions": 1600,
+      "answers": 9600
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "run_bench.py": "d7aaf1e5d754cc6a8f6746180715cd9ddc12294d5df59f30dfb7a04d49b10a2d",
+  "render.py": "5df0b83f3638617e53b03b634ec10f705ca0554160c9b8f39595a03626631364",
+  "templates/code_reward.py": "bf8fac21b9fede7dd6ba9628a5cab39d65e8de7268cf2f5750963f142322948d",
+  "templates/base.yaml": "9d315d5017819dc8914abdc9df8e8958d38dae03cfd4b6f0550800fb0d8cbbf4",
+  "templates/kuasar.py": "35cbce025dece20dcfc6feb17791aae8cda83496123a90914b634d898a093451",
+  "templates/sandbox_check.py": "1ee3784313d991c661253ab5925025b9f5476c1fb11fe4110798ae8e03486c0d",
+  "templates/entry.py": "c8371264c4f35fbc0d0b921c295f2b819f1290221bcf1fed48db2d173c85482b",
+  "templates/prepare.py": "47aeb44a18b8373c8fb8b6dca06b672e5de9ee188b49360e719cce4d6c02fa9e",
+  "templates/fair48_control.py": "169527f5e0abeec53fe4c455356b0a88b8bc49f2d36f1f578cd7ba10e111e44c",
+  "templates/telemetry.py": "deebf04b53e90cbafd105d0376e63576935cf970469baf964a010703611b117b",
+  "templates/code_workflow.py": "cb30bb704b5e82da281110c9b762f82d2a02d28595fb2aa75e8f4ff78f6a095f"
+}

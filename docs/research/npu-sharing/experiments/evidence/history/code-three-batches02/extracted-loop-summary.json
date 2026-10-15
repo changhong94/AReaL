@@ -1,0 +1,27 @@
+{
+  "derived_from": "/root/areal-research-artifacts/history-20261015/code-three-batches02/timeline-data.json",
+  "source_sha256": "917d204231b05af6711ae21cc39671595b721050e6783e801f73c4a7612fa732",
+  "method": "Keep scalar fields from each arm of retained timeline-data.json; no recomputation of end time.",
+  "arms": [
+    {
+      "arm": "fixed",
+      "end": 218.93212747573853,
+      "tokens": 71823,
+      "initialization": 283.07125520706177,
+      "questions": 48,
+      "answers": 288,
+      "sandbox_created": 288,
+      "sandbox_deleted": 288
+    },
+    {
+      "arm": "overlap",
+      "end": 211.09167051315308,
+      "tokens": 69395,
+      "initialization": 299.33001255989075,
+      "questions": 48,
+      "answers": 288,
+      "sandbox_created": 288,
+      "sandbox_deleted": 288
+    }
+  ]
+}

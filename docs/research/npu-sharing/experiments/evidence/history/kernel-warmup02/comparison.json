@@ -1,0 +1,119 @@
+{
+  "shared-cold": {
+    "init_seconds": 343.26327872276306,
+    "loop_seconds": 82.68226480484009,
+    "first_windows": [
+      {
+        "card": 2,
+        "step": 1,
+        "start": 1.0074503421783447,
+        "seconds": 0.1731576919555664,
+        "requests": 1,
+        "tokens": 94
+      },
+      {
+        "card": 1,
+        "step": 1,
+        "start": 1.011953592300415,
+        "seconds": 0.15749716758728027,
+        "requests": 2,
+        "tokens": 209
+      }
+    ],
+    "single_token": {
+      "count": 23,
+      "max_seconds": 0.04884743690490723,
+      "median_seconds": 0.04529571533203125
+    },
+    "max_window_seconds": 0.1731576919555664,
+    "long_windows": [],
+    "startup_compile_count": 12,
+    "training_compiles": [],
+    "training_loads": [],
+    "warmups": [
+      "(EngineCore pid=742) INFO 10-10 01:16:47 [ascend_kernel_warmup.py:62] AREAL_REQUEST_KERNEL_WARMUP complete sizes=(1, 2, 16) seconds=17.081",
+      "(EngineCore pid=734) INFO 10-10 01:16:46 [ascend_kernel_warmup.py:62] AREAL_REQUEST_KERNEL_WARMUP complete sizes=(1, 2, 16) seconds=17.349",
+      "(EngineCore pid=734) INFO 10-10 01:16:46 [ascend_kernel_warmup.py:62] AREAL_REQUEST_KERNEL_WARMUP complete sizes=(1, 2, 16) seconds=17.349",
+      "[rollout] (EngineCore pid=734) INFO 10-10 01:16:46 [ascend_kernel_warmup.py:62] AREAL_REQUEST_KERNEL_WARMUP complete sizes=(1, 2, 16) seconds=17.349",
+      "[actor]   (EngineCore pid=734) INFO 10-10 01:16:46 [ascend_kernel_warmup.py:62] AREAL_REQUEST_KERNEL_WARMUP complete sizes=(1, 2, 16) seconds=17.349",
+      "[rollout-fixed](EngineCore pid=742) INFO 10-10 01:16:47 [ascend_kernel_warmup.py:62] AREAL_REQUEST_KERNEL_WARMUP complete sizes=(1, 2, 16) seconds=17.081"
+    ],
+    "tokens": 45849,
+    "completed_batches": 3,
+    "busy_restored": true
+  },
+  "shared-cached": {
+    "init_seconds": 298.5709340572357,
+    "loop_seconds": 80.90512609481812,
+    "first_windows": [
+      {
+        "card": 1,
+        "step": 1,
+        "start": 1.015641450881958,
+        "seconds": 0.12131929397583008,
+        "requests": 1,
+        "tokens": 85
+      },
+      {
+        "card": 2,
+        "step": 1,
+        "start": 1.0370659828186035,
+        "seconds": 0.1346120834350586,
+        "requests": 1,
+        "tokens": 96
+      }
+    ],
+    "single_token": {
+      "count": 11,
+      "max_seconds": 0.04680633544921875,
+      "median_seconds": 0.043813228607177734
+    },
+    "max_window_seconds": 0.1346120834350586,
+    "long_windows": [],
+    "startup_compile_count": 12,
+    "training_compiles": [],
+    "training_loads": [],
+    "warmups": [
+      "(EngineCore pid=734) INFO 10-10 01:34:44 [ascend_kernel_warmup.py:62] AREAL_REQUEST_KERNEL_WARMUP complete sizes=(1, 2, 16) seconds=0.127",
+      "(EngineCore pid=742) INFO 10-10 01:34:36 [ascend_kernel_warmup.py:62] AREAL_REQUEST_KERNEL_WARMUP complete sizes=(1, 2, 16) seconds=0.124",
+      "(EngineCore pid=742) INFO 10-10 01:34:36 [ascend_kernel_warmup.py:62] AREAL_REQUEST_KERNEL_WARMUP complete sizes=(1, 2, 16) seconds=0.124",
+      "[rollout] (EngineCore pid=742) INFO 10-10 01:34:36 [ascend_kernel_warmup.py:62] AREAL_REQUEST_KERNEL_WARMUP complete sizes=(1, 2, 16) seconds=0.124",
+      "[actor]   (EngineCore pid=742) INFO 10-10 01:34:36 [ascend_kernel_warmup.py:62] AREAL_REQUEST_KERNEL_WARMUP complete sizes=(1, 2, 16) seconds=0.124",
+      "[rollout-fixed](EngineCore pid=734) INFO 10-10 01:34:44 [ascend_kernel_warmup.py:62] AREAL_REQUEST_KERNEL_WARMUP complete sizes=(1, 2, 16) seconds=0.127"
+    ],
+    "tokens": 47554,
+    "completed_batches": 3,
+    "busy_restored": true
+  },
+  "fixed-cold": {
+    "init_seconds": 334.3575699329376,
+    "loop_seconds": 91.03286385536194,
+    "first_windows": [
+      {
+        "card": 2,
+        "step": 1,
+        "start": 1.2280001640319824,
+        "seconds": 0.151353120803833,
+        "requests": 5,
+        "tokens": 488
+      }
+    ],
+    "single_token": {
+      "count": 36,
+      "max_seconds": 0.04601907730102539,
+      "median_seconds": 0.044570207595825195
+    },
+    "max_window_seconds": 0.151353120803833,
+    "long_windows": [],
+    "startup_compile_count": 6,
+    "training_compiles": [],
+    "training_loads": [],
+    "warmups": [
+      "(EngineCore pid=605) INFO 10-10 01:26:30 [ascend_kernel_warmup.py:62] AREAL_REQUEST_KERNEL_WARMUP complete sizes=(1, 2, 16) seconds=16.683",
+      "[rollout] (EngineCore pid=605) INFO 10-10 01:26:30 [ascend_kernel_warmup.py:62] AREAL_REQUEST_KERNEL_WARMUP complete sizes=(1, 2, 16) seconds=16.683"
+    ],
+    "tokens": 46138,
+    "completed_batches": 3,
+    "busy_restored": true
+  }
+}

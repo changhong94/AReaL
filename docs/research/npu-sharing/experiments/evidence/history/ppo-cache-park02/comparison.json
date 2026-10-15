@@ -1,0 +1,99 @@
+[
+  {
+    "batch": 1,
+    "input_sha256": "377b8f0d94bb2f4970abf97efffec538b4ed210b14f69d9464bb29ad01542812",
+    "fixed_seconds": 4.298747049644589,
+    "shared_seconds": 4.239370249211788,
+    "previous_shared_seconds": 4.253824155777693,
+    "fixed_components": {
+      "fsdp_engine.forward": 0.743626,
+      "fsdp_engine.backward": 2.238466,
+      "fsdp_engine.step": 0.734218
+    },
+    "fixed_backward_microseconds": [
+      0.957053,
+      0.368858,
+      0.321807,
+      0.321741,
+      0.269007
+    ],
+    "shared_components": {
+      "fsdp_engine.forward": 0.752364,
+      "fsdp_engine.backward": 2.194586,
+      "fsdp_engine.step": 0.618781
+    },
+    "shared_backward_microseconds": [
+      0.906354,
+      0.367359,
+      0.323259,
+      0.322848,
+      0.274766
+    ]
+  },
+  {
+    "batch": 2,
+    "input_sha256": "fa7c5c4b75279348b249168c584f1ae9022d47b7742a4a6f280f9f409c7f5c04",
+    "fixed_seconds": 3.510812856256962,
+    "shared_seconds": 3.4212954472750425,
+    "previous_shared_seconds": 3.626254588365555,
+    "fixed_components": {
+      "fsdp_engine.forward": 0.932036,
+      "fsdp_engine.backward": 1.984022,
+      "fsdp_engine.step": 0.023753
+    },
+    "fixed_backward_microseconds": [
+      0.388245,
+      0.323214,
+      0.322057,
+      0.303094,
+      0.323434,
+      0.323978
+    ],
+    "shared_components": {
+      "fsdp_engine.forward": 0.929836,
+      "fsdp_engine.backward": 1.988348,
+      "fsdp_engine.step": 0.024367
+    },
+    "shared_backward_microseconds": [
+      0.362634,
+      0.325427,
+      0.32919,
+      0.318154,
+      0.327149,
+      0.325794
+    ]
+  },
+  {
+    "batch": 3,
+    "input_sha256": "3abc2e7035ae83b3cc80aea01c15c1019169d4213943ff5c24c33b64df4513cc",
+    "fixed_seconds": 3.26427779532969,
+    "shared_seconds": 3.30662134103477,
+    "previous_shared_seconds": 3.6134506575763226,
+    "fixed_components": {
+      "fsdp_engine.forward": 0.932107,
+      "fsdp_engine.backward": 1.8817,
+      "fsdp_engine.step": 0.023326
+    },
+    "fixed_backward_microseconds": [
+      0.312347,
+      0.324284,
+      0.324168,
+      0.32449,
+      0.272826,
+      0.323585
+    ],
+    "shared_components": {
+      "fsdp_engine.forward": 0.915734,
+      "fsdp_engine.backward": 1.942027,
+      "fsdp_engine.step": 0.024205
+    },
+    "shared_backward_microseconds": [
+      0.356842,
+      0.325097,
+      0.327328,
+      0.323757,
+      0.285255,
+      0.323748
+    ]
+  }
+]

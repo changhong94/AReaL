@@ -1,0 +1,30 @@
+{
+  "rl": "math",
+  "engine": "megatron",
+  "concurrency": 32,
+  "batches": 6,
+  "batch_size": 16,
+  "answers": 6,
+  "questions": 96,
+  "seed": 1,
+  "max_new_tokens": 1024,
+  "timezone": "America/Vancouver",
+  "created": "20261015-144720-0700",
+  "timeout": 3600,
+  "container_prefix": "areal-bench-047936deb018",
+  "image": "areal-timeshare:megatron-v0.18-a2-dev1",
+  "devices": [
+    1,
+    2
+  ],
+  "npu_count": 2,
+  "inference_tp": 1,
+  "allocation": {
+    "total": 2,
+    "training": 1,
+    "dedicated_inference": 1,
+    "shared_inference_max": 2
+  },
+  "inference_replicas": 1,
+  "image_id": "sha256:ece82abbdc0981f2d20d8748e56c7db4d9ef660a3ccb621684bc98667de83dd5"
+}

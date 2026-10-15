@@ -1,0 +1,489 @@
+[
+  {
+    "id": "R001",
+    "en": "ideas/R001-runtime-request-rebalancing.md",
+    "zh": "ideas/R001-runtime-request-rebalancing.zh.md",
+    "status": "proposed"
+  },
+  {
+    "id": "R002",
+    "en": "optimizations/R002-training-priority-concurrency.md",
+    "zh": "optimizations/R002-training-priority-concurrency.zh.md",
+    "status_en": "Implemented, opt-in; functional overlap verified; isolated speedup remains workload-dependent.",
+    "status_zh": "已实现，可选开启；实际重叠已验证，独立性能收益仍取决于负载。",
+    "historical_runs": [
+      "training-priority02",
+      "math-training-priority01"
+    ],
+    "conversation_ids": [
+      "C099"
+    ],
+    "code_paths": [
+      "areal/trainer/rl_trainer.py",
+      "areal/trainer/colocation_memory.py",
+      "areal/engine/vllm_ext/dynamic_kv.py",
+      "areal/engine/vllm_ext/kv_slab_adapter.py"
+    ]
+  },
+  {
+    "id": "R003",
+    "en": "optimizations/R003-asymmetric-publication.md",
+    "zh": "optimizations/R003-asymmetric-publication.zh.md",
+    "status_en": "Implemented; evolved further in R009 and R010.",
+    "status_zh": "已实现；后续由 R009 和 R010 继续消除依赖。",
+    "historical_runs": [
+      "npu-share-hybrid03",
+      "npu-share-fast01"
+    ],
+    "conversation_ids": [
+      "C020"
+    ],
+    "code_paths": [
+      "areal/trainer/rl_trainer.py",
+      "areal/engine/fsdp_engine.py",
+      "areal/engine/weight_snapshot.py",
+      "areal/infra/controller/rollout_controller.py"
+    ]
+  },
+  {
+    "id": "R004",
+    "en": "optimizations/R004-adaptive-draining.md",
+    "zh": "optimizations/R004-adaptive-draining.zh.md",
+    "status_en": "Implemented; three-window policy retained, sibling-length scaling removed.",
+    "status_zh": "已实现；保留三批窗口，移除了同题长度缩放。",
+    "historical_runs": [
+      "bounded-drain-comparison01",
+      "adaptive-drain-comparison01",
+      "batch-drain-comparison02",
+      "rolling-drain-comparison01",
+      "refined-drain-comparison01",
+      "no-sibling-comparison01"
+    ],
+    "conversation_ids": [
+      "C105",
+      "C107",
+      "C110",
+      "C113",
+      "C115",
+      "C117"
+    ],
+    "code_paths": [
+      "areal/infra/adaptive_drain.py",
+      "areal/infra/batch_drain.py",
+      "areal/infra/rolling_drain.py",
+      "areal/infra/drain_prediction.py",
+      "areal/infra/controller/rollout_controller.py"
+    ]
+  },
+  {
+    "id": "R005",
+    "en": "optimizations/R005-queued-request-rebalancing.md",
+    "zh": "optimizations/R005-queued-request-rebalancing.zh.md",
+    "status_en": "Implemented; no eligible requests moved in the two inspected comparison runs.",
+    "status_zh": "已实现；已核对的两次对照中都没有实际搬移合格请求。",
+    "historical_runs": [
+      "queue-rebalance-comparison01"
+    ],
+    "conversation_ids": [
+      "C121"
+    ],
+    "code_paths": [
+      "areal/infra/queue_rebalance.py",
+      "areal/infra/request_router.py",
+      "areal/engine/vllm_ext/queue_rebalance.py",
+      "areal/infra/controller/rollout_controller.py"
+    ]
+  },
+  {
+    "id": "R006",
+    "en": "optimizations/R006-dynamic-kv-pages.md",
+    "zh": "optimizations/R006-dynamic-kv-pages.zh.md",
+    "status_en": "Implemented for validated Ascend layouts; memory savings verified, latency gain not established in isolation.",
+    "status_zh": "已在限定昇腾布局实现；显存节省已验证，独立延迟收益尚未确立。",
+    "historical_runs": [
+      "kv-slab-smoke03",
+      "dynamic-kv03",
+      "dynamic-kv-ab01"
+    ],
+    "conversation_ids": [
+      "C008",
+      "C079",
+      "C080",
+      "C081",
+      "C082"
+    ],
+    "code_paths": [
+      "areal/engine/vllm_ext/kv_slab.py",
+      "areal/engine/vllm_ext/kv_slab_adapter.py",
+      "areal/engine/vllm_ext/dynamic_kv.py",
+      "areal/engine/vllm_ext/dynamic_kv_allocator.cpp",
+      "licenses/FineServe.txt"
+    ]
+  },
+  {
+    "id": "R007",
+    "en": "optimizations/R007-single-npu-and-borrowing.md",
+    "zh": "optimizations/R007-single-npu-and-borrowing.zh.md",
+    "status_en": "Implemented foundation; single-card capacity saving is not a speedup claim.",
+    "status_zh": "已实现基础能力；少占一张卡不等于训练加速。",
+    "historical_runs": [
+      "single-npu-timeshare-smoke03",
+      "auto-memory-pressure01",
+      "npu-share-comparison",
+      "npu-share-ab01",
+      "hundred-batches01"
+    ],
+    "conversation_ids": [
+      "C010",
+      "C013",
+      "C014",
+      "C015",
+      "C091"
+    ],
+    "code_paths": [
+      "areal/trainer/rl_trainer.py",
+      "areal/infra/borrowed_rollout.py",
+      "areal/infra/controller/rollout_controller.py",
+      "areal/api/cli_args.py"
+    ]
+  },
+  {
+    "id": "R008",
+    "en": "optimizations/R008-flat-weight-snapshots.md",
+    "zh": "optimizations/R008-flat-weight-snapshots.zh.md",
+    "status_en": "Implemented; historical publication cost reduction observed.",
+    "status_zh": "已实现；历史实验观察到发布成本下降。",
+    "historical_runs": [
+      "npu-share-fast01",
+      "npu-share-ab01"
+    ],
+    "conversation_ids": [
+      "C016"
+    ],
+    "code_paths": [
+      "areal/engine/weight_snapshot.py",
+      "areal/engine/fsdp_engine.py",
+      "areal/engine/vllm_ext/vllm_worker_extension.py"
+    ]
+  },
+  {
+    "id": "R009",
+    "en": "optimizations/R009-independent-snapshot-reader.md",
+    "zh": "optimizations/R009-independent-snapshot-reader.zh.md",
+    "status_en": "Implemented; direct publication timings improved in a short comparison.",
+    "status_zh": "已实现；短对照中发布阶段直接耗时改善。",
+    "historical_runs": [
+      "independent-reader01"
+    ],
+    "conversation_ids": [
+      "C040",
+      "C041",
+      "C047"
+    ],
+    "code_paths": [
+      "areal/engine/fsdp_engine.py",
+      "areal/engine/weight_snapshot.py",
+      "tests/test_fused_snapshot_publication.py"
+    ]
+  },
+  {
+    "id": "R010",
+    "en": "optimizations/R010-background-step-tail.md",
+    "zh": "optimizations/R010-background-step-tail.zh.md",
+    "status_en": "Implemented; overlap verified, historical first comparison regressed.",
+    "status_zh": "已实现；重叠已验证，首轮历史对照反而变慢。",
+    "historical_runs": [
+      "npu-share-background02"
+    ],
+    "conversation_ids": [
+      "C024",
+      "C025"
+    ],
+    "code_paths": [
+      "areal/trainer/rl_trainer.py",
+      "areal/trainer/training_prefetch.py"
+    ]
+  },
+  {
+    "id": "R011",
+    "en": "optimizations/R011-terminal-publication-elision.md",
+    "zh": "optimizations/R011-terminal-publication-elision.zh.md",
+    "status_en": "Implemented with evaluation-aware finality.",
+    "status_zh": "已实现，终止判断考虑评估需求。",
+    "historical_runs": [
+      "terminal-tail01",
+      "post-warmup-ab01"
+    ],
+    "conversation_ids": [
+      "C043"
+    ],
+    "code_paths": [
+      "areal/trainer/rl_trainer.py"
+    ]
+  },
+  {
+    "id": "R012",
+    "en": "optimizations/R012-request-leases-and-migration.md",
+    "zh": "optimizations/R012-request-leases-and-migration.zh.md",
+    "status_en": "Implemented default migration path; KV is rebuilt, not transferred.",
+    "status_zh": "已实现，作为默认迁移路径；KV 重建而非直接传输。",
+    "historical_runs": [
+      "npu-share-taskaffinity01",
+      "pause-retain-ab01",
+      "hundred-batches01"
+    ],
+    "conversation_ids": [
+      "C030",
+      "C034",
+      "C091"
+    ],
+    "code_paths": [
+      "areal/infra/request_router.py",
+      "areal/infra/borrowed_rollout.py",
+      "areal/infra/controller/rollout_controller.py",
+      "areal/engine/vllm_ext/areal_vllm_server.py"
+    ]
+  },
+  {
+    "id": "R013",
+    "en": "optimizations/R013-question-affinity-and-concurrency.md",
+    "zh": "optimizations/R013-question-affinity-and-concurrency.zh.md",
+    "status_en": "Affinity implemented as an option; higher concurrency helped one workload, affinity itself did not.",
+    "status_zh": "题目亲和作为可选项已实现；一次实验中提高并发有效，亲和本身无额外收益。",
+    "historical_runs": [
+      "npu-share-taskaffinity01",
+      "inference-fixed01"
+    ],
+    "conversation_ids": [
+      "C002",
+      "C034",
+      "C035"
+    ],
+    "code_paths": [
+      "areal/infra/request_router.py",
+      "areal/infra/borrowed_rollout.py",
+      "areal/infra/controller/rollout_controller.py"
+    ]
+  },
+  {
+    "id": "R014",
+    "en": "optimizations/R014-optimizer-prewarm-and-pure-status.md",
+    "zh": "optimizations/R014-optimizer-prewarm-and-pure-status.zh.md",
+    "status_en": "Implemented; first-step replay improvement observed.",
+    "status_zh": "已实现；同输入回放显示首批改善。",
+    "historical_runs": [
+      "ppo-replay01",
+      "ppo-prewarm02",
+      "ppo-cache-budget01"
+    ],
+    "conversation_ids": [
+      "C049",
+      "C052",
+      "C055"
+    ],
+    "code_paths": [
+      "areal/engine/fsdp_engine.py",
+      "areal/engine/colocation_memory.py",
+      "areal/trainer/colocation_memory.py"
+    ]
+  },
+  {
+    "id": "R015",
+    "en": "optimizations/R015-training-cache-parking-prefetch.md",
+    "zh": "optimizations/R015-training-cache-parking-prefetch.zh.md",
+    "status_en": "Implemented experimental switches; mechanism verified, exact numerical equivalence not established by timing replay.",
+    "status_zh": "实验开关已实现；机制已验证，计时回放没有证明严格数值等价。",
+    "historical_runs": [
+      "backward-profile01",
+      "ppo-cache-park02",
+      "cache-overlap02",
+      "withdraw-one01"
+    ],
+    "conversation_ids": [
+      "C054",
+      "C058",
+      "C060",
+      "C087"
+    ],
+    "code_paths": [
+      "areal/engine/colocation_memory.py",
+      "areal/engine/fsdp_engine.py",
+      "areal/trainer/training_prefetch.py",
+      "areal/trainer/rl_trainer.py"
+    ]
+  },
+  {
+    "id": "R016",
+    "en": "optimizations/R016-ascend-kernel-warmup.md",
+    "zh": "optimizations/R016-ascend-kernel-warmup.zh.md",
+    "status_en": "Implemented for supported APIs; applies to fixed and shared modes.",
+    "status_zh": "已针对受支持接口实现；固定和共享均生效。",
+    "historical_runs": [
+      "cold-start-diag02",
+      "kernel-warmup02",
+      "post-warmup-ab01"
+    ],
+    "conversation_ids": [
+      "C069",
+      "C070",
+      "C071"
+    ],
+    "code_paths": [
+      "areal/engine/vllm_ext/ascend_kernel_warmup.py",
+      "areal/engine/vllm_ext/vllm_worker_extension.py"
+    ]
+  },
+  {
+    "id": "R017",
+    "en": "optimizations/R017-pressure-driven-partial-offload.md",
+    "zh": "optimizations/R017-pressure-driven-partial-offload.zh.md",
+    "status_en": "Implemented at safe transition boundaries, not arbitrary operator-time paging.",
+    "status_zh": "已实现安全交接边界的分块策略，不是任意算子执行时的缺页调度。",
+    "historical_runs": [
+      "auto-memory-pressure01",
+      "pressure-memory02"
+    ],
+    "conversation_ids": [
+      "C010",
+      "C080"
+    ],
+    "code_paths": [
+      "areal/engine/colocation_memory.py",
+      "areal/trainer/colocation_memory.py",
+      "areal/engine/fsdp_engine.py",
+      "areal/engine/vllm_ext/vllm_worker_extension.py"
+    ]
+  },
+  {
+    "id": "R018",
+    "en": "optimizations/R018-retained-pause.md",
+    "zh": "optimizations/R018-retained-pause.zh.md",
+    "status_en": "Implemented experimental alternative; migration remains the requested default.",
+    "status_zh": "已实现实验备选；按用户选择，迁移仍是最新默认方案。",
+    "historical_runs": [
+      "pause-retain-ab01"
+    ],
+    "conversation_ids": [
+      "C058"
+    ],
+    "code_paths": [
+      "areal/infra/controller/rollout_controller.py",
+      "areal/engine/vllm_ext/dynamic_kv.py",
+      "areal/engine/vllm_ext/vllm_worker_extension.py"
+    ]
+  },
+  {
+    "id": "R019",
+    "en": "optimizations/R019-tail-estimation-and-sibling-ablation.md",
+    "zh": "optimizations/R019-tail-estimation-and-sibling-ablation.zh.md",
+    "status_en": "Tail/dynamic-service refinements retained; sibling scaling removed; startup ranking remains offline research.",
+    "status_zh": "保留尾部和动态服务修正；同题缩放已删除，启动前排序仍仅离线研究。",
+    "historical_runs": [
+      "refined-drain-comparison01",
+      "no-sibling-comparison01",
+      "tail-prediction01"
+    ],
+    "conversation_ids": [
+      "C115",
+      "C116",
+      "C117",
+      "C127"
+    ],
+    "code_paths": [
+      "areal/infra/rolling_drain.py",
+      "areal/infra/drain_prediction.py"
+    ]
+  },
+  {
+    "id": "R020",
+    "en": "optimizations/R020-tp-tail-negative-result.md",
+    "zh": "optimizations/R020-tp-tail-negative-result.zh.md",
+    "status_en": "Measured inference-only alternative; dynamic TP/KV migration was not implemented.",
+    "status_zh": "已测纯推理备选；没有实现动态 TP 或 KV 迁移。",
+    "historical_runs": [
+      "tp-tail01"
+    ],
+    "conversation_ids": [
+      "C124"
+    ],
+    "code_paths": []
+  },
+  {
+    "id": "R021",
+    "en": "optimizations/R021-megatron-backend-adaptation.md",
+    "zh": "optimizations/R021-megatron-backend-adaptation.zh.md",
+    "status_en": "Implemented and validated on the recorded small-model configuration.",
+    "status_zh": "已实现并在记录的小模型配置验证。",
+    "historical_runs": [
+      "megatron-comparison02"
+    ],
+    "conversation_ids": [
+      "C136",
+      "C139"
+    ],
+    "code_paths": [
+      "areal/engine/megatron_engine.py",
+      "areal/trainer/rl_trainer.py",
+      "areal/engine/colocation_memory.py",
+      "benchmark/npu_share/run_bench.py"
+    ]
+  },
+  {
+    "id": "R022",
+    "en": "optimizations/R022-multi-npu-rank-budgets.md",
+    "zh": "optimizations/R022-multi-npu-rank-budgets.zh.md",
+    "status_en": "Recent uncommitted extension; 4-card TP1 and 8-card TP2 functional coverage, no matched scaling claim.",
+    "status_zh": "近期未提交扩展；4 卡 TP1、8 卡 TP2 有功能覆盖，尚无严格配对扩展收益结论。",
+    "historical_runs": [],
+    "conversation_ids": [
+      "C143"
+    ],
+    "code_paths": [
+      "areal/infra/scheduler/local.py",
+      "areal/infra/controller/rollout_controller.py",
+      "areal/infra/controller/train_controller.py",
+      "areal/trainer/colocation_memory.py",
+      "areal/engine/vllm_ext/dynamic_kv.py",
+      "areal/engine/vllm_ext/kv_slab.py",
+      "areal/engine/vllm_remote.py"
+    ]
+  },
+  {
+    "id": "R023",
+    "en": "optimizations/R023-observability-and-reproducibility.md",
+    "zh": "optimizations/R023-observability-and-reproducibility.zh.md",
+    "status_en": "Implemented infrastructure; tracing itself can perturb performance.",
+    "status_zh": "已实现实验基础设施；跟踪本身可能影响性能。",
+    "historical_runs": [
+      "fair-overlap-trace01",
+      "code-three-batches02",
+      "queue-rebalance-comparison01"
+    ],
+    "conversation_ids": [
+      "C095",
+      "C121"
+    ],
+    "code_paths": [
+      "areal/utils/request_trace.py",
+      "areal/engine/vllm_ext/areal_vllm_server.py",
+      "benchmark/npu_share/run_bench.py",
+      "benchmark/npu_share/render.py"
+    ]
+  },
+  {
+    "id": "R024",
+    "en": "optimizations/R024-async-and-multiversion-context.md",
+    "zh": "optimizations/R024-async-and-multiversion-context.zh.md",
+    "status_en": "Historical exploration; upstream capability and this project’s extensions must be separated.",
+    "status_zh": "历史探索；必须区分上游能力与本项目扩展。",
+    "historical_runs": [
+      "multiversion-smoke01",
+      "overlap-smoke01",
+      "scale-smoke01"
+    ],
+    "conversation_ids": [],
+    "code_paths": [
+      "areal/infra/controller/rollout_controller.py"
+    ]
+  }
+]

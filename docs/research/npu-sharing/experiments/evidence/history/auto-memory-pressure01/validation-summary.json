@@ -1,0 +1,128 @@
+{
+  "status": "passed",
+  "scope": "Qwen2.5-1.5B-Instruct, single Ascend 910B2, FSDP2 AdamW, vLLM uni/eager",
+  "pressure_method": "effective budgets [null, 48, 37.5, 37.5] GiB; physical memory unchanged",
+  "optimizer_steps": 4,
+  "optimizer_continuity": true,
+  "versions": {
+    "rollout": {
+      "3->3": 8,
+      "2->2": 8,
+      "1->1": 8,
+      "0->0": 8
+    },
+    "eval-rollout": {
+      "4->4": 8,
+      "2->2": 8
+    }
+  },
+  "policy": [
+    {
+      "phase": "initial_inference",
+      "decisions": [
+        "resident"
+      ],
+      "required_free_bytes": 21783117824,
+      "available_bytes": 57581150208,
+      "device_free_bytes": 57581150208
+    },
+    {
+      "phase": "train",
+      "decisions": [
+        "resident"
+      ],
+      "required_free_bytes": 29261991240,
+      "available_bytes": 37605441536,
+      "device_free_bytes": 37605441536
+    },
+    {
+      "phase": "inference",
+      "decisions": [
+        "resident"
+      ],
+      "required_free_bytes": 4294967296,
+      "available_bytes": 24225599488,
+      "device_free_bytes": 24225599488
+    },
+    {
+      "phase": "train",
+      "decisions": [
+        "release_kv"
+      ],
+      "required_free_bytes": 16912275456,
+      "available_bytes": 26634895360,
+      "device_free_bytes": 40547401728
+    },
+    {
+      "phase": "inference",
+      "decisions": [
+        "resident"
+      ],
+      "required_free_bytes": 20619198464,
+      "available_bytes": 26616143872,
+      "device_free_bytes": 40528650240
+    },
+    {
+      "phase": "train",
+      "decisions": [
+        "release_kv",
+        "inference_weights_cpu"
+      ],
+      "required_free_bytes": 16912275456,
+      "available_bytes": 18588004352,
+      "device_free_bytes": 43774799872
+    },
+    {
+      "phase": "inference",
+      "decisions": [
+        "actor_cpu"
+      ],
+      "required_free_bytes": 23892852736,
+      "available_bytes": 38704279552,
+      "device_free_bytes": 63891075072
+    },
+    {
+      "phase": "train",
+      "decisions": [
+        "release_kv",
+        "inference_weights_cpu"
+      ],
+      "required_free_bytes": 37047031808,
+      "available_bytes": 38704271360,
+      "device_free_bytes": 63891066880
+    },
+    {
+      "phase": "inference",
+      "decisions": [
+        "actor_cpu"
+      ],
+      "required_free_bytes": 23892852736,
+      "available_bytes": 38704214016,
+      "device_free_bytes": 63891009536
+    }
+  ],
+  "actor_roundtrips": [
+    {
+      "time": 1791311152.3268979,
+      "action": "restore",
+      "cpu_backup_bytes": 0,
+      "restore_bytes": 0,
+      "roundtrip_equal": true,
+      "sample_sha256": "ff51626a229671f238904a5101b2d7b621d7f32fe7e3634de202ec9d79bf8a72"
+    },
+    {
+      "time": 1791311192.8449671,
+      "action": "restore",
+      "cpu_backup_bytes": 0,
+      "restore_bytes": 0,
+      "roundtrip_equal": true,
+      "sample_sha256": "3a9ef75c1849dcc3e0ce9b0f623855ad11db9582feeec8442b1d20b25b76e486"
+    }
+  ],
+  "roundtrip_check": "Exact object/storage-address metadata and first/last 8 value bytes per parameter/Adam tensor; not a full-tensor checksum",
+  "max_actor_cpu_backup_bytes": 20134756352,
+  "initialize_seconds": 318.3133842945099,
+  "train_loop_seconds": 156.87476658821106,
+  "eval_seconds": 25.489755630493164,
+  "busy_restored": true
+}

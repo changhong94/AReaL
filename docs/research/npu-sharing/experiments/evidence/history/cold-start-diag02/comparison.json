@@ -1,0 +1,89 @@
+{
+  "cold": {
+    "loop_seconds": 108.8789472579956,
+    "first_windows": [
+      {
+        "card": 2,
+        "step": 1,
+        "start": 1.046414852142334,
+        "seconds": 10.633925676345825,
+        "requests": 1,
+        "tokens": 106
+      },
+      {
+        "card": 1,
+        "step": 1,
+        "start": 1.0585978031158447,
+        "seconds": 10.569817543029785,
+        "requests": 2,
+        "tokens": 254
+      }
+    ],
+    "single_token": {
+      "count": 111,
+      "max_seconds": 5.6447834968566895,
+      "median_seconds": 0.0417325496673584
+    },
+    "max_window_seconds": 10.633925676345825,
+    "long_windows": [
+      {
+        "card": 2,
+        "step": 1,
+        "start": 1.046414852142334,
+        "seconds": 10.633925676345825,
+        "requests": 1,
+        "tokens": 106
+      },
+      {
+        "card": 1,
+        "step": 1,
+        "start": 1.0585978031158447,
+        "seconds": 10.569817543029785,
+        "requests": 2,
+        "tokens": 254
+      },
+      {
+        "card": 2,
+        "step": 1243,
+        "start": 80.05143141746521,
+        "seconds": 5.6447834968566895,
+        "requests": 1,
+        "tokens": 1
+      }
+    ],
+    "tokens": 47664,
+    "completed_batches": 3,
+    "busy_restored": true
+  },
+  "cached": {
+    "loop_seconds": 95.4253523349762,
+    "first_windows": [
+      {
+        "card": 2,
+        "step": 1,
+        "start": 0.9983441829681396,
+        "seconds": 0.150223970413208,
+        "requests": 1,
+        "tokens": 115
+      },
+      {
+        "card": 1,
+        "step": 1,
+        "start": 1.0067908763885498,
+        "seconds": 0.15415167808532715,
+        "requests": 1,
+        "tokens": 85
+      }
+    ],
+    "single_token": {
+      "count": 161,
+      "max_seconds": 0.05262136459350586,
+      "median_seconds": 0.043203115463256836
+    },
+    "max_window_seconds": 0.15415167808532715,
+    "long_windows": [],
+    "tokens": 47026,
+    "completed_batches": 3,
+    "busy_restored": true
+  }
+}

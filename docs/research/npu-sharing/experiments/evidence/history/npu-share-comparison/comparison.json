@@ -1,0 +1,1515 @@
+{
+  "results": {
+    "npu-share-perf03": {
+      "run": "npu-share-perf03",
+      "devices": [
+        "1"
+      ],
+      "updates": 16,
+      "loop_seconds_including_save_eval_logs": 778.1968250274658,
+      "first_rollout_to_last_weight_sync_seconds": 750.5210390090942,
+      "reserved_npu_seconds_loop": 778.1968250274658,
+      "questions_per_second": 0.328965618680036,
+      "initialize_seconds": 304.89510130882263,
+      "train_call_seconds": 778.2561137676239,
+      "stage_seconds": {
+        "loop": 778.1968250274658,
+        "train.checkpoint": 0.0007390975952148438,
+        "train.clear_batches": 0.2833726406097412,
+        "train.compute_advantage": 12.704686164855957,
+        "train.eval": 27.60984992980957,
+        "train.log_stats": 0.7763407230377197,
+        "train.ppo_update": 66.44642877578735,
+        "train.recompute_logp": 17.801630973815918,
+        "train.rollout": 500.228164434433,
+        "train.rollout_offload": 1.71661376953125e-05,
+        "train.rollout_onload": 3.910064697265625e-05,
+        "train.rollout_pause": 0.04294848442077637,
+        "train.rollout_pause_generation": 0.47950148582458496,
+        "train.save": 10.90653371810913,
+        "train.update_weights": 129.3402020931244
+      },
+      "metrics": {
+        "loop": {
+          "1": {
+            "aicore": {
+              "samples": 389,
+              "mean": 13.850899742930592,
+              "max": 100.0
+            },
+            "hbm_used_mb": {
+              "samples": 389,
+              "mean": 45863.18508997429,
+              "max": 49078.0
+            },
+            "power_w": {
+              "samples": 389,
+              "mean": 130.41773778920307,
+              "max": 316.5
+            }
+          }
+        },
+        "train.checkpoint": {
+          "1": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          }
+        },
+        "train.clear_batches": {
+          "1": {
+            "aicore": {
+              "samples": 1,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 1,
+              "mean": 48802.0,
+              "max": 48802.0
+            },
+            "power_w": {
+              "samples": 1,
+              "mean": 109.7,
+              "max": 109.7
+            }
+          }
+        },
+        "train.compute_advantage": {
+          "1": {
+            "aicore": {
+              "samples": 4,
+              "mean": 31.25,
+              "max": 79.0
+            },
+            "hbm_used_mb": {
+              "samples": 4,
+              "mean": 31606.25,
+              "max": 31636.0
+            },
+            "power_w": {
+              "samples": 4,
+              "mean": 187.45,
+              "max": 282.7
+            }
+          }
+        },
+        "train.eval": {
+          "1": {
+            "aicore": {
+              "samples": 14,
+              "mean": 11.0,
+              "max": 15.0
+            },
+            "hbm_used_mb": {
+              "samples": 14,
+              "mean": 49057.857142857145,
+              "max": 49078.0
+            },
+            "power_w": {
+              "samples": 14,
+              "mean": 120.86428571428571,
+              "max": 125.8
+            }
+          }
+        },
+        "train.log_stats": {
+          "1": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          }
+        },
+        "train.ppo_update": {
+          "1": {
+            "aicore": {
+              "samples": 33,
+              "mean": 58.878787878787875,
+              "max": 100.0
+            },
+            "hbm_used_mb": {
+              "samples": 33,
+              "mean": 39705.84848484849,
+              "max": 46056.0
+            },
+            "power_w": {
+              "samples": 33,
+              "mean": 221.05757575757576,
+              "max": 316.5
+            }
+          }
+        },
+        "train.recompute_logp": {
+          "1": {
+            "aicore": {
+              "samples": 11,
+              "mean": 31.0,
+              "max": 85.0
+            },
+            "hbm_used_mb": {
+              "samples": 11,
+              "mean": 27913.454545454544,
+              "max": 31633.0
+            },
+            "power_w": {
+              "samples": 11,
+              "mean": 171.05454545454546,
+              "max": 298.7
+            }
+          }
+        },
+        "train.rollout": {
+          "1": {
+            "aicore": {
+              "samples": 251,
+              "mean": 10.920318725099602,
+              "max": 65.0
+            },
+            "hbm_used_mb": {
+              "samples": 251,
+              "mean": 48075.79282868526,
+              "max": 49078.0
+            },
+            "power_w": {
+              "samples": 251,
+              "mean": 122.30199203187252,
+              "max": 228.9
+            }
+          }
+        },
+        "train.rollout_offload": {
+          "1": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          }
+        },
+        "train.rollout_onload": {
+          "1": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          }
+        },
+        "train.rollout_pause": {
+          "1": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          }
+        },
+        "train.rollout_pause_generation": {
+          "1": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          }
+        },
+        "train.save": {
+          "1": {
+            "aicore": {
+              "samples": 5,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 5,
+              "mean": 45525.4,
+              "max": 45526.0
+            },
+            "power_w": {
+              "samples": 5,
+              "mean": 103.9,
+              "max": 109.7
+            }
+          }
+        },
+        "train.update_weights": {
+          "1": {
+            "aicore": {
+              "samples": 65,
+              "mean": 1.2923076923076924,
+              "max": 84.0
+            },
+            "hbm_used_mb": {
+              "samples": 65,
+              "mean": 44530.95384615385,
+              "max": 48801.0
+            },
+            "power_w": {
+              "samples": 65,
+              "mean": 111.00923076923077,
+              "max": 291.8
+            }
+          }
+        }
+      },
+      "responses": {
+        "rollout": {
+          "responses": 1024,
+          "generated_tokens": 276882,
+          "reward_mean": 0.76953125,
+          "versions": {
+            "15->15": 64,
+            "14->14": 64,
+            "13->13": 64,
+            "12->12": 64,
+            "11->11": 64,
+            "10->10": 64,
+            "9->9": 64,
+            "8->8": 64,
+            "7->7": 64,
+            "6->6": 64,
+            "5->5": 64,
+            "4->4": 64,
+            "3->3": 64,
+            "2->2": 64,
+            "1->1": 64,
+            "0->0": 64
+          }
+        },
+        "eval-rollout": {
+          "responses": 64,
+          "generated_tokens": 18906,
+          "reward_mean": 0.65625,
+          "versions": {
+            "16->16": 64
+          }
+        }
+      },
+      "policy": [
+        {
+          "phase": "initial_inference",
+          "decisions": [
+            "resident"
+          ],
+          "required_free_bytes": 28328329216,
+          "available_bytes": 57582129152,
+          "device_free_bytes": 57582129152
+        },
+        {
+          "phase": "train",
+          "decisions": [
+            "release_kv"
+          ],
+          "required_free_bytes": 37851925832,
+          "available_bytes": 53932306432,
+          "device_free_bytes": 53932306432
+        },
+        {
+          "phase": "inference",
+          "decisions": [
+            "resident"
+          ],
+          "required_free_bytes": 27078426624,
+          "available_bytes": 40544428032,
+          "device_free_bytes": 40544428032
+        },
+        {
+          "phase": "train",
+          "decisions": [
+            "release_kv"
+          ],
+          "required_free_bytes": 25502210048,
+          "available_bytes": 40441430016,
+          "device_free_bytes": 40441430016
+        },
+        {
+          "phase": "inference",
+          "decisions": [
+            "resident"
+          ],
+          "required_free_bytes": 27078426624,
+          "available_bytes": 40397754368,
+          "device_free_bytes": 40397754368
+        },
+        {
+          "phase": "train",
+          "decisions": [
+            "release_kv"
+          ],
+          "required_free_bytes": 25502210048,
+          "available_bytes": 40397524992,
+          "device_free_bytes": 40397524992
+        },
+        {
+          "phase": "inference",
+          "decisions": [
+            "resident"
+          ],
+          "required_free_bytes": 27078426624,
+          "available_bytes": 40397631488,
+          "device_free_bytes": 40397631488
+        },
+        {
+          "phase": "train",
+          "decisions": [
+            "release_kv"
+          ],
+          "required_free_bytes": 25502210048,
+          "available_bytes": 40359657472,
+          "device_free_bytes": 40359657472
+        },
+        {
+          "phase": "inference",
+          "decisions": [
+            "resident"
+          ],
+          "required_free_bytes": 27078426624,
+          "available_bytes": 40336683008,
+          "device_free_bytes": 40336683008
+        },
+        {
+          "phase": "train",
+          "decisions": [
+            "release_kv"
+          ],
+          "required_free_bytes": 25502210048,
+          "available_bytes": 40336371712,
+          "device_free_bytes": 40336371712
+        },
+        {
+          "phase": "inference",
+          "decisions": [
+            "resident"
+          ],
+          "required_free_bytes": 27078426624,
+          "available_bytes": 40334950400,
+          "device_free_bytes": 40334950400
+        },
+        {
+          "phase": "train",
+          "decisions": [
+            "release_kv"
+          ],
+          "required_free_bytes": 25502210048,
+          "available_bytes": 40334249984,
+          "device_free_bytes": 40334249984
+        },
+        {
+          "phase": "inference",
+          "decisions": [
+            "resident"
+          ],
+          "required_free_bytes": 27078426624,
+          "available_bytes": 40334319616,
+          "device_free_bytes": 40334319616
+        },
+        {
+          "phase": "train",
+          "decisions": [
+            "release_kv"
+          ],
+          "required_free_bytes": 25502210048,
+          "available_bytes": 40334356480,
+          "device_free_bytes": 40334356480
+        },
+        {
+          "phase": "inference",
+          "decisions": [
+            "resident"
+          ],
+          "required_free_bytes": 27078426624,
+          "available_bytes": 40334798848,
+          "device_free_bytes": 40334798848
+        },
+        {
+          "phase": "train",
+          "decisions": [
+            "release_kv"
+          ],
+          "required_free_bytes": 25502210048,
+          "available_bytes": 40334274560,
+          "device_free_bytes": 40334274560
+        },
+        {
+          "phase": "inference",
+          "decisions": [
+            "resident"
+          ],
+          "required_free_bytes": 27078426624,
+          "available_bytes": 40332349440,
+          "device_free_bytes": 40332349440
+        },
+        {
+          "phase": "train",
+          "decisions": [
+            "release_kv"
+          ],
+          "required_free_bytes": 25502210048,
+          "available_bytes": 40332357632,
+          "device_free_bytes": 40332357632
+        },
+        {
+          "phase": "inference",
+          "decisions": [
+            "resident"
+          ],
+          "required_free_bytes": 27078426624,
+          "available_bytes": 40332365824,
+          "device_free_bytes": 40332365824
+        },
+        {
+          "phase": "train",
+          "decisions": [
+            "release_kv"
+          ],
+          "required_free_bytes": 25502210048,
+          "available_bytes": 40332496896,
+          "device_free_bytes": 40332496896
+        },
+        {
+          "phase": "inference",
+          "decisions": [
+            "resident"
+          ],
+          "required_free_bytes": 27078426624,
+          "available_bytes": 40332697600,
+          "device_free_bytes": 40332697600
+        },
+        {
+          "phase": "train",
+          "decisions": [
+            "release_kv"
+          ],
+          "required_free_bytes": 25502210048,
+          "available_bytes": 40332304384,
+          "device_free_bytes": 40332304384
+        },
+        {
+          "phase": "inference",
+          "decisions": [
+            "resident"
+          ],
+          "required_free_bytes": 27078426624,
+          "available_bytes": 40332341248,
+          "device_free_bytes": 40332341248
+        },
+        {
+          "phase": "train",
+          "decisions": [
+            "release_kv"
+          ],
+          "required_free_bytes": 25502210048,
+          "available_bytes": 40332038144,
+          "device_free_bytes": 40332038144
+        },
+        {
+          "phase": "inference",
+          "decisions": [
+            "resident"
+          ],
+          "required_free_bytes": 27078426624,
+          "available_bytes": 40330371072,
+          "device_free_bytes": 40330371072
+        },
+        {
+          "phase": "train",
+          "decisions": [
+            "release_kv"
+          ],
+          "required_free_bytes": 25502210048,
+          "available_bytes": 40330596352,
+          "device_free_bytes": 40330596352
+        },
+        {
+          "phase": "inference",
+          "decisions": [
+            "resident"
+          ],
+          "required_free_bytes": 27078426624,
+          "available_bytes": 40330133504,
+          "device_free_bytes": 40330133504
+        },
+        {
+          "phase": "train",
+          "decisions": [
+            "release_kv"
+          ],
+          "required_free_bytes": 25502210048,
+          "available_bytes": 40330354688,
+          "device_free_bytes": 40330354688
+        },
+        {
+          "phase": "inference",
+          "decisions": [
+            "resident"
+          ],
+          "required_free_bytes": 27078426624,
+          "available_bytes": 40330686464,
+          "device_free_bytes": 40330686464
+        },
+        {
+          "phase": "train",
+          "decisions": [
+            "release_kv"
+          ],
+          "required_free_bytes": 25502210048,
+          "available_bytes": 40330530816,
+          "device_free_bytes": 40330530816
+        },
+        {
+          "phase": "inference",
+          "decisions": [
+            "resident"
+          ],
+          "required_free_bytes": 27078426624,
+          "available_bytes": 40330383360,
+          "device_free_bytes": 40330383360
+        },
+        {
+          "phase": "train",
+          "decisions": [
+            "release_kv"
+          ],
+          "required_free_bytes": 25502210048,
+          "available_bytes": 40330211328,
+          "device_free_bytes": 40330211328
+        },
+        {
+          "phase": "inference",
+          "decisions": [
+            "resident"
+          ],
+          "required_free_bytes": 27078426624,
+          "available_bytes": 40330518528,
+          "device_free_bytes": 40330518528
+        }
+      ],
+      "policy_counts": {
+        "initial_inference:resident": 1,
+        "train:release_kv": 16,
+        "inference:resident": 16
+      },
+      "busy_restored": true,
+      "sampling_note": "2-second query midpoint samples; AI Core activity is not peak FLOPS efficiency."
+    },
+    "npu-share-async01": {
+      "run": "npu-share-async01",
+      "devices": [
+        "1",
+        "2"
+      ],
+      "updates": 16,
+      "loop_seconds_including_save_eval_logs": 370.04596185684204,
+      "first_rollout_to_last_weight_sync_seconds": 336.0581908226013,
+      "reserved_npu_seconds_loop": 740.0919237136841,
+      "questions_per_second": 0.6918059549019955,
+      "initialize_seconds": 331.8881335258484,
+      "train_call_seconds": 370.0760660171509,
+      "stage_seconds": {
+        "loop": 370.04596185684204,
+        "train.checkpoint": 0.0007061958312988281,
+        "train.clear_batches": 0.29622697830200195,
+        "train.compute_advantage": 13.235718011856079,
+        "train.eval": 33.81894659996033,
+        "train.log_stats": 2.360255479812622,
+        "train.ppo_update": 60.91662120819092,
+        "train.recompute_logp": 18.434354543685913,
+        "train.rollout": 214.78466653823853,
+        "train.save": 11.88835883140564,
+        "train.update_weights": 14.022845029830933
+      },
+      "metrics": {
+        "loop": {
+          "1": {
+            "aicore": {
+              "samples": 185,
+              "mean": 11.513513513513514,
+              "max": 100.0
+            },
+            "hbm_used_mb": {
+              "samples": 185,
+              "mean": 38782.12972972973,
+              "max": 42231.0
+            },
+            "power_w": {
+              "samples": 185,
+              "mean": 130.79405405405404,
+              "max": 304.1
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 185,
+              "mean": 13.697297297297297,
+              "max": 70.0
+            },
+            "hbm_used_mb": {
+              "samples": 185,
+              "mean": 29691.75135135135,
+              "max": 29781.0
+            },
+            "power_w": {
+              "samples": 185,
+              "mean": 124.5081081081081,
+              "max": 261.5
+            }
+          }
+        },
+        "train.checkpoint": {
+          "1": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          },
+          "2": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          }
+        },
+        "train.clear_batches": {
+          "1": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          },
+          "2": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          }
+        },
+        "train.compute_advantage": {
+          "1": {
+            "aicore": {
+              "samples": 7,
+              "mean": 32.285714285714285,
+              "max": 80.0
+            },
+            "hbm_used_mb": {
+              "samples": 7,
+              "mean": 38170.71428571428,
+              "max": 42229.0
+            },
+            "power_w": {
+              "samples": 7,
+              "mean": 202.35714285714286,
+              "max": 292.5
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 7,
+              "mean": 13.142857142857142,
+              "max": 14.0
+            },
+            "hbm_used_mb": {
+              "samples": 7,
+              "mean": 29659.285714285714,
+              "max": 29781.0
+            },
+            "power_w": {
+              "samples": 7,
+              "mean": 123.54285714285714,
+              "max": 126.9
+            }
+          }
+        },
+        "train.eval": {
+          "1": {
+            "aicore": {
+              "samples": 17,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 17,
+              "mean": 42230.882352941175,
+              "max": 42231.0
+            },
+            "power_w": {
+              "samples": 17,
+              "mean": 102.37058823529412,
+              "max": 102.7
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 17,
+              "mean": 9.647058823529411,
+              "max": 15.0
+            },
+            "hbm_used_mb": {
+              "samples": 17,
+              "mean": 29781.0,
+              "max": 29781.0
+            },
+            "power_w": {
+              "samples": 17,
+              "mean": 117.74705882352941,
+              "max": 150.0
+            }
+          }
+        },
+        "train.log_stats": {
+          "1": {
+            "aicore": {
+              "samples": 2,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 2,
+              "mean": 42229.5,
+              "max": 42231.0
+            },
+            "power_w": {
+              "samples": 2,
+              "mean": 121.9,
+              "max": 122.8
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 2,
+              "mean": 1.5,
+              "max": 2.0
+            },
+            "hbm_used_mb": {
+              "samples": 2,
+              "mean": 29780.5,
+              "max": 29781.0
+            },
+            "power_w": {
+              "samples": 2,
+              "mean": 117.55000000000001,
+              "max": 117.9
+            }
+          }
+        },
+        "train.ppo_update": {
+          "1": {
+            "aicore": {
+              "samples": 31,
+              "mean": 52.87096774193548,
+              "max": 100.0
+            },
+            "hbm_used_mb": {
+              "samples": 31,
+              "mean": 40944.58064516129,
+              "max": 42231.0
+            },
+            "power_w": {
+              "samples": 31,
+              "mean": 223.1,
+              "max": 304.1
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 31,
+              "mean": 13.838709677419354,
+              "max": 17.0
+            },
+            "hbm_used_mb": {
+              "samples": 31,
+              "mean": 29726.064516129034,
+              "max": 29781.0
+            },
+            "power_w": {
+              "samples": 31,
+              "mean": 123.16774193548387,
+              "max": 129.7
+            }
+          }
+        },
+        "train.recompute_logp": {
+          "1": {
+            "aicore": {
+              "samples": 9,
+              "mean": 14.222222222222221,
+              "max": 74.0
+            },
+            "hbm_used_mb": {
+              "samples": 9,
+              "mean": 37675.22222222222,
+              "max": 42231.0
+            },
+            "power_w": {
+              "samples": 9,
+              "mean": 138.43333333333334,
+              "max": 253.0
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 9,
+              "mean": 15.222222222222221,
+              "max": 21.0
+            },
+            "hbm_used_mb": {
+              "samples": 9,
+              "mean": 29686.222222222223,
+              "max": 29781.0
+            },
+            "power_w": {
+              "samples": 9,
+              "mean": 123.9888888888889,
+              "max": 134.3
+            }
+          }
+        },
+        "train.rollout": {
+          "1": {
+            "aicore": {
+              "samples": 105,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 105,
+              "mean": 37299.09523809524,
+              "max": 42231.0
+            },
+            "power_w": {
+              "samples": 105,
+              "mean": 103.0847619047619,
+              "max": 119.1
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 105,
+              "mean": 15.161904761904761,
+              "max": 70.0
+            },
+            "hbm_used_mb": {
+              "samples": 105,
+              "mean": 29660.095238095237,
+              "max": 29781.0
+            },
+            "power_w": {
+              "samples": 105,
+              "mean": 126.95238095238095,
+              "max": 261.5
+            }
+          }
+        },
+        "train.save": {
+          "1": {
+            "aicore": {
+              "samples": 6,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 6,
+              "mean": 42230.833333333336,
+              "max": 42231.0
+            },
+            "power_w": {
+              "samples": 6,
+              "mean": 105.46666666666667,
+              "max": 112.2
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 6,
+              "mean": 14.0,
+              "max": 15.0
+            },
+            "hbm_used_mb": {
+              "samples": 6,
+              "mean": 29781.0,
+              "max": 29781.0
+            },
+            "power_w": {
+              "samples": 6,
+              "mean": 123.18333333333334,
+              "max": 126.3
+            }
+          }
+        },
+        "train.update_weights": {
+          "1": {
+            "aicore": {
+              "samples": 8,
+              "mean": 17.125,
+              "max": 73.0
+            },
+            "hbm_used_mb": {
+              "samples": 8,
+              "mean": 40870.75,
+              "max": 42231.0
+            },
+            "power_w": {
+              "samples": 8,
+              "mean": 147.2,
+              "max": 253.6
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 8,
+              "mean": 4.125,
+              "max": 14.0
+            },
+            "hbm_used_mb": {
+              "samples": 8,
+              "mean": 29730.125,
+              "max": 29781.0
+            },
+            "power_w": {
+              "samples": 8,
+              "mean": 116.15,
+              "max": 123.7
+            }
+          }
+        }
+      },
+      "responses": {
+        "rollout": {
+          "responses": 1092,
+          "generated_tokens": 287956,
+          "reward_mean": 0.7655677655677655,
+          "versions": {
+            "15->16": 2,
+            "15->15": 46,
+            "14->15": 47,
+            "13->15": 5,
+            "13->14": 38,
+            "14->14": 17,
+            "13->13": 33,
+            "11->12": 44,
+            "11->14": 1,
+            "12->13": 40,
+            "12->14": 1,
+            "12->12": 11,
+            "11->13": 4,
+            "11->11": 27,
+            "10->12": 1,
+            "10->11": 42,
+            "9->11": 8,
+            "9->10": 41,
+            "10->10": 5,
+            "9->9": 23,
+            "7->9": 16,
+            "7->10": 1,
+            "8->9": 43,
+            "7->8": 37,
+            "8->8": 1,
+            "7->7": 30,
+            "6->7": 49,
+            "6->6": 11,
+            "5->6": 41,
+            "5->7": 2,
+            "4->6": 5,
+            "4->5": 42,
+            "5->5": 9,
+            "3->4": 47,
+            "3->6": 1,
+            "4->4": 37,
+            "3->5": 1,
+            "3->3": 15,
+            "2->3": 35,
+            "2->4": 1,
+            "1->3": 10,
+            "1->2": 41,
+            "2->2": 8,
+            "1->1": 33,
+            "0->1": 46,
+            "0->0": 93,
+            "0->2": 1
+          }
+        },
+        "eval-rollout": {
+          "responses": 64,
+          "generated_tokens": 18028,
+          "reward_mean": 0.75,
+          "versions": {
+            "16->16": 64
+          }
+        }
+      },
+      "policy": [],
+      "policy_counts": {},
+      "busy_restored": true,
+      "sampling_note": "2-second query midpoint samples; AI Core activity is not peak FLOPS efficiency."
+    },
+    "utilization-async01": {
+      "run": "utilization-async01",
+      "devices": [
+        "1",
+        "2"
+      ],
+      "updates": 16,
+      "loop_seconds_including_save_eval_logs": 369.1227512359619,
+      "first_rollout_to_last_weight_sync_seconds": 334.1889159679413,
+      "reserved_npu_seconds_loop": 738.2455024719238,
+      "questions_per_second": 0.6935362264797161,
+      "initialize_seconds": null,
+      "train_call_seconds": null,
+      "stage_seconds": {
+        "loop": 369.1227512359619,
+        "train.checkpoint": 0.006155729293823242,
+        "train.clear_batches": 0.09199833869934082,
+        "train.compute_advantage": 19.072596311569214,
+        "train.eval": 22.8426992893219,
+        "train.log_stats": 2.2941391468048096,
+        "train.ppo_update": 65.35090136528015,
+        "train.recompute_logp": 17.234408855438232,
+        "train.rollout": 212.5534942150116,
+        "train.save": 13.568819999694824,
+        "train.update_weights": 15.716782093048096
+      },
+      "metrics": {
+        "loop": {
+          "1": {
+            "aicore": {
+              "samples": 184,
+              "mean": 12.804347826086957,
+              "max": 100.0
+            },
+            "hbm_used_mb": {
+              "samples": 184,
+              "mean": 24692.597826086956,
+              "max": 26741.0
+            },
+            "power_w": {
+              "samples": 184,
+              "mean": 134.50652173913045,
+              "max": 326.8
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 184,
+              "mean": 17.179347826086957,
+              "max": 37.0
+            },
+            "hbm_used_mb": {
+              "samples": 184,
+              "mean": 29054.429347826088,
+              "max": 29102.0
+            },
+            "power_w": {
+              "samples": 184,
+              "mean": 125.88641304347826,
+              "max": 174.9
+            }
+          }
+        },
+        "train.checkpoint": {
+          "1": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          },
+          "2": {
+            "aicore": null,
+            "hbm_used_mb": null,
+            "power_w": null
+          }
+        },
+        "train.clear_batches": {
+          "1": {
+            "aicore": {
+              "samples": 1,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 1,
+              "mean": 26738.0,
+              "max": 26738.0
+            },
+            "power_w": {
+              "samples": 1,
+              "mean": 117.9,
+              "max": 117.9
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 1,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 1,
+              "mean": 29102.0,
+              "max": 29102.0
+            },
+            "power_w": {
+              "samples": 1,
+              "mean": 114.3,
+              "max": 114.3
+            }
+          }
+        },
+        "train.compute_advantage": {
+          "1": {
+            "aicore": {
+              "samples": 9,
+              "mean": 6.555555555555555,
+              "max": 22.0
+            },
+            "hbm_used_mb": {
+              "samples": 9,
+              "mean": 24314.88888888889,
+              "max": 26741.0
+            },
+            "power_w": {
+              "samples": 9,
+              "mean": 150.04444444444445,
+              "max": 233.2
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 9,
+              "mean": 19.555555555555557,
+              "max": 23.0
+            },
+            "hbm_used_mb": {
+              "samples": 9,
+              "mean": 29054.11111111111,
+              "max": 29102.0
+            },
+            "power_w": {
+              "samples": 9,
+              "mean": 127.43333333333334,
+              "max": 131.3
+            }
+          }
+        },
+        "train.eval": {
+          "1": {
+            "aicore": {
+              "samples": 12,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 12,
+              "mean": 26740.916666666668,
+              "max": 26741.0
+            },
+            "power_w": {
+              "samples": 12,
+              "mean": 102.66666666666667,
+              "max": 102.8
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 12,
+              "mean": 15.166666666666666,
+              "max": 23.0
+            },
+            "hbm_used_mb": {
+              "samples": 12,
+              "mean": 29101.5,
+              "max": 29102.0
+            },
+            "power_w": {
+              "samples": 12,
+              "mean": 124.0,
+              "max": 141.3
+            }
+          }
+        },
+        "train.log_stats": {
+          "1": {
+            "aicore": {
+              "samples": 1,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 1,
+              "mean": 21332.0,
+              "max": 21332.0
+            },
+            "power_w": {
+              "samples": 1,
+              "mean": 107.9,
+              "max": 107.9
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 1,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 1,
+              "mean": 29099.0,
+              "max": 29099.0
+            },
+            "power_w": {
+              "samples": 1,
+              "mean": 100.1,
+              "max": 100.1
+            }
+          }
+        },
+        "train.ppo_update": {
+          "1": {
+            "aicore": {
+              "samples": 32,
+              "mean": 58.71875,
+              "max": 100.0
+            },
+            "hbm_used_mb": {
+              "samples": 32,
+              "mean": 25809.5625,
+              "max": 26741.0
+            },
+            "power_w": {
+              "samples": 32,
+              "mean": 231.56875,
+              "max": 311.2
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 32,
+              "mean": 19.6875,
+              "max": 27.0
+            },
+            "hbm_used_mb": {
+              "samples": 32,
+              "mean": 29061.125,
+              "max": 29102.0
+            },
+            "power_w": {
+              "samples": 32,
+              "mean": 127.684375,
+              "max": 137.8
+            }
+          }
+        },
+        "train.recompute_logp": {
+          "1": {
+            "aicore": {
+              "samples": 8,
+              "mean": 48.125,
+              "max": 84.0
+            },
+            "hbm_used_mb": {
+              "samples": 8,
+              "mean": 26738.375,
+              "max": 26740.0
+            },
+            "power_w": {
+              "samples": 8,
+              "mean": 219.57500000000002,
+              "max": 326.8
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 8,
+              "mean": 21.625,
+              "max": 27.0
+            },
+            "hbm_used_mb": {
+              "samples": 8,
+              "mean": 29101.625,
+              "max": 29102.0
+            },
+            "power_w": {
+              "samples": 8,
+              "mean": 129.375,
+              "max": 138.2
+            }
+          }
+        },
+        "train.rollout": {
+          "1": {
+            "aicore": {
+              "samples": 107,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 107,
+              "mean": 23802.70093457944,
+              "max": 26741.0
+            },
+            "power_w": {
+              "samples": 107,
+              "mean": 103.5,
+              "max": 114.3
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 107,
+              "mean": 18.46728971962617,
+              "max": 37.0
+            },
+            "hbm_used_mb": {
+              "samples": 107,
+              "mean": 29036.635514018693,
+              "max": 29102.0
+            },
+            "power_w": {
+              "samples": 107,
+              "mean": 127.56168224299066,
+              "max": 174.9
+            }
+          }
+        },
+        "train.save": {
+          "1": {
+            "aicore": {
+              "samples": 5,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 5,
+              "mean": 26740.8,
+              "max": 26741.0
+            },
+            "power_w": {
+              "samples": 5,
+              "mean": 104.32,
+              "max": 110.7
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 5,
+              "mean": 0.0,
+              "max": 0.0
+            },
+            "hbm_used_mb": {
+              "samples": 5,
+              "mean": 29101.4,
+              "max": 29102.0
+            },
+            "power_w": {
+              "samples": 5,
+              "mean": 99.96000000000001,
+              "max": 100.1
+            }
+          }
+        },
+        "train.update_weights": {
+          "1": {
+            "aicore": {
+              "samples": 9,
+              "mean": 3.6666666666666665,
+              "max": 33.0
+            },
+            "hbm_used_mb": {
+              "samples": 9,
+              "mean": 26137.444444444445,
+              "max": 26741.0
+            },
+            "power_w": {
+              "samples": 9,
+              "mean": 130.9,
+              "max": 167.6
+            }
+          },
+          "2": {
+            "aicore": {
+              "samples": 9,
+              "mean": 2.6666666666666665,
+              "max": 21.0
+            },
+            "hbm_used_mb": {
+              "samples": 9,
+              "mean": 29101.444444444445,
+              "max": 29102.0
+            },
+            "power_w": {
+              "samples": 9,
+              "mean": 116.0,
+              "max": 127.7
+            }
+          }
+        }
+      },
+      "responses": {
+        "rollout": {
+          "responses": 1040,
+          "generated_tokens": 299120,
+          "reward_mean": 0.5692307692307692,
+          "versions": {
+            "-1->16": 4,
+            "-1->15": 64,
+            "-1->14": 56,
+            "-1->13": 72,
+            "-1->12": 44,
+            "-1->11": 72,
+            "-1->10": 68,
+            "-1->9": 76,
+            "-1->8": 52,
+            "-1->7": 72,
+            "-1->6": 48,
+            "-1->5": 60,
+            "-1->4": 84,
+            "-1->3": 64,
+            "-1->2": 60,
+            "-1->1": 52,
+            "-1->0": 92
+          }
+        },
+        "eval-rollout": {
+          "responses": 64,
+          "generated_tokens": 16885,
+          "reward_mean": 0.609375,
+          "versions": {
+            "-1->16": 64
+          }
+        }
+      },
+      "policy": [],
+      "policy_counts": {},
+      "busy_restored": true,
+      "sampling_note": "2-second query midpoint samples; AI Core activity is not peak FLOPS efficiency."
+    }
+  },
+  "ratios": {
+    "loop_time_ratio_shared_over_async": 2.1029734282805745,
+    "loop_card_seconds_ratio_shared_over_async": 1.0514867141402873,
+    "init_plus_train_seconds": {
+      "npu-share-perf03": 1083.1512150764465,
+      "npu-share-async01": 701.9641995429993
+    }
+  },
+  "controlled_workload": {
+    "model": "Qwen2.5-1.5B-Instruct",
+    "training_questions": 256,
+    "eval_questions": 16,
+    "batch_questions": 16,
+    "answers_per_question": 4,
+    "updates": 16,
+    "max_new_tokens": 1024,
+    "max_num_seqs": 64,
+    "train_workspace_gib": 16
+  },
+  "mode_differences": {
+    "single": {
+      "npu_share": true,
+      "devices": 1,
+      "max_head_offpolicyness": 0,
+      "weight_update": "disk",
+      "kv_pool_reclaims": 16,
+      "cpu_state_offloads": 0
+    },
+    "parallel": {
+      "npu_share": false,
+      "devices": 2,
+      "max_head_offpolicyness": 2,
+      "weight_update": "xccl"
+    }
+  },
+  "limitations": [
+    "One run per successful mode; stochastic generation and asynchronous prefetch differ.",
+    "Parallel emitted 1092 training-role responses, single emitted 1024; both completed 16 updates of 64 sequences.",
+    "Historical run uses an older runtime and branch; current two arms share image and source.",
+    "8 GiB workspace first attempt ran out of memory; successful run reserves 16 GiB.",
+    "NPU seconds means allocated cards times elapsed time, not measured compute work.",
+    "Trace window includes final save/evaluation/logging, excludes initialization and shutdown."
+  ]
+}
