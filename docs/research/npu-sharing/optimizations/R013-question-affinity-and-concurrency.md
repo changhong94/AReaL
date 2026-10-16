@@ -8,6 +8,18 @@ affinity itself did not.
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R013: Keep question groups together without confusing concurrency limits](R013.png)
+
+Global question concurrency ≠ per-engine sequence capacity. Affinity ≠ sibling
+prediction.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R013.svg) | [PNG](R013.png)
+
 ## Problem and mechanism
 
 Training consumes complete question groups. Spreading every answer independently can

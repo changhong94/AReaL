@@ -7,14 +7,14 @@ from areal.infra.drain_prediction import simulate_decode
 from areal.infra.rolling_drain import residual_distribution
 
 
-def plan_rebalance(calibration, route, engines, overhead):
+def plan_rebalance(calibration, route, engines, overhead, source_rank=1, target_rank=0):
     """Compare expected completion of the live set; never select running work.
 
     Estimates use the already frozen rolling window, not future completions.
     Public waiting tickets take precedence over stealing native queued work.
     """
     result = dict(selected=[], reason="no_queued_work", predictions=[])
-    candidates = set(engines[1]["queue"]["queued"])
+    candidates = set(engines[source_rank]["queue"]["queued"])
     if not candidates:
         return result
     if route["waiting"]:
@@ -60,9 +60,12 @@ def plan_rebalance(calibration, route, engines, overhead):
                 not in queue.get("waiting", queue["queued"]),
             )
         )
-    capacity = min(route["capacity"], engines[0]["queue"]["width"])
+    capacity = min(route["capacity"], engines[target_rank]["queue"]["width"])
     room = max(
-        0, capacity - sum(r["rank"] == 0 for r in rows) - route.get("reserved", 0)
+        0,
+        capacity
+        - sum(r["rank"] == target_rank for r in rows)
+        - route.get("reserved", 0),
     )
     if not room:
         return dict(result, reason="target_full")
@@ -81,11 +84,11 @@ def plan_rebalance(calibration, route, engines, overhead):
 
     def forecast(moved):
         output = {}
-        for rank in (0, 1):
+        for rank in range(len(engines)):
             indices = [
                 i
                 for i, r in enumerate(rows)
-                if (0 if i in moved else r["rank"]) == rank
+                if (target_rank if i in moved else r["rank"]) == rank
             ]
             running = [i for i in indices if rows[i]["started"] and i not in moved]
             waiting = [i for i in indices if i not in running]
@@ -129,7 +132,11 @@ def plan_rebalance(calibration, route, engines, overhead):
     for _ in range(room):
         choices = []
         for i, r in enumerate(rows):
-            if i in moved or r["rank"] != 1 or r["request_id"] not in candidates:
+            if (
+                i in moved
+                or r["rank"] != source_rank
+                or r["request_id"] not in candidates
+            ):
                 continue
             predicted = forecast(moved | {i})
             gain = max(current.values(), default=0) - max(predicted.values(), default=0)

@@ -7,6 +7,17 @@ Status: Implemented; no eligible requests moved in the two inspected comparison 
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R005: Rebalance queued requests with an acknowledged ownership handoff](R005.png)
+
+Only WAITING, never-scheduled requests qualify. No KV is transferred.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R005.svg) | [PNG](R005.png)
+
 ## Problem and mechanism
 
 When the shared replica returns, the dedicated replica may already own the remaining

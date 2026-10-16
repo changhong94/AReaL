@@ -2,10 +2,14 @@ English | [中文](README.zh.md)
 
 # NPU sharing research ledger
 
+**Visual guide:** [24 mechanism diagrams](diagrams.md) ·
+[Browsable gallery](diagrams.html).
+
 This review reconstructs **24 research entries** from original session messages, code
 and retained experiments. Each has English/Chinese notes covering motivation, mechanism,
-contribution candidates, challenges, code, outcomes, evidence and next validation. R001
-remains under ideas; the rest are under optimizations.
+contribution candidates, challenges, code, outcomes, evidence and next validation. All
+entries and their diagrams live together under optimizations; R001 remains explicitly
+marked as a proposal.
 
 **Not every entry is a successful optimization**: R001 is proposed, R019 includes a
 removed heuristic, R020 is a negative result, R023 is infrastructure, and R024 is
@@ -17,7 +21,7 @@ Start with [evidence methodology](methodology.md),
 
 | ID   | Research entry                                                                                                           | Current conclusion                                                                                                   |
 | ---- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| R001 | [Cost-aware running-request rebalancing](ideas/R001-runtime-request-rebalancing.md)                                      | Proposed; E001 supports the motivation, not a speedup.                                                               |
+| R001 | [Cost-aware running-request rebalancing](optimizations/R001-runtime-request-rebalancing.md)                              | Proposed; E001 supports the motivation, not a speedup.                                                               |
 | R002 | [Training-priority inference on the same NPU](optimizations/R002-training-priority-concurrency.md)                       | Implemented, opt-in; functional overlap verified; isolated speedup remains workload-dependent.                       |
 | R003 | [Asymmetric publication to dedicated and shared inference](optimizations/R003-asymmetric-publication.md)                 | Implemented; evolved further in R009 and R010.                                                                       |
 | R004 | [Adaptive draining with a rolling completion-time model](optimizations/R004-adaptive-draining.md)                        | Implemented; three-window policy retained, sibling-length scaling removed.                                           |

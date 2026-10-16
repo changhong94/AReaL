@@ -8,6 +8,17 @@ matched scaling claim.
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R022: Per-rank memory decisions; all-rank readiness for TP execution](R022.png)
+
+2 / 4 / 8 NPUs; one fixed training group. No elastic resizing of training ranks.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R022.svg) | [PNG](R022.png)
+
 ## Problem and mechanism
 
 Two-card assumptions hardcode one actor and two engines. Extend the benchmark to 2/4/8

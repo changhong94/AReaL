@@ -8,6 +8,18 @@ be separated.
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R024: Only the consumed batch must finish before its optimizer update](R024.png)
+
+In-flight future tasks can coexist with training; version logging is not permanent
+binding.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R024.svg) | [PNG](R024.png)
+
 ## Question and scope
 
 The session began by testing coexistence of model versions, then overlapping rollout for

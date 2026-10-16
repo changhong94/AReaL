@@ -37,8 +37,9 @@ async def transition_slab_cache(engine: Any, mapped: bool) -> None:
             results = await engine.collective_rpc(
                 "areal_colocation_memory", args=("restore",)
             )
-            if len(results) != 1 or any(
-                results[0].get("states", {}).get(tag) != "mapped"
+            if not results or any(
+                result.get("states", {}).get(tag) != "mapped"
+                for result in results
                 for tag in ("weights", "kv_cache")
             ):
                 raise RuntimeError(
@@ -54,7 +55,8 @@ async def transition_slab_cache(engine: Any, mapped: bool) -> None:
         raise RuntimeError("KV slab workers did not acknowledge memory transition")
 
 
-def install_kv_slab() -> None:
+def install_scheduler_slab() -> None:
+    """Install CPU scheduler hooks in the API and spawned EngineCore processes."""
     blocks_per_slab = slab_blocks()
     if not blocks_per_slab:
         return
@@ -105,10 +107,24 @@ def install_kv_slab() -> None:
     BlockPool._areal_kv_slab = True
     EngineCore.areal_kv_slab_stats = slab_stats
 
+
+def install_kv_slab() -> None:
+    """Install device hooks only after Ascend has initialized native imports."""
+    blocks_per_slab = slab_blocks()
+    if not blocks_per_slab:
+        return
+    install_scheduler_slab()
+    from vllm.logger import init_logger
+
+    logger = init_logger("vllm.areal_kv_slab")
     import torch
     from vllm.v1.kv_cache_interface import FullAttentionSpec
     from vllm_ascend.device_allocator.camem import CaMemAllocator
     from vllm_ascend.worker.model_runner_v1 import NPUModelRunner
+
+    if getattr(NPUModelRunner, "_areal_device_kv_slab", False):
+        return
+    NPUModelRunner._areal_device_kv_slab = True
 
     from areal.engine.vllm_ext import dynamic_kv
 
@@ -147,8 +163,7 @@ def install_kv_slab() -> None:
             or config.cache_config.enable_prefix_caching
             or config.speculative_config is not None
             or config.kv_transfer_config is not None
-            or parallel.distributed_executor_backend != "uni"
-            or parallel.tensor_parallel_size != 1
+            or parallel.distributed_executor_backend not in ("uni", "mp")
             or parallel.pipeline_parallel_size != 1
             or parallel.data_parallel_size != 1
             or config.model_config.hf_config.model_type != "qwen2"
@@ -158,7 +173,7 @@ def install_kv_slab() -> None:
             is not FullAttentionSpec
         ):
             raise ValueError(
-                "KV slabs currently require uni-executor Qwen2 full attention, "
+                "KV slabs require uni/mp Qwen2 full attention, "
                 "native KV dtype, eager, no prefix cache/sleep/speculation/KV transfer"
             )
         if dynamic_kv.enabled():

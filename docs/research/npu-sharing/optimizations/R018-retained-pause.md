@@ -7,6 +7,18 @@ Status: Implemented experimental alternative; migration remains the requested de
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R018: Retain old-version KV on the same card across training](R018.png)
+
+Never pair retained old KV with overwritten new weights. Waiting early can deadlock a
+batch.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R018.svg) | [PNG](R018.png)
+
 ## Problem and mechanism
 
 Migration wastes prefill and can change the policy version during a logical answer.

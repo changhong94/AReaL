@@ -121,3 +121,23 @@ def test_last_block_has_mapped_padding_page():
     assert pool.mapped == {0, 4, 5, 6}
     pool.reconcile({0}, trim=True)
     assert pool.mapped == {0}
+
+
+def test_preserved_live_budget_keeps_live_pages_and_rejects_too_small_capacity():
+    backend, pool = make(keep_idle_pages=0)
+    pool.reconcile({8})
+    pool.pause_preserved()
+    before = set(backend.addresses)
+    assert pool.set_budget(32) == 0
+    assert backend.addresses == before
+    assert pool.set_budget(96) == 12
+    assert pool.live == {0, 8}
+    assert pool.mapped == {0, 2}
+    assert pool.set_budget(None) == 20
+
+
+def test_live_unpaused_budget_is_rejected():
+    _, pool = make()
+    pool.reconcile({8})
+    with pytest.raises(RuntimeError, match="preserved-paused"):
+        pool.set_budget(96)

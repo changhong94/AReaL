@@ -7,6 +7,17 @@ Status: Implemented at safe transition boundaries, not arbitrary operator-time p
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R017: Offload only enough complete allocations to cover the shortfall](R017.png)
+
+Allocation granularity may overshoot; this is not per-layer operator-time streaming.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R017.svg) | [PNG](R017.png)
+
 ## Problem and mechanism
 
 Whole-pool offload moves too much state even when the next stage lacks only a small

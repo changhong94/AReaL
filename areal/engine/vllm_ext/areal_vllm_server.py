@@ -35,15 +35,22 @@ from areal.engine.vllm_ext.generation_gate import (
     update_weights_while_paused,
 )
 from areal.engine.vllm_ext.kv_slab_adapter import (
+    install_scheduler_slab,
     slab_blocks,
     transition_slab_cache,
 )
+from areal.engine.vllm_ext.queue_rebalance import install_queue_rebalance
 from areal.engine.vllm_ext.request_admission import (
     RoutingPaused,
     install_admission_guard,
     routed_request,
 )
 from areal.utils import generation_progress, request_trace
+
+# Spawned EngineCore processes import this entry module, but not worker extensions.
+install_scheduler_slab()
+install_queue_rebalance()
+request_trace.install_scheduler_trace()
 
 
 async def validate_slab_endpoint(request: Request):
@@ -451,6 +458,7 @@ class ColocationMemoryRequest(OpenAIBaseModel):
     action: str = "status"
     target_free_bytes: int | None = None
     kv_budget_bytes: int | None = None
+    member_rank: int | None = None
 
 
 @router.post("/areal_generation_progress")
@@ -536,12 +544,13 @@ async def areal_colocation_memory(
                 True,
                 request.target_free_bytes,
                 request.kv_budget_bytes,
+                request.member_rank,
             ),
         )
         if request.action in {"kv_budget", "kv_budget_clear"}:
-            if len(result) != 1:
-                raise RuntimeError("Training priority requires a single-device replica")
-            cap = result[0]["capacity_blocks"]
+            if not result:
+                raise RuntimeError("Missing TP memory acknowledgements")
+            cap = min(row["capacity_blocks"] for row in result)
             # One full-length request must be able to complete without deadlock.
             minimum = (
                 llm.model_config.max_model_len
@@ -549,7 +558,9 @@ async def areal_colocation_memory(
                 - 1
             ) // llm.vllm_config.cache_config.block_size + 1
             admitted = cap >= minimum
-            result[0]["concurrent_admitted"] = admitted
+            for row in result:
+                row["concurrent_admitted"] = admitted
+                row["effective_capacity_blocks"] = cap
             _concurrent_budget_valid = request.action == "kv_budget" and admitted
             if admitted:
                 await llm.engine_core.call_utility_async("areal_set_kv_capacity", cap)

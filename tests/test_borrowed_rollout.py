@@ -50,6 +50,7 @@ def test_pool_single_item_batch_can_use_borrowed_replica():
 
 def test_borrow_pauses_only_rank_zero_in_order():
     controller = object.__new__(RolloutController)
+    controller.rollout_alloc = ModelAllocation.from_str("vllm:d2p1t1")
     controller._borrowed_pool = BorrowedRolloutPool(8)
     controller._worker_rpc = Mock()
     controller._pool_event = Mock()

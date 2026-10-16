@@ -6,6 +6,16 @@
 
 整理日期：2026-10-15（America/Vancouver）。本页按历史证据整理，不代表重新实测。
 
+## 机制示意图
+
+![R008: Publish a flat immutable weight snapshot instead of an HF package](R008.png)
+
+**读图：** 内部权重更新只导出扁平化的推理精度权重，通过原子版本清单发布，省去重复打包配置和 tokenizer。快照必须独立拥有存储，不能被训练端后续改写。
+
+此图仅表达机制，不按时间或显存大小绘制；状态和结果边界以本文为准。
+
+[SVG](R008.svg) | [PNG](R008.png)
+
 ## 问题与思路
 
 内部副本更新不必每次导出完整 HF 模型、配置和 tokenizer。先转推理 dtype，复制到独立拥有的扁平 CPU

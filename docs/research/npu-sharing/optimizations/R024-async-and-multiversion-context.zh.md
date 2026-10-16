@@ -6,6 +6,16 @@
 
 整理日期：2026-10-15（America/Vancouver）。本页按历史证据整理，不代表重新实测。
 
+## 机制示意图
+
+![R024: Only the consumed batch must finish before its optimizer update](R024.png)
+
+**读图：** 训练只要求被消费的当前批次收齐，其他在途任务可以继续推理，在离策略限制内使用旧权重。异步 rollout 属于 AReaL 上游能力，不应写成此次新增创新。
+
+此图仅表达机制，不按时间或显存大小绘制；状态和结果边界以本文为准。
+
+[SVG](R024.svg) | [PNG](R024.png)
+
 ## 问题与范围
 
 本会话先试多版本权重共存，再试下一批 rollout

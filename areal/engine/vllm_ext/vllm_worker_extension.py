@@ -96,7 +96,13 @@ class VLLMWorkerExtension:
         kv_idle_verified: bool = False,
         target_free_bytes: int | None = None,
         kv_budget_bytes: int | None = None,
+        member_rank: int | None = None,
     ):
+        if member_rank is not None:
+            from vllm.distributed import get_tensor_model_parallel_rank
+
+            if get_tensor_model_parallel_rank() != member_rank:
+                action = "status"
         runner = self.model_runner
         memory = getattr(runner, "_adaptive_memory", None)
         if memory is None:
@@ -124,11 +130,11 @@ class VLLMWorkerExtension:
                 type(kv_budget_bytes) is not int or kv_budget_bytes < 0
             ):
                 raise ValueError("kv_budget requires a nonnegative byte limit")
-            if dynamic is None or not kv_idle_verified or dynamic.paused:
+            if dynamic is None or not kv_idle_verified:
                 raise RuntimeError(
-                    "KV budgeting requires idle dynamic KV, without retained requests"
+                    "KV budgeting requires acknowledged paused dynamic KV"
                 )
-            dynamic.reconcile({0}, trim=True)
+            dynamic.reconcile(dynamic.live, trim=True)
             cap = dynamic.set_budget(kv_budget_bytes if action == "kv_budget" else None)
             result = memory.snapshot()
             result["capacity_blocks"] = cap
@@ -168,6 +174,7 @@ class VLLMWorkerExtension:
                 memory.transition(["weights"], mapped=False, preserve=True)
             result = memory.snapshot()
             result["bytes"]["kv_cache"] = dynamic.snapshot()["mapped_bytes"]
+            result["capacity_blocks"] = dynamic.capacity_blocks
             result["dynamic_kv"] = dynamic.snapshot()
             result["restore_bytes"] += dynamic.snapshot()["cpu_backup_bytes"]
             result["cpu_backup_bytes"] += dynamic.snapshot()["cpu_backup_bytes"]

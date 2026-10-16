@@ -7,6 +7,17 @@ Status: Implemented default migration path; KV is rebuilt, not transferred.
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R012: Continue a logical answer on another card by replaying its prefix](R012.png)
+
+Tokens and ownership move; KV is rebuilt, not copied between devices.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R012.svg) | [PNG](R012.png)
+
 ## Problem and mechanism
 
 A request pinned to a shared card can wait through training. Acquire a per-segment

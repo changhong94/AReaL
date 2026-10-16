@@ -162,10 +162,8 @@ class PPOTrainer:
                 or os.getenv("AREAL_DYNAMIC_KV", "1") != "1"
             ):
                 raise ValueError(
-                    "Training-priority inference requires npu_share with two replicas and dynamic KV"
+                    "Training-priority inference requires equal shared/fixed device groups and dynamic KV"
                 )
-            if os.getenv("AREAL_NPU_SHARE_PAUSE_KEEP", "0") == "1":
-                raise ValueError("Training-priority inference requires migration mode")
             if (
                 min(
                     config.colocation_memory.train_workspace_gib,
@@ -190,6 +188,13 @@ class PPOTrainer:
                 "Batch drain requires adaptive drain and batch drain metrics"
             )
         if self._adaptive_drain:
+            if (
+                self.rollout_alloc.parallel.dp_size > 2
+                and os.getenv("AREAL_BATCH_DRAIN", "0") != "1"
+            ):
+                raise ValueError(
+                    "Multi-instance adaptive drain requires rolling batch calibration"
+                )
             if (
                 os.getenv("AREAL_TRAIN_PRIORITY_INFERENCE", "0") != "1"
                 or os.getenv("AREAL_DRAIN_METRICS", "0") != "1"
@@ -412,15 +417,16 @@ class PPOTrainer:
             self._offload_model(self.actor, role="actor")
         # Initialize inference with LoRA path
         if config.npu_share:
-            from areal.trainer.colocation_memory import ColocationMemoryPolicy
+            from areal.trainer.colocation_memory import GroupColocationMemoryPolicy
 
-            self._memory_policy = ColocationMemoryPolicy(
+            self._memory_policy = GroupColocationMemoryPolicy(
                 config.colocation_memory,
                 self.actor.colocation_memory,
                 lambda action, **kwargs: self.rollout.colocation_memory(
                     action, **kwargs
                 ),
                 logger.info,
+                self.actor_alloc.world_size,
             )
             self._memory_policy.initial_inference(config.vllm.gpu_memory_utilization)
         self.rollout = self._init_rollout(
@@ -557,7 +563,9 @@ class PPOTrainer:
         if self._uses_npu_share_pool:
             # Only actor + fixed replica join this group (two physical NPUs).
             self._fixed_weight_update_meta = WeightUpdateMeta.from_fsdp_xccl(
-                gen_allocation=ModelAllocation.from_str("vllm:d1p1t1")
+                gen_allocation=ModelAllocation.from_str(
+                    f"vllm:d{self.rollout_alloc.parallel.dp_size // 2}p1t{self.rollout_alloc.parallel.tp_size}"
+                )
             )
             self._fixed_weight_update_meta.npu_share_fixed = True
             self.actor.connect_engine(self.rollout, self._fixed_weight_update_meta)
@@ -756,7 +764,10 @@ class PPOTrainer:
 
     @property
     def _uses_npu_share_pool(self) -> bool:
-        return self.config.npu_share and self.rollout_alloc.parallel.dp_size == 2
+        return (
+            self.config.npu_share
+            and self.rollout_alloc.world_size == 2 * self.actor_alloc.world_size
+        )
 
     def _start_train_prefetch(self, batch: int) -> None:
         if not (
@@ -799,8 +810,6 @@ class PPOTrainer:
     def _resume_training_inference(self):
         if os.getenv("AREAL_TRAIN_PRIORITY_INFERENCE", "0") != "1":
             return
-        if os.getenv("AREAL_NPU_SHARE_PAUSE_KEEP", "0") == "1":
-            raise ValueError("Training-priority inference requires migration mode")
         if self._memory_policy.concurrent_train():
             self.rollout.resume_training_inference()
             self._training_inference_active = True
@@ -1919,19 +1928,22 @@ class PPOTrainer:
             current_platform.synchronize()
 
     def _validate_npu_share(self) -> None:
-        """Reject combinations that have no exclusive single-device handoff."""
+        """Validate supported shared-device groups and handoff configurations."""
         config = self.config
         strategy = config.rollout.scheduling_strategy
         checks = {
             "single-controller local scheduler": is_single_controller()
             and config.scheduler.type == "local",
-            "one FSDP device and one or two single-device vLLM replicas": self.actor_alloc.backend
-            == "fsdp"
+            "pure-DP training and one or two equal device pools of vLLM instances": self.actor_alloc.backend
+            in ("fsdp", "megatron")
             and self.rollout_alloc.backend == "vllm"
-            and self.actor_alloc.world_size == 1
-            and self.rollout_alloc.parallel.tp_size == 1
+            and self.actor_alloc.parallel.tp_size == 1
+            and self.actor_alloc.parallel.pp_size == 1
+            and self.actor_alloc.world_size == self.actor_alloc.parallel.dp_size
+            and self.actor_alloc.world_size % self.rollout_alloc.parallel.tp_size == 0
             and self.rollout_alloc.parallel.pp_size == 1
-            and self.rollout_alloc.parallel.dp_size in (1, 2),
+            and self.rollout_alloc.world_size
+            in (self.actor_alloc.world_size, 2 * self.actor_alloc.world_size),
             "rollout forked on actor's device": self._is_colocation(strategy)
             and strategy.target == "actor"
             and strategy.fork
@@ -1966,20 +1978,44 @@ class PPOTrainer:
         actor_backend = self.actor_alloc.backend
         memory = self.config.colocation_memory
         if self.config.npu_share:
-            if self.config.vllm.distributed_executor_backend != "uni":
-                raise ValueError("Adaptive memory requires vLLM uni executor")
-            if not self.config.actor.fsdp.memory_efficient_load:
+            if self.config.vllm.distributed_executor_backend != (
+                "uni" if self.rollout_alloc.parallel.tp_size == 1 else "mp"
+            ):
+                raise ValueError(
+                    "Shared inference requires uni for TP=1 or mp for TP>1"
+                )
+            if (
+                actor_backend == "fsdp"
+                and not self.config.actor.fsdp.memory_efficient_load
+            ):
                 raise ValueError(
                     "Adaptive memory requires FSDP memory_efficient_load for managed storage"
                 )
             if (
-                self.config.actor.fsdp.offload_params
-                or self.config.actor.fsdp.per_layer_optim_step
-                or self.config.actor.optimizer.type != "adam"
-            ):
+                actor_backend == "fsdp"
+                and (
+                    self.config.actor.fsdp.offload_params
+                    or self.config.actor.fsdp.per_layer_optim_step
+                )
+            ) or getattr(self.config.actor.optimizer, "type", None) != "adam":
                 raise ValueError(
                     "Adaptive memory requires ordinary AdamW without FSDP CPU offload"
                 )
+            if actor_backend == "megatron":
+                megatron = self.config.actor.megatron
+                if (
+                    megatron.bridge_type != "mbridge"
+                    or megatron.fp8_config is not None
+                    or megatron.use_precision_aware_optimizer
+                    or megatron.async_save
+                    or megatron.use_torch_fsdp2
+                    or megatron.use_custom_fsdp
+                    or not megatron.wrap_with_ddp
+                    or self.config.actor.use_merged_lora
+                ):
+                    raise ValueError(
+                        "Shared Megatron requires dense mbridge DDP Adam and synchronous checkpoints"
+                    )
             bounds = [
                 memory.train_workspace_gib,
                 memory.inference_workspace_gib,

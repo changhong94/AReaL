@@ -8,6 +8,17 @@ not established in isolation.
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R006: Reserve virtual space; map physical KV only as needed](R006.png)
+
+Logical block IDs stay stable; reclaim only synchronized, confirmed-idle whole pages.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R006.svg) | [PNG](R006.png)
+
 ## Problem and mechanism
 
 A logical block allocator can still reserve a large physical tensor. Historical

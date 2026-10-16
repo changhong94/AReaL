@@ -7,7 +7,7 @@ import shlex
 import subprocess
 import sys
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -68,6 +68,7 @@ class WorkerInfo:
     created_at: float
     log_file: str
     env_vars: dict[str, str] = field(default_factory=dict)
+    fork_parent_index: int | None = None
 
 
 def _get_device_count_safely() -> int | None:
@@ -458,6 +459,7 @@ class LocalScheduler(Scheduler):
             created_at=time.time(),
             log_file=str(self.log_dir / f"{role}.log"),
             env_vars=env_overrides,
+            fork_parent_index=int(target_wi.worker.id.rsplit("/", 1)[1]),
         )
 
     async def _kill_forked_worker(
@@ -512,10 +514,13 @@ class LocalScheduler(Scheduler):
             tasks = []
             for worker_info in workers:
                 worker_index = int(worker_info.worker.id.split("/")[-1])
-                if worker_index < len(target_workers):
+                parent_index = worker_info.fork_parent_index
+                if parent_index is None:
+                    parent_index = worker_index
+                if parent_index < len(target_workers):
                     tasks.append(
                         self._kill_forked_worker(
-                            session, role, worker_index, target_workers[worker_index]
+                            session, role, worker_index, target_workers[parent_index]
                         )
                     )
             await asyncio.gather(*tasks, return_exceptions=True)
@@ -669,30 +674,35 @@ class LocalScheduler(Scheduler):
         if target_role not in self._workers:
             raise WorkerNotFoundError(f"Target role '{target_role}' not found for fork")
         target_workers = self._workers[target_role]
-        if len(target_workers) != num_workers:
-            raise WorkerCreationError(
-                role,
-                "Unsupported fork layout",
-                "LocalScheduler only supports one-to-one fork colocation "
-                f"({len(target_workers)} target workers != {num_workers} fork workers).",
-            )
-
         schedulings = self._prepare_worker_specs(role, num_workers, job.tasks)
-        for idx, scheduling in enumerate(schedulings):
-            if scheduling.gpu not in (0, 1):
+        if all(spec.gpu == 0 for spec in schedulings):
+            if len(target_workers) != num_workers:
+                raise WorkerCreationError(role, "Unsupported CPU fork layout")
+        else:
+            sizes = [spec.gpu for spec in schedulings]
+            if any(size < 1 for size in sizes) or sum(sizes) != len(target_workers):
                 raise WorkerCreationError(
-                    role,
-                    "Unsupported fork layout",
-                    f"LocalScheduler only supports CPU-only forks or TP=1 GPU forks; "
-                    f"worker {idx} requested {scheduling.gpu} GPUs.",
+                    role, "Fork device groups must partition the target workers"
                 )
-            if scheduling.gpu == 1 and len(target_workers[idx].gpu_devices) != 1:
-                raise WorkerCreationError(
-                    role,
-                    "Unsupported fork layout",
-                    f"LocalScheduler only supports TP=1 GPU forks; target worker "
-                    f"{target_role}/{idx} has {len(target_workers[idx].gpu_devices)} GPUs.",
-                )
+            grouped, used, offset = [], set(), 0
+            for size in sizes:
+                members = target_workers[offset : offset + size]
+                if any(
+                    len(w.gpu_devices) != 1 or w.worker.ip != members[0].worker.ip
+                    for w in members
+                ):
+                    raise WorkerCreationError(
+                        role, "Grouped forks require single-device parents on one host"
+                    )
+                devices = [w.gpu_devices[0] for w in members]
+                if len(set(devices)) != size or used.intersection(devices):
+                    raise WorkerCreationError(
+                        role, "Fork device groups must be disjoint"
+                    )
+                used.update(devices)
+                grouped.append(replace(members[0], gpu_devices=devices))
+                offset += size
+            target_workers = grouped
 
         try:
             return run_async_task(
@@ -775,7 +785,7 @@ class LocalScheduler(Scheduler):
                 )
 
             target_workers = self._workers[colocate_role]
-            if num_workers != len(target_workers):
+            if not strategy.fork and num_workers != len(target_workers):
                 raise WorkerCreationError(
                     role,
                     "Replica count mismatch",

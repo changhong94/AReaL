@@ -7,6 +7,17 @@ Status: Implemented; overlap verified, historical first comparison regressed.
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R010: Let the main loop acquire work while the shared tail finishes](R010.png)
+
+Overlap acquisition with tail work; never race the next optimizer update.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R010.svg) | [PNG](R010.png)
+
 ## Problem and mechanism
 
 Even after the dedicated engine resumes, synchronous snapshot export, shared

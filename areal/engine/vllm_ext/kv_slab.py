@@ -104,11 +104,25 @@ class SlabFreeBlockQueue:
         return self.table.num_free_blocks
 
     def set_capacity(self, num_blocks: int) -> None:
-        if self.table.allocated:
-            raise RuntimeError("KV capacity changes require an idle scheduler")
+        """Resize free capacity at a scheduler boundary without changing live IDs."""
         if type(num_blocks) is not int or not 2 <= num_blocks <= len(self.blocks):
             raise ValueError("Invalid KV capacity")
-        self.table = KVSlabTable(num_blocks, self.table.blocks_per_slab)
+        old = self.table
+        if any(block >= num_blocks for block in old.allocated):
+            raise RuntimeError("KV capacity would exclude live blocks")
+        table = KVSlabTable(num_blocks, old.blocks_per_slab)
+        table.allocated = set(old.allocated)
+        for sid, slots in table.free.items():
+            remaining = [block for block in slots if block not in table.allocated]
+            table.free[sid] = remaining
+            if len(remaining) != table.capacities[sid]:
+                table.empty.pop(sid, None)
+                if remaining:
+                    table.partial[sid] = None
+        table.allocation_count = old.allocation_count
+        table.free_count = old.free_count
+        table.high_watermark = old.high_watermark
+        self.table = table
 
     def popleft_n(self, count: int) -> list[Any]:
         return [self.blocks[i] for i in self.table.allocate(count)]
@@ -135,7 +149,7 @@ class SlabFreeBlockQueue:
 def set_scheduler_capacity(
     block_pool: Any, num_blocks: int, watermark_blocks: int = 0
 ) -> dict:
-    """Update allocation and native reset/usage accounting as one idle action."""
+    """Update free capacity and native accounting while retaining live block IDs."""
     if watermark_blocks:
         raise ValueError("Training priority requires zero KV watermark")
     queue = block_pool.free_block_queue

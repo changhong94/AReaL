@@ -7,6 +7,17 @@ Status: Implemented foundation; single-card capacity saving is not a speedup cla
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R007: Borrow training capacity while rollout is waiting](R007.png)
+
+npu_share changes device roles and admission, not the training group's membership.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R007.svg) | [PNG](R007.png)
+
 ## Problem and mechanism
 
 Fixed roles leave the training device idle while waiting for rollout. npu_share is one

@@ -6,6 +6,16 @@
 
 整理日期：2026-10-15（America/Vancouver）。本页按历史证据整理，不代表重新实测。
 
+## 机制示意图
+
+![R021: Keep one sharing protocol; adapt backend memory and publication](R021.png)
+
+**读图：** 共享协议复用，但运行时、内存池覆盖、状态预算和权重发布需要针对 Megatron 适配。先单批验证再对照，不把某一次后端实验结果当成普遍加速比。
+
+此图仅表达机制，不按时间或显存大小绘制；状态和结果边界以本文为准。
+
+[SVG](R021.svg) | [PNG](R021.png)
+
 ## 问题与思路
 
 FSDP 专属的分配与发布钩子不会自动适用于 Megatron。使用后端要求的 Python 和运行环境，适配内存池覆盖与训练预算，保持优化器所有权，提供正确 rank

@@ -8,6 +8,17 @@ implemented.
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R020: Test TP=2 on identical long tails before building migration](R020.png)
+
+TP=2 was 20.42% slower here, before deployment or KV redistribution costs.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R020.svg) | [PNG](R020.png)
+
 ## Question and method
 
 Could two devices jointly decode the final few requests faster than a single device?

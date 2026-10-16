@@ -8,6 +8,17 @@ ranking remains offline research.
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R019: Estimate surviving tails without amplifying sibling bias](R019.png)
+
+Better prediction error does not automatically mean a faster schedule.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R019.svg) | [PNG](R019.png)
+
 ## Problem and mechanism
 
 Unfinished answers are censored observations; treating them like completed short answers

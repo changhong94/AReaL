@@ -1706,6 +1706,7 @@ class RemoteInfEngine(InferenceEngine):
         action: str = "status",
         target_free_bytes: int | None = None,
         kv_budget_bytes: int | None = None,
+        member_rank: int | None = None,
     ):
         return self._run_request_on_all_servers(
             HttpRequest(
@@ -1714,6 +1715,7 @@ class RemoteInfEngine(InferenceEngine):
                     "action": action,
                     "target_free_bytes": target_free_bytes,
                     "kv_budget_bytes": kv_budget_bytes,
+                    "member_rank": member_rank,
                 },
             )
         )

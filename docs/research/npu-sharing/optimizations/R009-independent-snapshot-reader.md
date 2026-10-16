@@ -7,6 +7,17 @@ Status: Implemented; direct publication timings improved in a short comparison.
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R009: Remove snapshot queue blocking from the HCCL producer](R009.png)
+
+Independent readers remove the queue dependency; memory bandwidth contention can remain.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R009.svg) | [PNG](R009.png)
+
 ## Problem and mechanism
 
 A background consumer is insufficient if the HCCL producer blocks while submitting

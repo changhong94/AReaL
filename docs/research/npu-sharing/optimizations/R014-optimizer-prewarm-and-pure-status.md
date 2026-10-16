@@ -7,6 +7,17 @@ Status: Implemented; first-step replay improvement observed.
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R014: Prewarm optimizer state; make memory queries observational](R014.png)
+
+Do not change weights, gradients or learning rate during prewarm.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R014.svg) | [PNG](R014.png)
+
 ## Problem and mechanism
 
 First Adam use creates pools and large state tensors on the critical path; memory-status

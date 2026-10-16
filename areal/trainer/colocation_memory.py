@@ -8,11 +8,41 @@ GIB = 1024**3
 
 
 def single_status(value):
-    while isinstance(value, list) and len(value) == 1:
-        value = value[0]
-    if not isinstance(value, dict) or "free_bytes" not in value:
-        raise RuntimeError("Expected one single-device memory status")
-    return value
+    rows = []
+
+    def flatten(item):
+        if isinstance(item, list):
+            for child in item:
+                flatten(child)
+        elif isinstance(item, dict) and "free_bytes" in item:
+            rows.append(item)
+        else:
+            raise RuntimeError("Expected per-device memory status")
+
+    flatten(value)
+    if not rows:
+        raise RuntimeError("Missing memory status from worker group")
+    if len(rows) == 1:
+        return rows[0]
+    # Conservative per-device bounds, never a sum of unrelated free memory.
+    result = dict(rows[0])
+    for key in set.intersection(*(set(row) for row in rows)):
+        values = [row[key] for row in rows]
+        if all(isinstance(v, bool) for v in values):
+            result[key] = all(values)
+        elif all(isinstance(v, (int, float)) for v in values):
+            result[key] = (min if key in {"free_bytes", "capacity_blocks"} else max)(
+                values
+            )
+    if all(row.get("dynamic_kv") for row in rows):
+        result["dynamic_kv"] = dict(rows[0]["dynamic_kv"])
+        result["dynamic_kv"]["mapped_bytes"] = min(
+            row["dynamic_kv"]["mapped_bytes"] for row in rows
+        )
+    else:
+        result.pop("dynamic_kv", None)
+    result["devices"] = rows
+    return result
 
 
 class ColocationMemoryPolicy:
@@ -93,7 +123,11 @@ class ColocationMemoryPolicy:
 
     def initial_inference(self, memory_fraction):
         actor = self._actor()
-        needed = self.required(0, int(memory_fraction * actor["total_bytes"]))
+        needed = self.required(
+            0,
+            int(memory_fraction * actor["total_bytes"])
+            + actor.get("publication_workspace_bytes", 0),
+        )
         if self._pressure_enabled(actor):
             self._reclaim_shortfall(self._actor, actor, needed, "initial_inference")
             return
@@ -112,7 +146,8 @@ class ColocationMemoryPolicy:
             self.config.train_workspace_gib,
             actor["restore_bytes"]
             + actor["future_optimizer_bytes"]
-            + actor["gradient_bytes"],
+            + actor["gradient_bytes"]
+            + actor.get("publication_workspace_bytes", 0),
         )
         status = self._rollout()
         if self._pressure_enabled(actor) and self._pressure_enabled(status):
@@ -155,7 +190,9 @@ class ColocationMemoryPolicy:
             return False
         needed = self.required(
             self.config.train_workspace_gib + self.config.inference_workspace_gib,
-            actor["future_optimizer_bytes"] + actor["gradient_bytes"],
+            actor["future_optimizer_bytes"]
+            + actor["gradient_bytes"]
+            + actor.get("publication_workspace_bytes", 0),
         )
         # Existing mapped KV is counted in free-memory usage; credit it once.
         budget = max(
@@ -201,3 +238,41 @@ class ColocationMemoryPolicy:
             decisions.append("actor_cpu")
         self._check(actor, needed, "inference", decisions)
         self._rollout("restore")
+
+
+class GroupColocationMemoryPolicy:
+    """Independent per-device budgets with a group execution barrier."""
+
+    def __init__(self, config, actor, rollout, log, devices):
+        from functools import partial
+
+        self.policies = [
+            ColocationMemoryPolicy(
+                config,
+                partial(actor, device_rank=rank),
+                partial(rollout, device_rank=rank),
+                lambda message, rank=rank: log(f"device_rank={rank} {message}"),
+            )
+            for rank in range(devices)
+        ]
+        self.rollout = rollout
+
+    def initial_inference(self, memory_fraction):
+        for policy in self.policies:
+            policy.initial_inference(memory_fraction)
+
+    def train(self):
+        for policy in self.policies:
+            policy.train()
+
+    def inference(self):
+        for policy in self.policies:
+            policy.inference()
+
+    def concurrent_train(self):
+        # Apply each member's budget while every inference scheduler is paused.
+        # Resume is a separate group operation, after every member ACKs.
+        admitted = [policy.concurrent_train() for policy in self.policies]
+        if not all(admitted):
+            self.rollout("kv_budget_clear")
+        return all(admitted)

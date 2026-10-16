@@ -6,6 +6,16 @@
 
 整理日期：2026-10-15（America/Vancouver）。本页按历史证据整理，不代表重新实测。
 
+## 机制示意图
+
+![R016: Warm actual Ascend execution paths before announcing readiness](R016.png)
+
+**读图：** 在服务宣布就绪前预热真实模型和 block-table 路径，而不是无关的空算子。编译和加载成本移入启动阶段；比较时必须同时报告启动和稳态时间。
+
+此图仅表达机制，不按时间或显存大小绘制；状态和结果边界以本文为准。
+
+[SVG](R016.svg) | [PNG](R016.png)
+
 ## 问题与思路
 
 请求图中一个请求运行很久、其他排队，主要是首次 Triton 编译与加载，不是 NPU 用数秒计算一个 token。持久化兼容的 Triton 缓存，并在服务就绪前预热

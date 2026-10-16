@@ -7,6 +7,17 @@ Status: Implemented; historical publication cost reduction observed.
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R008: Publish a flat immutable weight snapshot instead of an HF package](R008.png)
+
+Snapshot lifetime must outlive actor offload. Normal checkpoints retain HF format.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R008.svg) | [PNG](R008.png)
+
 ## Problem and mechanism
 
 Repeated HF model/config/tokenizer export is excessive for internal replica updates.

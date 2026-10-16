@@ -7,6 +7,17 @@ Status: Implemented; evolved further in R009 and R010.
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R003: Each inference replica resumes after its own version fence](R003.png)
+
+Dedicated readiness no longer depends on shared readiness.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R003.svg) | [PNG](R003.png)
+
 ## Problem and mechanism
 
 Waiting for both inference replicas delays the dedicated card behind the shared card’s

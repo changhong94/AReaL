@@ -726,8 +726,34 @@ class TrainController:
         """Offload model parameters to CPU across all train workers."""
         self._custom_function_call("offload")
 
-    def colocation_memory(self, action: str = "status") -> dict:
-        return self._custom_function_call("colocation_memory", action)
+    def colocation_memory(
+        self,
+        action: str = "status",
+        target_free_bytes: int | None = None,
+        device_rank: int | None = None,
+    ) -> dict:
+        kwargs = (
+            {}
+            if target_free_bytes is None
+            else {"target_free_bytes": target_free_bytes}
+        )
+        if device_rank is not None:
+            worker = self.workers[device_rank]
+            return run_async_task(
+                self.scheduler.async_call_engine,
+                worker.id,
+                "colocation_memory",
+                self._engine_name(device_rank),
+                action,
+                **kwargs,
+            )
+        dp_args, dp_kwargs, _ = self._replicate_inputs(action, **kwargs)
+        results = run_async_task(
+            self._call_workers, "colocation_memory", dp_args, dp_kwargs
+        )
+        from areal.trainer.colocation_memory import single_status
+
+        return single_status(results)
 
     def prepare_optimizer_async(self, reserve_bytes: int, device_budget_bytes=None):
         return self._custom_function_call(

@@ -91,6 +91,10 @@ class VLLMBackend:
         if vllm_cache_path:
             _env["VLLM_CACHE_ROOT"] = os.path.join(vllm_cache_path, str(uuid.uuid4()))
         _env["VLLM_ALLOW_RUNTIME_LORA_UPDATING"] = "True"
+        if _env.get("AREAL_AUTO_MEMORY") == "1" and "ASCEND_RT_VISIBLE_DEVICES" in _env:
+            # Training and TP inference create communicators on the same NPU.
+            # Let HCCL select a free device-side port instead of both using 16666.
+            _env.setdefault("HCCL_NPU_SOCKET_PORT_RANGE", "auto")
         return _env
 
     def build_generation_request(
@@ -695,9 +699,13 @@ class RemotevLLMEngine(InferenceEngine):
         action: str = "status",
         target_free_bytes: int | None = None,
         kv_budget_bytes: int | None = None,
+        member_rank: int | None = None,
     ):
         return self._engine.colocation_memory(
-            action, target_free_bytes=target_free_bytes, kv_budget_bytes=kv_budget_bytes
+            action,
+            target_free_bytes=target_free_bytes,
+            kv_budget_bytes=kv_budget_bytes,
+            member_rank=member_rank,
         )
 
     def launch_server(self, server_args: dict[str, Any]) -> LocalInfServerInfo:

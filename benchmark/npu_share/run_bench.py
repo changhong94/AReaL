@@ -1,0 +1,622 @@
+#!/usr/bin/env python3
+"""Run a reproducible fixed/shared two-NPU comparison on the local Linux host."""
+
+import argparse
+import datetime as dt
+import fcntl
+import hashlib
+import json
+import shlex
+import shutil
+import signal
+import subprocess
+import sys
+import threading
+import time
+import uuid
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+HERE = Path(__file__).resolve().parent
+
+
+class Progress:
+    """Low-volume host-side progress; no device synchronization or training changes."""
+
+    def __init__(self, timezone):
+        self.zone = ZoneInfo(timezone)
+        self.stage = "Starting"
+        self.started = time.perf_counter()
+        self.last = self.started
+        self.lock = threading.RLock()
+        self.done = threading.Event()
+        self.thread = threading.Thread(target=self.watch, daemon=True)
+        self.thread.start()
+
+    def message(self, text):
+        with self.lock:
+            stamp = dt.datetime.now(self.zone).strftime("%Y-%m-%d %H:%M:%S %Z")
+            print(f"[{stamp}] {text}", flush=True)
+            self.last = time.perf_counter()
+
+    def set(self, text):
+        with self.lock:
+            self.stage = text
+            self.started = time.perf_counter()
+            self.message(text)
+
+    def watch(self):
+        while not self.done.wait(5):
+            with self.lock:
+                now = time.perf_counter()
+                if now - self.last >= 60:
+                    self.message(
+                        f"Waiting: {self.stage} ({now - self.started:.0f}s elapsed; completion not yet reported)"
+                    )
+
+    def close(self):
+        self.done.set()
+        self.thread.join(timeout=6)
+
+
+def report_events(path, offset, completed, total, progress):
+    """Read appended phase records, retaining partial lines for the next poll."""
+    if not path.exists():
+        return offset, completed
+    with path.open() as stream:
+        stream.seek(offset)
+        while True:
+            line = stream.readline()
+            if not line or not line.endswith("\n"):
+                break
+            offset = stream.tell()
+            try:
+                event = json.loads(line).get("event")
+            except ValueError:
+                continue
+            if event == "initialize.end":
+                progress.message("Model initialization complete; starting training")
+            elif event == "_finish_step.end":
+                completed += 1
+                progress.message(f"Training batch {completed}/{total} complete")
+            elif event == "train.end":
+                progress.message("Training loop complete; waiting for worker shutdown")
+    return offset, completed
+
+
+def positive(value):
+    n = int(value)
+    if n < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return n
+
+
+def npu_count(value):
+    count = positive(value)
+    if count < 2 or count % 2:
+        raise argparse.ArgumentTypeError("NPU count must be even and at least 2")
+    return count
+
+
+def allocation_counts(count):
+    """Define equal training/dedicated-inference pools for both comparison arms."""
+    return {
+        "total": count,
+        "training": count // 2,
+        "dedicated_inference": count // 2,
+        "shared_inference_max": count,
+    }
+
+
+def validate_topology(count, inference_tp=1):
+    if count not in (2, 4, 8):
+        raise ValueError("Supported total NPU counts are 2, 4, and 8")
+    if inference_tp < 1 or (count // 2) % inference_tp:
+        raise ValueError(
+            "Inference TP must divide the half-size inference device group"
+        )
+
+
+def arguments():
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--rl", choices=["math", "code"], default="math")
+    p.add_argument(
+        "--concurrency",
+        type=positive,
+        default=16,
+        help="concurrent questions, not answers or questions per batch",
+    )
+    p.add_argument("--engine", choices=["fsdp", "megatron"], default="fsdp")
+    p.add_argument("--batches", type=positive, default=6)
+    p.add_argument(
+        "--max-head-offpolicyness",
+        type=positive,
+        default=2,
+        help="rollout head off-policy limit for both arms (default: 2; shared mode requires >=1)",
+    )
+    p.add_argument(
+        "--npu-count",
+        type=npu_count,
+        default=2,
+        help="total NPUs, split equally between training and dedicated inference; supports 2, 4, or 8",
+    )
+    p.add_argument(
+        "--inference-tp",
+        type=positive,
+        default=1,
+        help="devices per vLLM instance; must divide half the NPU count",
+    )
+    p.add_argument(
+        "--profile",
+        type=Path,
+        default=Path.home() / ".config/areal-benchmark/profile.json",
+    )
+    p.add_argument("--workspace-root", type=Path)
+    p.add_argument(
+        "--timeout",
+        type=positive,
+        help="per-arm timeout in seconds; default max(3600, batches*600)",
+    )
+    p.add_argument(
+        "--prepare-only",
+        action="store_true",
+        help="freeze source, select data and validate configuration without using NPUs or creating sandboxes",
+    )
+    p.add_argument(
+        "--render-only",
+        type=Path,
+        help="regenerate charts from an existing workspace, without NPU access",
+    )
+    return p.parse_args()
+
+
+def command(args, **kwargs):
+    return subprocess.run([str(x) for x in args], check=True, text=True, **kwargs)
+
+
+def capture(args):
+    return command(args, stdout=subprocess.PIPE).stdout.strip()
+
+
+def write_json(path, value):
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(value, indent=2) + "\n")
+    tmp.replace(path)
+
+
+def running(name):
+    return (
+        capture(["docker", "inspect", "--format", "{{.State.Running}}", name]) == "true"
+    )
+
+
+def render(workspace, profile):
+    renderer = workspace / "benchmark/render.py"
+    command(
+        [
+            profile["plot_python"],
+            renderer if renderer.exists() else HERE / "render.py",
+            workspace,
+        ]
+    )
+
+
+def freeze(repo, dest):
+    names = capture(
+        [
+            "git",
+            "-C",
+            repo,
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+        ]
+    ).split("\0")
+    hashes = {}
+    for name in sorted(set(filter(None, names))):
+        src = repo / name
+        if not src.is_file():
+            continue
+        if src.is_symlink():
+            raise RuntimeError(f"Source symlink needs explicit review: {name}")
+        target = dest / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, target)
+        hashes[name] = hashlib.sha256(src.read_bytes()).hexdigest()
+    return dict(head=capture(["git", "-C", repo, "rev-parse", "HEAD"]), files=hashes)
+
+
+def environment(shared):
+    env = {
+        k: str(int(shared))
+        for k in [
+            "AREAL_BATCH_DRAIN_METRICS",
+            "AREAL_BATCH_DRAIN",
+            "AREAL_DRAIN_METRICS",
+            "AREAL_ADAPTIVE_DRAIN",
+            "AREAL_QUEUE_REBALANCE",
+            "AREAL_TRAIN_PRIORITY_INFERENCE",
+            "AREAL_PRESSURE_MEMORY",
+            "AREAL_DYNAMIC_KV",
+        ]
+    }
+    env.update(
+        AREAL_SHARED_DRAIN_SECONDS="0",
+        AREAL_NPU_SHARE_PAUSE_KEEP="0",
+        AREAL_ASCEND_KERNEL_WARMUP="1",
+        AREAL_OVERLAP_TRAIN_RESTORE="1",
+        AREAL_PARK_TRAIN_CACHE="1",
+        AREAL_NPU_DEVICE_TRACE="1",
+        EXPERIMENT_TASK_AFFINITY="0",
+        HF_HUB_OFFLINE="1",
+        HF_DATASETS_OFFLINE="1",
+        WANDB_MODE="disabled",
+        NO_PROXY="*",
+        no_proxy="*",
+        PYTHONUNBUFFERED="1",
+        USE_OPTIMIZED_MODEL="0",
+        OMP_NUM_THREADS="1",
+        TOKENIZERS_PARALLELISM="false",
+        HCCL_CONNECT_TIMEOUT="120",
+        HCCL_EXEC_TIMEOUT="300",
+    )
+    return env
+
+
+def docker_args(profile, settings, workspace, arm=None):
+    spec = profile["engines"][settings["engine"]]
+    args = ["docker", "run", "--network", "host"]
+    if arm:
+        args += [
+            "--privileged",
+            "--shm-size",
+            "16g",
+            "--name",
+            settings["container_prefix"] + "-" + arm,
+        ]
+    else:
+        args += ["--rm"]
+    mounts = [
+        (workspace / "source", "/repo", "ro"),
+        (workspace / "benchmark/templates", "/tool", "ro"),
+        (workspace, "/work", "rw"),
+        (Path(profile["model"]), "/model", "ro"),
+    ]
+    data = profile["datasets"][settings["rl"]]
+    for split in ["train", "test"]:
+        mounts.append((Path(data[split]), "/input/" + split + ".parquet", "ro"))
+    env = environment(arm == "latest")
+    if arm == "latest" and settings.get("inference_tp", 1) > 1:
+        env["AREAL_NPU_SHARE_PAUSE_KEEP"] = "1"
+    env.update(PYTHONPATH="/tool:/repo", AREAL_BENCH_WORKSPACE="/work")
+    if arm:
+        mounts += [
+            (workspace / arm, "/run-output", "rw"),
+            (workspace / (arm + "-cache"), "/tmp/areal-root/.cache/root/triton", "rw"),
+            (Path(profile["driver"]), profile["driver"], "ro"),
+            (Path(profile["npu_smi"]), "/usr/local/bin/npu-smi", "ro"),
+        ]
+        env.update(
+            ASCEND_RT_VISIBLE_DEVICES=",".join(map(str, profile["devices"])),
+            AREAL_REQUEST_TRACE_DIR="/run-output/request-events",
+        )
+    if settings["rl"] == "code":
+        c = profile["code"]
+        mounts += [
+            (Path(c["dependencies"]), "/deps", "ro"),
+            (Path(c["sdk"]), "/e2b-v250", "ro"),
+            (Path(c["config_dir"]), c["container_config_dir"], "ro"),
+        ]
+        env.update(
+            PYTHONPATH="/tool:/repo:/e2b-v250:/deps",
+            KUASAR_CONFIG=c["container_config_dir"] + "/access.json",
+            SSL_CERT_FILE=c["container_config_dir"] + "/ca.crt",
+            AREAL_CODE_RUN_ID=settings["container_prefix"] + "-" + (arm or "preflight"),
+        )
+    for src, dst, mode in mounts:
+        args += ["-v", f"{src}:{dst}:{mode}"]
+    for k, v in env.items():
+        args += ["-e", k + "=" + v]
+    args += ["-w", "/repo", "--entrypoint", "bash", settings["image_id"], "-lc"]
+    setup = (
+        "set +eu; "
+        + "; ".join("source " + shlex.quote(x) for x in profile["cann_env"])
+        + "; set -eu; "
+    )
+    setup += "export PATH=" + shlex.quote(str(Path(spec["python"]).parent)) + ":$PATH; "
+    return args, setup
+
+
+def main():
+    opts = arguments()
+    print(f"Loading profile: {opts.profile}", flush=True)
+    profile = json.loads(opts.profile.read_text())
+    if opts.render_only:
+        progress = Progress(profile.get("timezone", "UTC"))
+        progress.set("Generating charts")
+        try:
+            render(opts.render_only.resolve(), profile)
+            progress.message(
+                f"Charts ready: {opts.render_only.resolve() / 'index.html'}"
+            )
+        finally:
+            progress.close()
+        return
+    validate_topology(opts.npu_count, opts.inference_tp)
+    repo = Path(profile["repo"]).resolve()
+    root = (opts.workspace_root or Path(profile["workspace_root"])).resolve()
+    if root == repo or repo in root.parents:
+        raise ValueError("Workspace must be outside the source repository")
+    available = profile.get("available_devices", list(range(8)))
+    selected = (
+        profile["devices"]
+        if opts.npu_count == len(profile["devices"])
+        else available[: opts.npu_count]
+    )
+    if len(selected) != opts.npu_count or len(set(selected)) != len(selected):
+        raise ValueError("Host profile does not provide enough distinct NPU devices")
+    profile["devices"] = selected
+    for path in [
+        repo,
+        Path(profile["model"]),
+        *map(Path, profile["datasets"][opts.rl].values()),
+    ]:
+        if not path.exists():
+            raise FileNotFoundError(path)
+    root.mkdir(parents=True, exist_ok=True)
+    # One process across all workspaces on this machine owns benchmark hardware.
+    lockpath = Path.home() / ".cache/areal-benchmark.lock"
+    lockpath.parent.mkdir(exist_ok=True)
+    lock = lockpath.open("w")
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    stamp = dt.datetime.now(ZoneInfo(profile.get("timezone", "UTC"))).strftime(
+        "%Y%m%d-%H%M%S%z"
+    )
+    workspace = (
+        root
+        / f"{stamp}_{opts.rl}_{opts.engine}_c{opts.concurrency}_b{opts.batches}_{uuid.uuid4().hex[:6]}"
+    )
+    workspace.mkdir()
+    print(f"WORKSPACE={workspace}", flush=True)
+    settings = dict(
+        rl=opts.rl,
+        engine=opts.engine,
+        concurrency=opts.concurrency,
+        max_head_offpolicyness=opts.max_head_offpolicyness,
+        batches=opts.batches,
+        batch_size=16,
+        answers=6,
+        questions=16 * opts.batches,
+        seed=1,
+        max_new_tokens=1024,
+        timezone=profile.get("timezone", "UTC"),
+        created=stamp,
+        timeout=opts.timeout or max(3600, opts.batches * 600),
+        container_prefix="areal-bench-" + uuid.uuid4().hex[:12],
+        image=profile["engines"][opts.engine]["image"],
+        devices=profile["devices"],
+    )
+    settings.update(
+        npu_count=opts.npu_count,
+        inference_tp=opts.inference_tp,
+        allocation=allocation_counts(opts.npu_count),
+        inference_replicas=opts.npu_count // 2 // opts.inference_tp,
+    )
+    write_json(workspace / "settings.json", settings)
+    state = dict(phase="preparing", completed=[], workspace=str(workspace))
+    active = None
+    done = threading.Event()
+    sampler_thread = None
+    error = None
+
+    def save():
+        write_json(workspace / "state.json", state)
+
+    def interrupted(signum, frame):
+        raise KeyboardInterrupt(f"Signal {signum}")
+
+    progress = Progress(profile.get("timezone", "UTC"))
+    progress.message(
+        f"NPU topology: devices={selected}; training={opts.npu_count // 2}; dedicated vLLM instances={opts.npu_count // 2 // opts.inference_tp}; TP={opts.inference_tp}"
+    )
+    if opts.inference_tp > 1:
+        progress.message(
+            "TP shared instances use per-device budgets and all-member mapping acknowledgements"
+        )
+    progress.set(
+        f"Preparing {opts.rl} / {opts.engine}: fixed + shared, {opts.batches} batches each, concurrency {opts.concurrency}"
+    )
+    signal.signal(signal.SIGINT, interrupted)
+    signal.signal(signal.SIGTERM, interrupted)
+    try:
+        save()
+        settings["image_id"] = capture(
+            ["docker", "image", "inspect", "--format", "{{.Id}}", settings["image"]]
+        )
+        write_json(workspace / "settings.json", settings)
+        if not opts.prepare_only:
+            command([profile["plot_python"], "-c", "import matplotlib, numpy, PIL"])
+        progress.set("Freezing source and benchmark configuration")
+        shutil.copytree(
+            HERE / "templates",
+            workspace / "benchmark/templates",
+            ignore=shutil.ignore_patterns("__pycache__"),
+        )
+        shutil.copy2(HERE / "render.py", workspace / "benchmark/render.py")
+        shutil.copy2(HERE / "run_bench.py", workspace / "benchmark/run_bench.py")
+        write_json(
+            workspace / "adapter-manifest.json",
+            {
+                str(f.relative_to(workspace / "benchmark")): hashlib.sha256(
+                    f.read_bytes()
+                ).hexdigest()
+                for f in (workspace / "benchmark").rglob("*")
+                if f.is_file()
+            },
+        )
+        write_json(
+            workspace / "source-manifest.json", freeze(repo, workspace / "source")
+        )
+        (workspace / "source.patch").write_text(
+            capture(["git", "-C", repo, "diff", "HEAD"])
+        )
+        for arm in ["fixed", "latest"]:
+            (workspace / arm).mkdir()
+            (workspace / (arm + "-cache")).mkdir()
+        args, setup = docker_args(profile, settings, workspace)
+        progress.set(
+            f"Preparing data and validating configurations; log: {workspace / 'prepare.log'}"
+        )
+        with (workspace / "prepare.log").open("w") as log:
+            command(
+                args + [setup + "python3 /tool/prepare.py"],
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                timeout=1800,
+            )
+        if opts.prepare_only:
+            state["phase"] = "prepared"
+            progress.message("Preparation complete; no NPU training requested")
+            return
+        if opts.rl == "code":
+            progress.set("Checking sandbox create / execute / delete")
+            with (workspace / "sandbox-preflight.log").open("w") as log:
+                command(
+                    args + [setup + "python3 /tool/sandbox_check.py"],
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    timeout=180,
+                )
+        sys.path.insert(0, str(HERE / "templates"))
+        from telemetry import parse_info, sampler
+
+        progress.set("Checking NPU availability")
+        raw = capture([profile["npu_smi"], "info"])
+        devices, processes = parse_info(raw)
+        if (
+            len(devices) != 8
+            or "Process id" not in raw
+            or processes
+            or raw.count("No running processes found in NPU") != 8
+        ):
+            raise RuntimeError(
+                "Unexpected NPU state or other NPU users; no experiment started"
+            )
+        for arm in ["fixed", "latest"]:
+            progress.set(f"Starting {arm} group: model initialization and training")
+            event_offset, completed_batches = 0, 0
+            state.update(phase="running", current=arm)
+            save()
+            args, setup = docker_args(profile, settings, workspace, arm)
+            active = settings["container_prefix"] + "-" + arm
+            # Detached container plus bounded host supervisor permits laptop disconnects.
+            args.insert(2, "-d")
+            command(
+                args
+                + [setup + f"python3 /tool/entry.py --config /work/{arm}/config.yaml"],
+                stdout=subprocess.DEVNULL,
+            )
+            done = threading.Event()
+            sampler_thread = threading.Thread(
+                target=sampler,
+                args=(workspace / arm, done, profile["devices"]),
+                daemon=True,
+            )
+            sampler_thread.start()
+            deadline = time.monotonic() + settings["timeout"]
+            progress.message(
+                f"Container: {active}; live details: docker logs -f {active}"
+            )
+            while running(active):
+                event_offset, completed_batches = report_events(
+                    workspace / arm / "phases.jsonl",
+                    event_offset,
+                    completed_batches,
+                    opts.batches,
+                    progress,
+                )
+                if time.monotonic() > deadline:
+                    raise TimeoutError(f"{arm} exceeded {settings['timeout']} seconds")
+                time.sleep(5)
+            report_events(
+                workspace / arm / "phases.jsonl",
+                event_offset,
+                completed_batches,
+                opts.batches,
+                progress,
+            )
+            done.set()
+            sampler_thread.join(timeout=35)
+            with (workspace / arm / "train.log").open("w") as log:
+                command(
+                    ["docker", "logs", active], stdout=log, stderr=subprocess.STDOUT
+                )
+            code = int(
+                capture(
+                    ["docker", "inspect", "--format", "{{.State.ExitCode}}", active]
+                )
+            )
+            if code:
+                raise RuntimeError(
+                    f"{arm} training exited {code}; see {workspace / arm / 'train.log'}"
+                )
+            state["completed"].append(arm)
+            save()
+            progress.message(
+                f"{arm} group finished successfully; logs: {workspace / arm}"
+            )
+            active = None
+        progress.set("Generating four chart families")
+        state["phase"] = "rendering"
+        save()
+        render(workspace, profile)
+        state["phase"] = "complete"
+        progress.message(f"Comparison complete: {workspace / 'index.html'}")
+    except BaseException as exc:
+        error = exc
+        state.update(phase="failed", error=str(exc))
+        progress.message(f"FAILED: {exc}; details: {workspace}")
+    finally:
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        done.set()
+        if sampler_thread:
+            sampler_thread.join(timeout=35)
+        try:
+            if active:
+                progress.set(
+                    "Stopping experiment container after failure or interruption"
+                )
+                stopped = subprocess.run(
+                    ["docker", "stop", "-t", "20", active],
+                    timeout=60,
+                    capture_output=True,
+                )
+                if stopped.returncode != 0 or running(active):
+                    raise RuntimeError("Experiment container did not stop")
+                with (workspace / state["current"] / "train.log").open("w") as log:
+                    subprocess.run(
+                        ["docker", "logs", active],
+                        stdout=log,
+                        stderr=subprocess.STDOUT,
+                        timeout=60,
+                    )
+        except Exception as exc:
+            state.update(phase="failed", cleanup_error=str(exc))
+            error = error or exc
+        finally:
+            state["ended"] = time.time()
+            save()
+            progress.message(
+                f"Final status: {state['phase']}; state file: {workspace / 'state.json'}"
+            )
+            progress.close()
+            lock.close()
+    if error:
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()

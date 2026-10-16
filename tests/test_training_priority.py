@@ -10,7 +10,7 @@ from areal.engine.vllm_ext.kv_slab import SlabFreeBlockQueue
 from areal.trainer.colocation_memory import GIB, ColocationMemoryPolicy
 
 
-def test_scheduler_capacity_bounds_ids_and_restores_only_when_idle():
+def test_scheduler_capacity_bounds_ids_and_preserves_live_blocks():
     q = SlabFreeBlockQueue([SimpleNamespace(block_id=i) for i in range(40)], 8)
     q.set_capacity(12)
     blocks = q.popleft_n(11)
@@ -18,8 +18,11 @@ def test_scheduler_capacity_bounds_ids_and_restores_only_when_idle():
     assert q.num_free_blocks == 0
     with pytest.raises(ValueError):
         q.popleft()
-    with pytest.raises(RuntimeError):
-        q.set_capacity(40)
+    with pytest.raises(RuntimeError, match="exclude live"):
+        q.set_capacity(8)
+    q.set_capacity(40)
+    assert q.num_free_blocks == 28
+    assert q.table.allocated == set(range(1, 12))
     q.append_n(blocks)
     q.set_capacity(40)
     assert q.num_free_blocks == 39
@@ -69,10 +72,12 @@ def policy(admitted=True, restore=0, cap=None):
         dynamic_kv={"mapped_bytes": GIB},
     )
     rollout = Mock(
-        side_effect=lambda action, **kw: status
-        if action == "status"
-        else dict(
-            free_bytes=30 * GIB, concurrent_admitted=admitted, capacity_blocks=100
+        side_effect=lambda action, **kw: (
+            status
+            if action == "status"
+            else dict(
+                free_bytes=30 * GIB, concurrent_admitted=admitted, capacity_blocks=100
+            )
         )
     )
     return ColocationMemoryPolicy(cfg, actor, rollout, Mock()), actor, rollout
@@ -153,9 +158,11 @@ def test_native_vllm_reset_and_usage_follow_reduced_capacity():
     assert pool.get_usage() == 0
     blocks = pool.get_new_blocks(5)
     assert not pool.reset_prefix_cache()
-    with pytest.raises(RuntimeError):
-        set_scheduler_capacity(pool, 40)
+    with pytest.raises(RuntimeError, match="exclude live"):
+        set_scheduler_capacity(pool, 2)
     assert pool.num_gpu_blocks == 12
+    set_scheduler_capacity(pool, 40)
+    assert pool.get_num_free_blocks() == 34
     pool.free_blocks(blocks)
     assert pool.reset_prefix_cache()
     assert pool.get_usage() == 0

@@ -227,6 +227,17 @@ class RequestLeasePool:
             self.versions[rank] = version
             self.ready[rank] = True
 
+    def reopen(self, rank: int, version: int):
+        """Resume same-version retained leases without changing their model epoch."""
+        with self.lock:
+            if self.error:
+                raise RuntimeError(self.error)
+            if self.versions[rank] != version:
+                raise RuntimeError(
+                    "Retained leases cannot resume under another version"
+                )
+            self.ready[rank] = True
+
     def set_version(self, rank: int, version: int):
         with self.lock:
             if any(x["rank"] == rank for x in self.active.values()):
@@ -256,24 +267,31 @@ class RequestLeasePool:
                 lengths=list(self.lengths),
             )
 
-    def reserve_rebalance(self, request_ids, version):
+    def reserve_rebalance(self, request_ids, version, source_rank=1, target_rank=0):
         """Reserve target slots without releasing any source execution lease."""
         with self.lock:
-            if self.error or not all(self.ready) or self.versions != [version, version]:
+            if (
+                self.error
+                or not all(self.ready)
+                or any(v != version for v in self.versions)
+            ):
                 return {}
             if self.task_affinity or self.waiting:
                 return {}  # Do not break affinity or displace existing FIFO waiters.
             room = (
                 self.capacity
-                - sum(r["rank"] == 0 for r in self.active.values())
-                - len(self.rebalance_reservations)
+                - sum(r["rank"] == target_rank for r in self.active.values())
+                - sum(
+                    r["rank"] == target_rank
+                    for r in self.rebalance_reservations.values()
+                )
             )
             chosen = {}
             for rid, expected_lease in request_ids.items():
                 leases = [
                     r
                     for r in self.active.values()
-                    if r["request_id"] == rid and r["rank"] == 1
+                    if r["request_id"] == rid and r["rank"] == source_rank
                 ]
                 if room <= 0:
                     break
@@ -286,7 +304,7 @@ class RequestLeasePool:
                     continue
                 lease = leases[0]
                 self.rebalance_reservations[rid] = dict(
-                    rank=0, version=version, lease_id=lease["lease_id"]
+                    rank=target_rank, version=version, lease_id=lease["lease_id"]
                 )
                 chosen[rid] = lease["lease_id"]
                 room -= 1

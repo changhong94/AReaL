@@ -7,6 +7,17 @@ Status: Implemented and validated on the recorded small-model configuration.
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R021: Keep one sharing protocol; adapt backend memory and publication](R021.png)
+
+Preserve optimizer ownership and backend semantics; this is not a new RL algorithm.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R021.svg) | [PNG](R021.png)
+
 ## Problem and mechanism
 
 FSDP-specific allocation and publication hooks do not automatically apply to Megatron.

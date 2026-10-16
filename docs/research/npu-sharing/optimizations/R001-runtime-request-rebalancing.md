@@ -5,6 +5,17 @@ English | [中文](R001-runtime-request-rebalancing.zh.md)
 Created: 2026-10-15 (America/Vancouver). Status: proposed; no implementation, causal
 performance result or novelty claim.
 
+## Mechanism diagram
+
+![R001: Rebalance running work only when the critical path wins](R001.png)
+
+Optimize batch completion time, not equal token counts.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R001.svg) | [PNG](R001.png)
+
 ## Motivation and evidence
 
 [E001](../experiments/20261015-144720-megatron-c32-b6.md) shows that the shared

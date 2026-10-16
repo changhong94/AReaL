@@ -1,8 +1,8 @@
 [
   {
     "id": "R001",
-    "en": "ideas/R001-runtime-request-rebalancing.md",
-    "zh": "ideas/R001-runtime-request-rebalancing.zh.md",
+    "en": "optimizations/R001-runtime-request-rebalancing.md",
+    "zh": "optimizations/R001-runtime-request-rebalancing.zh.md",
     "status": "proposed"
   },
   {

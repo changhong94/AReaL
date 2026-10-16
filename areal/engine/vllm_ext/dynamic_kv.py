@@ -57,9 +57,11 @@ class SparseKVPages:
         self.reconcile({0})
 
     def set_budget(self, budget_bytes):
-        """Called paused with no live KV; bound physical pages and scheduler IDs."""
-        if self.live != {0} or self.swapped or self.broken:
-            raise RuntimeError("KV budget changes require clean idle mappings")
+        """Bound physical pages and scheduler IDs while idle or preserved-paused."""
+        if (self.live != {0} and not self.paused) or self.swapped or self.broken:
+            raise RuntimeError(
+                "KV budget changes require idle or preserved-paused mappings"
+            )
         if budget_bytes is None:
             capacity = self.num_blocks
         else:
@@ -68,9 +70,9 @@ class SparseKVPages:
             pages = budget_bytes // (len(self.tensors) * self.page)
             # Keep the final padded page out of the bounded range.
             capacity = min(self.num_blocks - 1, pages * self.blocks_per_page)
-            if capacity < 2:
+            if capacity < max(2, max(self.live) + 1):
                 return 0
-        self.reconcile({0}, trim=True)
+        self.reconcile(self.live, trim=True)
         self.capacity_blocks = capacity
         return capacity
 
@@ -199,6 +201,89 @@ class SparseKVPages:
             paused=self.paused,
             cpu_backup_bytes=len(self.swapped) * len(self.tensors) * self.page,
             swapped_slabs=len(self.swapped),
+        )
+
+
+def coordinated_state_call(pool, function):
+    """Propagate rank-local state failures before a peer enters a collective."""
+    import torch.distributed as dist
+    from vllm.distributed import get_tp_group
+
+    group = get_tp_group()
+    if group.world_size == 1:
+        return function()
+    result, error = None, None
+    try:
+        result = function()
+    except Exception as exc:
+        error = f"{type(exc).__name__}: {exc}"
+    errors = [None] * group.world_size
+    dist.all_gather_object(errors, error, group=group.cpu_group)
+    if any(errors):
+        pool.broken = True
+        raise RuntimeError(f"TP KV state update failed: {errors}")
+    return result
+
+
+def coordinated_reconcile(pool, block_ids):
+    """Fence TP peers before mapping and before any following model collective.
+
+    Physical residency is local: each member may map a different number of pages.
+    Logical block IDs and execution readiness must agree across the instance.
+    """
+    import torch.distributed as dist
+    from vllm.distributed import get_tp_group
+
+    group = get_tp_group()
+    if group.world_size == 1:
+        return pool.reconcile(block_ids)
+    ids = set(block_ids) | {0}
+    error = None
+    try:
+        if pool.broken or pool.swapped:
+            raise RuntimeError("KV pages must be restored before TP execution")
+        if any(type(b) is not int or b < 0 or b >= pool.capacity_blocks for b in ids):
+            raise ValueError("Invalid TP block ID")
+        target = {b // pool.blocks_per_page for b in ids}
+        if pool.num_blocks - 1 in ids:
+            target.update(
+                range(
+                    (pool.num_blocks * pool.bytes_per_block - 1) // pool.page,
+                    (pool.num_blocks * pool.bytes_per_block + 31) // pool.page + 1,
+                )
+            )
+        growth = len(target - pool.mapped) * len(pool.tensors) * pool.page
+        reclaimable = (
+            max(0, len(pool.mapped - target) - pool.keep_idle_pages)
+            * len(pool.tensors)
+            * pool.page
+        )
+        if (
+            growth
+            and pool.backend.free_bytes() + reclaimable < growth + pool.reserve_bytes
+        ):
+            raise MemoryError(
+                "TP member cannot fit the next KV mapping within its budget"
+            )
+    except Exception as exc:
+        error = f"{type(exc).__name__}: {exc}"
+    states = [None] * group.world_size
+    digest = hashlib.sha256(str(sorted(ids)).encode()).hexdigest()
+    dist.all_gather_object(states, (error, digest), group=group.cpu_group)
+    if any(item[0] for item in states) or len({item[1] for item in states}) != 1:
+        pool.broken = True
+        raise RuntimeError(f"TP KV preflight rejected execution: {states}")
+    error = None
+    try:
+        pool.reconcile(ids)
+    except Exception as exc:
+        error = f"{type(exc).__name__}: {exc}"
+    states = [None] * group.world_size
+    dist.all_gather_object(states, error, group=group.cpu_group)
+    if any(states):
+        pool.broken = True
+        raise RuntimeError(
+            f"TP KV mapping failed; instance must remain stopped: {states}"
         )
 
 
@@ -389,12 +474,21 @@ def install_dynamic_state_hook(cls):
         if pool is None:
             return original(self, output)
         before = pool.snapshot()
-        pool.reconcile(pending_blocks(self.requests, output))
-        result = original(self, output)
-        live = set()
-        for state in self.requests.values():
-            live.update(flatten_blocks(state.block_ids))
-        pool.reconcile(live)
+        pending = coordinated_state_call(
+            pool, lambda: pending_blocks(self.requests, output)
+        )
+        coordinated_reconcile(pool, pending)
+        result = coordinated_state_call(pool, lambda: original(self, output))
+        live = coordinated_state_call(
+            pool,
+            lambda: set().union(
+                *(
+                    set(flatten_blocks(state.block_ids))
+                    for state in self.requests.values()
+                )
+            ),
+        )
+        coordinated_reconcile(pool, live)
         after = pool.snapshot()
         if before["mapped_bytes"] != after["mapped_bytes"]:
             logging.getLogger("vllm.areal_kv_slab").info(

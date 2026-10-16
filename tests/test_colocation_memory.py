@@ -53,7 +53,10 @@ def test_adaptive_configuration_rejects_unmanaged_loading_before_launch():
     trainer.config.npu_share = True
     trainer.config.vllm.distributed_executor_backend = "uni"
     trainer.config.actor.fsdp.memory_efficient_load = False
-    trainer.actor_alloc = trainer.rollout_alloc = SimpleNamespace(backend="unused")
+    trainer.actor_alloc = SimpleNamespace(backend="fsdp")
+    trainer.rollout_alloc = SimpleNamespace(
+        backend="vllm", parallel=SimpleNamespace(tp_size=1)
+    )
     with pytest.raises(ValueError, match="memory_efficient_load"):
         trainer._validate_cfg()
 
@@ -229,8 +232,10 @@ def test_budget_cap_and_single_device_result_validation():
     policy = world.policy()
     policy.config.device_budget_gib = 48
     assert policy.free(world.status()) == 4 * GIB
-    with pytest.raises(RuntimeError, match="single-device"):
-        single_status([world.status(), world.status()])
+    assert (
+        single_status([world.status(), world.status()])["free_bytes"]
+        == world.status()["free_bytes"]
+    )
 
 
 @pytest.mark.asyncio

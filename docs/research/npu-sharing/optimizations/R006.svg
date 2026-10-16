@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="880" viewBox="0 0 1440 880">
+<title>R006: Reserve virtual space; map physical KV only as needed</title>
+<desc>Mechanism schematic. Geometry is not measured time or memory size. See linked research note for evidence and limitations.</desc>
+<rect x="0" y="0" width="1440" height="880" rx="0" fill="#f5f7fb" stroke="#f5f7fb" stroke-width="2"/>
+<rect x="0" y="0" width="1440" height="12" rx="0" fill="#14846c" stroke="#14846c" stroke-width="2"/>
+<text x="44" y="59" font-family="Arial, DejaVu Sans, sans-serif" font-size="27" font-weight="700" fill="#14846c">R006</text>
+<text x="156" y="56" font-family="Arial, DejaVu Sans, sans-serif" font-size="18" font-weight="700" fill="#6b4c16">IMPLEMENTED / MEMORY BENEFIT VERIFIED</text>
+<text x="44" y="114" font-family="Arial, DejaVu Sans, sans-serif" font-size="31" font-weight="700" fill="#172b4d">Reserve virtual space; map physical KV only as needed</text>
+<text x="44" y="187" font-family="Arial, DejaVu Sans, sans-serif" font-size="18" font-weight="400" fill="#596779">MECHANISM SCHEMATIC  |  Not a measured timeline; box sizes are illustrative</text>
+<text x="44" y="239" font-family="Arial, DejaVu Sans, sans-serif" font-size="18" font-weight="700" fill="#596779">PROBLEM / COMPARISON</text>
+<rect x="44" y="255" width="308" height="119" rx="14" fill="#e9eef5" stroke="#a6b3c4" stroke-width="2"/>
+<text x="61" y="295" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="400" fill="#172b4d">Live KV</text>
+<path d="M354 315 L377 315" stroke="#718096" stroke-width="3" fill="none"/>
+<polygon points="377,315 366.1946347717679,320.21958640933474 366.1946347717679,309.78041359066526" fill="#718096"/>
+<rect x="389" y="255" width="308" height="119" rx="14" fill="#e9eef5" stroke="#a6b3c4" stroke-width="2"/>
+<text x="406" y="295" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="400" fill="#172b4d">Unused physical KV</text>
+<path d="M699 315 L722 315" stroke="#718096" stroke-width="3" fill="none"/>
+<polygon points="722,315 711.1946347717678,320.21958640933474 711.1946347717678,309.78041359066526" fill="#718096"/>
+<rect x="734" y="255" width="308" height="119" rx="14" fill="#e9eef5" stroke="#a6b3c4" stroke-width="2"/>
+<text x="751" y="295" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="400" fill="#172b4d">Unused physical KV</text>
+<path d="M1044 315 L1067 315" stroke="#718096" stroke-width="3" fill="none"/>
+<polygon points="1067,315 1056.1946347717678,320.21958640933474 1056.1946347717678,309.78041359066526" fill="#718096"/>
+<rect x="1079" y="255" width="308" height="119" rx="14" fill="#e9eef5" stroke="#a6b3c4" stroke-width="2"/>
+<text x="1096" y="295" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="400" fill="#172b4d">Unused physical KV</text>
+<text x="44" y="433" font-family="Arial, DejaVu Sans, sans-serif" font-size="18" font-weight="700" fill="#14846c">MECHANISM / CANDIDATE</text>
+<rect x="44" y="453" width="308" height="125" rx="14" fill="#dff3ed" stroke="#14846c" stroke-width="2"/>
+<text x="61" y="493" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">Packed live KV</text>
+<path d="M354 515 L377 515" stroke="#718096" stroke-width="3" fill="none"/>
+<polygon points="377,515 366.1946347717679,520.2195864093347 366.1946347717679,509.78041359066526" fill="#718096"/>
+<rect x="389" y="453" width="308" height="125" rx="14" fill="#dff3ed" stroke="#14846c" stroke-width="2"/>
+<text x="406" y="493" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">Mapped watermark</text>
+<path d="M699 515 L722 515" stroke="#718096" stroke-width="3" fill="none"/>
+<polygon points="722,515 711.1946347717678,520.2195864093347 711.1946347717678,509.78041359066526" fill="#718096"/>
+<rect x="734" y="453" width="308" height="125" rx="14" fill="#dff3ed" stroke="#14846c" stroke-width="2"/>
+<text x="751" y="493" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">Virtual only</text>
+<path d="M1044 515 L1067 515" stroke="#718096" stroke-width="3" fill="none"/>
+<polygon points="1067,515 1056.1946347717678,520.2195864093347 1056.1946347717678,509.78041359066526" fill="#718096"/>
+<rect x="1079" y="453" width="308" height="125" rx="14" fill="#dff3ed" stroke="#14846c" stroke-width="2"/>
+<text x="1096" y="493" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">Virtual only</text>
+<text x="47" y="612" font-family="Arial, DejaVu Sans, sans-serif" font-size="16" font-weight="700" fill="#596779">MEMORY STATE</text>
+<rect x="220" y="590" width="86" height="37" rx="4" fill="#8ed4c2" stroke="#9aa8bc" stroke-width="2"/>
+<text x="235" y="614" font-family="Arial, DejaVu Sans, sans-serif" font-size="16" font-weight="400" fill="#172b4d">KV</text>
+<rect x="315" y="590" width="86" height="37" rx="4" fill="#8ed4c2" stroke="#9aa8bc" stroke-width="2"/>
+<text x="330" y="614" font-family="Arial, DejaVu Sans, sans-serif" font-size="16" font-weight="400" fill="#172b4d">KV</text>
+<rect x="410" y="590" width="86" height="37" rx="4" fill="#c5e7dc" stroke="#9aa8bc" stroke-width="2"/>
+<text x="425" y="614" font-family="Arial, DejaVu Sans, sans-serif" font-size="16" font-weight="400" fill="#172b4d">KEEP</text>
+<rect x="505" y="590" width="86" height="37" rx="4" fill="#ffffff" stroke="#9aa8bc" stroke-width="2"/>
+<text x="520" y="614" font-family="Arial, DejaVu Sans, sans-serif" font-size="16" font-weight="400" fill="#172b4d">VA</text>
+<rect x="600" y="590" width="86" height="37" rx="4" fill="#ffffff" stroke="#9aa8bc" stroke-width="2"/>
+<text x="615" y="614" font-family="Arial, DejaVu Sans, sans-serif" font-size="16" font-weight="400" fill="#172b4d">VA</text>
+<rect x="695" y="590" width="86" height="37" rx="4" fill="#ffffff" stroke="#9aa8bc" stroke-width="2"/>
+<text x="710" y="614" font-family="Arial, DejaVu Sans, sans-serif" font-size="16" font-weight="400" fill="#172b4d">VA</text>
+<rect x="790" y="590" width="86" height="37" rx="4" fill="#ffffff" stroke="#9aa8bc" stroke-width="2"/>
+<text x="805" y="614" font-family="Arial, DejaVu Sans, sans-serif" font-size="16" font-weight="400" fill="#172b4d">VA</text>
+<rect x="885" y="590" width="86" height="37" rx="4" fill="#ffffff" stroke="#9aa8bc" stroke-width="2"/>
+<text x="900" y="614" font-family="Arial, DejaVu Sans, sans-serif" font-size="16" font-weight="400" fill="#172b4d">VA</text>
+<text x="1010" y="615" font-family="Arial, DejaVu Sans, sans-serif" font-size="17" font-weight="400" fill="#596779">VA = virtual only</text>
+<rect x="44" y="665" width="1352" height="91" rx="12" fill="#e3eaf8" stroke="#e3eaf8" stroke-width="2"/>
+<text x="62" y="704" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">Logical block IDs stay stable; reclaim only synchronized, confirmed-idle whole pages.</text>
+<text x="44" y="796" font-family="Arial, DejaVu Sans, sans-serif" font-size="20" font-weight="400" fill="#596779">Validation: initial KV 112 MiB; peaks 336/784 MiB. Historical pools were about 21.2 GiB.</text>
+<text x="44" y="860" font-family="Arial, DejaVu Sans, sans-serif" font-size="16" font-weight="400" fill="#596779">Evidence and scope: linked research note  |  Reviewed 2026-10-15  |  No standalone novelty claim</text>
+</svg>

@@ -12,9 +12,17 @@ class BorrowedRolloutPool:
     the worker executor and the inference server's acknowledged pause operation.
     """
 
-    def __init__(self, batch_size: int, preserve_requests: bool = False):
+    def __init__(
+        self,
+        batch_size: int,
+        preserve_requests: bool = False,
+        replicas_per_group: int = 1,
+    ):
         if batch_size < 1:
             raise ValueError("Borrowed rollout requires a positive batch size")
+        if replicas_per_group < 1:
+            raise ValueError("Replica groups must be nonempty")
+        self.replicas_per_group = replicas_per_group
         self.batch_size = batch_size
         self.preserve_requests = preserve_requests
         self.consumed = 0
@@ -44,9 +52,13 @@ class BorrowedRolloutPool:
             old_state = self.state
             self._withdraw_if_ready(accepted)
             if self.state != "inference":
-                return 1, self.state != old_state
-            rank = self._next_rank
-            self._next_rank = 1 - rank
+                rank = (
+                    self.replicas_per_group + self._next_rank % self.replicas_per_group
+                )
+                self._next_rank += 1
+                return rank, self.state != old_state
+            rank = self._next_rank % (2 * self.replicas_per_group)
+            self._next_rank += 1
             return rank, False
 
     def batch_ready(self, count: int) -> None:

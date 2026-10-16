@@ -7,6 +7,17 @@ Status: Implemented with evaluation-aware finality.
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R011: Eliminate final publication only when nobody needs it](R011.png)
+
+An epoch boundary alone is not finality. Required evaluation still gets fresh weights.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R011.svg) | [PNG](R011.png)
+
 ## Problem and mechanism
 
 If training has truly ended and no evaluation needs fresh inference weights, restoring

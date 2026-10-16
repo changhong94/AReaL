@@ -8,6 +8,18 @@ equivalence not established by timing replay.
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R015: Park inactive training cache and restore it before it is needed](R015.png)
+
+Inactive cache bytes need no RAM backup. Train only when both batch and memory are
+ready.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R015.svg) | [PNG](R015.png)
+
 ## Diagnosis and mechanism
 
 Same-input profiling plus a fixed-mode clear-cache control identified allocation churn:

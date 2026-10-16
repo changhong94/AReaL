@@ -435,6 +435,79 @@ class MegatronEngine(TrainEngine):
         )
 
     def initialize(self, addr: str | None, ft_spec: FinetuneSpec, *args, **kwargs):
+        from areal.engine.colocation_memory import adaptive_memory_enabled
+        from areal.engine.megatron_utils.shared_memory import MegatronSharedMemory
+
+        self._shared_memory = None
+        if adaptive_memory_enabled():
+            if (
+                not is_npu_available
+                or is_tms_enabled()
+                or self.lora_mode
+                or self.enable_fp8
+                or self.bridge_cls != "mbridge"
+                or self.config.optimizer.type != "adam"
+                or self.mcore_config.use_precision_aware_optimizer
+                or self.mcore_config.async_save
+            ):
+                raise ValueError(
+                    "Shared Megatron requires pure-DP NPUs, dense mbridge Adam, and synchronous checkpoints"
+                )
+            current_platform.set_device(int(os.environ["LOCAL_RANK"]))
+            self._shared_memory = MegatronSharedMemory(self)
+            self._adaptive_backend = self._shared_memory.backend
+            self._adaptive_memory = self._shared_memory.memory
+            with self._shared_scope("actor_weights"):
+                self._initialize_impl(addr, ft_spec, *args, **kwargs)
+            if self.tf_config.num_moe_experts:
+                raise ValueError("Shared Megatron currently supports dense models only")
+            self.colocation_memory("status")
+        else:
+            self._initialize_impl(addr, ft_spec, *args, **kwargs)
+
+    def _shared_scope(self, tag: str):
+        memory = getattr(self, "_shared_memory", None)
+        return memory.allocation_scope(tag) if memory else nullcontext()
+
+    def _shared_publisher(self):
+        from areal.engine.megatron_utils.shared_publication import (
+            SharedMegatronPublication,
+        )
+
+        if getattr(self, "_shared_publication", None) is None:
+            self._shared_publication = SharedMegatronPublication(self)
+        return self._shared_publication
+
+    def wait_shared_snapshot(self, version: int | None = None):
+        publisher = getattr(self, "_shared_publication", None)
+        if publisher is not None:
+            return publisher.wait(version)
+        if version is not None and dist.get_rank() == 0:
+            raise RuntimeError("No shared snapshot was started")
+
+    def colocation_memory(
+        self, action: str = "status", target_free_bytes: int | None = None
+    ) -> dict:
+        self.wait_shared_snapshot()
+        memory = getattr(self, "_shared_memory", None)
+        if memory is None:
+            raise RuntimeError("Adaptive Megatron memory is not enabled")
+        return memory.action(action, target_free_bytes)
+
+    def prepare_optimizer_async(
+        self, reserve_bytes: int, device_budget_bytes: int | None = None
+    ):
+        if reserve_bytes < 0 or (
+            device_budget_bytes is not None and device_budget_bytes <= 0
+        ):
+            raise ValueError("Invalid optimizer prewarm memory budget")
+        # Megatron fused optimizers initialize their state in the first real
+        # step. The memory policy reserves those bytes instead of faking a step.
+        self.wait_shared_snapshot()
+
+    def _initialize_impl(
+        self, addr: str | None, ft_spec: FinetuneSpec, *args, **kwargs
+    ):
         try:
             self.seed = get_seed()
         except ValueError:
@@ -725,7 +798,8 @@ class MegatronEngine(TrainEngine):
             if len(self.model) == 1:
                 model_config.param_sync_func = model_config.param_sync_func[0]
         model_config.finalize_model_grads_func = finalize_model_grads
-        self._create_optimizer(ft_spec)
+        with self._shared_scope("actor_optimizer"):
+            self._create_optimizer(ft_spec)
         self._initialized = True
 
     def _build_glu_fc1_names(self) -> set[str]:
@@ -871,6 +945,17 @@ class MegatronEngine(TrainEngine):
         return self._cpu_group
 
     def destroy(self):
+        self.wait_shared_snapshot()
+        self._shared_publication = None
+        memory = getattr(self, "_shared_memory", None)
+        if memory is not None:
+            if memory.memory.broken:
+                raise RuntimeError(
+                    "Partial memory transition: terminate worker without tensor cleanup"
+                )
+            workspace = getattr(memory.backend, "workspace", None)
+            if self.is_offload or (workspace is not None and workspace.parked):
+                self.colocation_memory("restore")
         self._initialized = False
         self.process_group_initialized = False
         # Drain any pending async checkpoint saves before tearing down process
@@ -996,6 +1081,7 @@ class MegatronEngine(TrainEngine):
         return self._version
 
     def save(self, meta: SaveLoadMeta):
+        self.wait_shared_snapshot()
         with self._offload_aware_context():
             if meta.weight_format == "hf":
                 if meta.with_optim:
@@ -1022,6 +1108,7 @@ class MegatronEngine(TrainEngine):
                 raise ValueError(f"Unknown weight format {meta.weight_format}. ")
 
     def load(self, meta: SaveLoadMeta):
+        self.wait_shared_snapshot()
         with self._offload_aware_context():
             if meta.weight_format == "hf":
                 if meta.with_optim:
@@ -1064,12 +1151,18 @@ class MegatronEngine(TrainEngine):
                 self.offload()
 
     def optimizer_zero_grad(self):
+        self.wait_shared_snapshot()
         assert self.optimizer is not None, "Optimizer is not initialized."
         self.optimizer.zero_grad()
         for model in self.model:
             model.zero_grad_buffer()
 
     def optimizer_step(self):
+        self.wait_shared_snapshot()
+        with self._shared_scope("actor_optimizer"):
+            return self._optimizer_step_impl()
+
+    def _optimizer_step_impl(self):
         with trace_scope("megatron_engine.step"):
             update_successful, grad_norm, _ = self.optimizer.step()
         current_lr = self.optimizer.param_groups[0]["lr"]
@@ -1084,7 +1177,14 @@ class MegatronEngine(TrainEngine):
         assert self.lr_scheduler is not None, "LR Scheduler is not initialized."
         self.lr_scheduler.step(1)
 
-    def forward_backward_batch(
+    def forward_backward_batch(self, mb_list, process_output_fn, forward_only=False):
+        self._ensure_ready()
+        with self._shared_scope("actor_workspace"):
+            return self._forward_backward_batch_impl(
+                mb_list, process_output_fn, forward_only
+            )
+
+    def _forward_backward_batch_impl(
         self,
         mb_list: MicroBatchList,
         process_output_fn: Callable[
@@ -1371,6 +1471,10 @@ class MegatronEngine(TrainEngine):
 
         Ref: https://github.com/THUDM/slime/blob/main/slime/backends/megatron_utils/actor.py
         """
+        self.wait_shared_snapshot()
+        if getattr(self, "_shared_memory", None) is not None:
+            self.colocation_memory("offload")
+            return
         if not is_tms_enabled():
             return self.release_memory_occupation()
 
@@ -1401,6 +1505,10 @@ class MegatronEngine(TrainEngine):
 
         Ref: https://github.com/THUDM/slime/blob/main/slime/backends/megatron_utils/actor.py
         """
+        self.wait_shared_snapshot()
+        if getattr(self, "_shared_memory", None) is not None:
+            self.colocation_memory("restore")
+            return
         if not is_tms_enabled():
             return self.resume_memory_occupation()
 
@@ -1428,6 +1536,14 @@ class MegatronEngine(TrainEngine):
             - "optimizer": Offload optimizer state tensors (exp_avg, exp_avg_sq, etc.)
             - "weights": Offload model parameters
         """
+        self.wait_shared_snapshot()
+        if getattr(self, "_shared_memory", None) is not None:
+            if tags is not None and set(tags) != {"optimizer", "weights"}:
+                raise ValueError(
+                    "Partial tag transitions are unsupported for shared Megatron; use budget-aware reclaim"
+                )
+            self.colocation_memory("offload")
+            return
         tags = tags or ["optimizer", "weights"]
         tags_to_release = [t for t in tags if t not in self.released_tags]
         if not tags_to_release:
@@ -1458,6 +1574,14 @@ class MegatronEngine(TrainEngine):
             - "optimizer": Reload optimizer state tensors to GPU
             - "weights": Reload model parameters to GPU
         """
+        self.wait_shared_snapshot()
+        if getattr(self, "_shared_memory", None) is not None:
+            if tags is not None and set(tags) != {"optimizer", "weights"}:
+                raise ValueError(
+                    "Partial tag transitions are unsupported for shared Megatron; use budget-aware reclaim"
+                )
+            self.colocation_memory("restore")
+            return
         tags = tags or ["optimizer", "weights"]
         tags_to_resume = [t for t in tags if t in self.released_tags]
         if not tags_to_resume:
@@ -2043,6 +2167,7 @@ class MegatronEngine(TrainEngine):
         return input_, None
 
     def _ensure_ready(self) -> None:
+        self.wait_shared_snapshot()
         if self.is_offload:
             self.onload()
 
@@ -2445,6 +2570,12 @@ class MegatronEngine(TrainEngine):
 
     @trace_perf("megatron_engine.update_weights_from_distributed", category="comm")
     def _update_weights_from_distributed(self, meta: WeightUpdateMeta) -> None:
+        if meta.npu_share_snapshot:
+            dist.barrier(group=self.cpu_group)
+            if dist.get_rank() == 0:
+                self._shared_publisher().publish_fixed(meta)
+            dist.barrier(group=self.cpu_group)
+            return
         # Reset weight weight meta with local info
         meta.nccl_master_address = self.weight_update_master_addr
         meta.nccl_master_port = self.weight_update_master_port
@@ -2666,7 +2797,11 @@ class MegatronEngine(TrainEngine):
     def _update_weights_from_disk_stage(self, meta: WeightUpdateMeta) -> None:
         if meta.colocate_stage == 0:
             assert meta.path is not None
-            self._save_model_to_hf(meta.path, self.tokenizer, self.processor)
+            if meta.npu_share_snapshot:
+                if dist.get_rank() == 0:
+                    self._shared_publisher().export(meta)
+            else:
+                self._save_model_to_hf(meta.path, self.tokenizer, self.processor)
             current_platform.synchronize()
             dist.barrier(group=self.cpu_group)
             self.logger.info(

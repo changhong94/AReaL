@@ -152,3 +152,26 @@ async def test_disabled_slab_does_not_change_existing_path(monkeypatch):
     await transition_slab_cache(engine, False)
     engine.collective_rpc.assert_not_awaited()
     engine.engine_core.call_utility_async.assert_not_awaited()
+
+
+def test_live_capacity_changes_preserve_allocator_conservation():
+    rng = random.Random(37)
+    queue = SlabFreeBlockQueue([SimpleNamespace(block_id=i) for i in range(65)], 8)
+    live = {}
+    for _ in range(300):
+        if live and rng.random() < 0.4:
+            ids = rng.sample(sorted(live), rng.randint(1, len(live)))
+            queue.append_n([live.pop(block) for block in ids])
+        elif rng.random() < 0.5:
+            count = rng.randint(0, queue.num_free_blocks)
+            blocks = queue.popleft_n(count)
+            assert not live.keys() & {block.block_id for block in blocks}
+            live.update((block.block_id, block) for block in blocks)
+        else:
+            capacity = rng.randint(max(2, max(live, default=0) + 1), 65)
+            queue.set_capacity(capacity)
+        free = {block.block_id for block in queue.get_all_free_blocks()}
+        assert not free & live.keys()
+        assert free | live.keys() == set(range(1, queue.table.num_blocks))
+        assert queue.num_free_blocks == len(free)
+        assert queue.table.allocated == live.keys()

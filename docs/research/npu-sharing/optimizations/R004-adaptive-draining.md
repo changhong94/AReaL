@@ -7,6 +7,17 @@ Status: Implemented; three-window policy retained, sibling-length scaling remove
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R004: Drain or migrate: minimize the next training critical path](R004.png)
+
+J(action) = max(T_answers_ready, T_training_card_ready). Unknown costs are not zero.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R004.svg) | [PNG](R004.png)
+
 ## Problem and evolution
 
 Immediate migration discards reusable KV and re-prefills prefixes; indefinite

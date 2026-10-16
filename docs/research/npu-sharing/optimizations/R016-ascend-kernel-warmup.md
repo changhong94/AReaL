@@ -7,6 +7,17 @@ Status: Implemented for supported APIs; applies to fixed and shared modes.
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R016: Warm actual Ascend execution paths before announcing readiness](R016.png)
+
+Eager execution does not disable JIT. Startup cost is moved, not erased.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R016.svg) | [PNG](R016.png)
+
 ## Problem and mechanism
 
 A timeline showing one long running request and others queued was dominated by first-use

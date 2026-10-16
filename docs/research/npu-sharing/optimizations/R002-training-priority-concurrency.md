@@ -8,6 +8,17 @@ workload-dependent.
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R002: Reserve training memory first; admit inference into the remainder](R002.png)
+
+Separate weight copies; memory admission does not guarantee compute priority.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R002.svg) | [PNG](R002.png)
+
 ## Problem and mechanism
 
 Strict time slicing leaves inference idle throughout PPO even when memory can

@@ -7,6 +7,17 @@ Status: Implemented infrastructure; tracing itself can perturb performance.
 Reviewed: 2026-10-15 (America/Vancouver). This is a historical evidence review, not a
 new benchmark.
 
+## Mechanism diagram
+
+![R023: Match conditions and trace causality before claiming a speedup](R023.png)
+
+Tracing can perturb performance. Fixed placement uses the same instrumented fork.
+
+Schematic only: geometry does not encode time or bytes. Status and result boundaries
+follow this note.
+
+[SVG](R023.svg) | [PNG](R023.png)
+
 ## Problem and mechanism
 
 Aggregate utilization hides routing, pauses and compile stalls. Record

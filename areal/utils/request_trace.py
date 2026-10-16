@@ -134,12 +134,11 @@ def install_token_trace() -> None:
     OutputProcessor.abort_requests = abort
 
 
-def install_device_trace() -> None:
+def install_scheduler_trace() -> None:
+    """Record queue admission in the process that owns the scheduler."""
     if not enabled():
         return
-    import torch
     from vllm.v1.core.sched.scheduler import Scheduler
-    from vllm_ascend.worker.model_runner_v1 import NPUModelRunner
 
     original_add = Scheduler.add_request
     if not getattr(original_add, "_areal_traced", False):
@@ -153,8 +152,16 @@ def install_device_trace() -> None:
         add._areal_traced = True
         Scheduler.add_request = add
 
+
+def install_device_trace() -> None:
+    if not enabled():
+        return
+    install_scheduler_trace()
     if os.environ.get("AREAL_NPU_DEVICE_TRACE") != "1":
         return
+
+    import torch
+    from vllm_ascend.worker.model_runner_v1 import NPUModelRunner
 
     original = NPUModelRunner.execute_model
     if getattr(original, "_areal_traced", False):
@@ -163,6 +170,10 @@ def install_device_trace() -> None:
     @functools.wraps(original)
     def execute(self, scheduler_output, *args, **kwargs):
         if not enabled() or os.environ.get("AREAL_NPU_DEVICE_TRACE") != "1":
+            return original(self, scheduler_output, *args, **kwargs)
+        from vllm.distributed import get_tensor_model_parallel_rank
+
+        if get_tensor_model_parallel_rank() != 0:
             return original(self, scheduler_output, *args, **kwargs)
         ids = list(scheduler_output.num_scheduled_tokens)
         if not ids:

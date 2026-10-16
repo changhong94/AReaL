@@ -171,16 +171,17 @@ class RolloutController:
     def enable_npu_share_pool(self) -> None:
         """Borrow replica zero; replica one gets a separately allocated device."""
         if (
-            self.rollout_alloc.world_size != 2
-            or self.rollout_alloc.parallel.dp_size != 2
+            self.rollout_alloc.parallel.dp_size < 2
+            or self.rollout_alloc.parallel.dp_size % 2
         ):
-            raise ValueError("NPU share pool requires two single-device replicas")
+            raise ValueError("NPU sharing requires equal nonempty replica groups")
         self._preserve_borrowed_requests = (
             os.getenv("AREAL_NPU_SHARE_PAUSE_KEEP", "0") == "1"
         )
         self._borrowed_pool = BorrowedRolloutPool(
             self.config.consumer_batch_size,
             preserve_requests=self._preserve_borrowed_requests,
+            replicas_per_group=self.rollout_alloc.parallel.dp_size // 2,
         )
 
     @property
@@ -199,6 +200,45 @@ class RolloutController:
             **kwargs,
         )
 
+    @property
+    def borrowed_ranks(self):
+        return tuple(range(self.rollout_alloc.parallel.dp_size // 2))
+
+    @property
+    def fixed_ranks(self):
+        return tuple(
+            range(
+                self.rollout_alloc.parallel.dp_size // 2,
+                self.rollout_alloc.parallel.dp_size,
+            )
+        )
+
+    def _group_rpc(self, ranks, method, **kwargs):
+        if len(ranks) == 1:
+            return [self._worker_rpc(ranks[0], method, **kwargs)]
+
+        async def call():
+            return await asyncio.gather(
+                *[
+                    self.scheduler.async_call_engine(
+                        worker_id=self.workers[rank].id,
+                        engine_name=self._engine_name(rank),
+                        method=method,
+                        **kwargs,
+                    )
+                    for rank in ranks
+                ]
+            )
+
+        return run_async_task(call)
+
+    def _borrowed_requests(self):
+        return [
+            request
+            for rank in self.borrowed_ranks
+            for request in self._request_pool.active_requests(rank)
+        ]
+
     def training_prefetch_target(self) -> int:
         if self._borrowed_pool is None:
             raise RuntimeError("No borrowed replica configured")
@@ -215,17 +255,21 @@ class RolloutController:
         self._borrowed_pool.withdraw()
         pool = getattr(self, "_request_pool", None)
         if pool is not None:
-            pool.close(0)
+            for replica_rank in self.borrowed_ranks:
+                pool.close(replica_rank)
         else:
-            self._worker_rpc(0, "pause", http_timeout=60.0)
+            self._group_rpc(self.borrowed_ranks, "pause", http_timeout=60.0)
         preserve = getattr(self, "_preserve_borrowed_requests", False)
         if preserve and pool is None:
             raise RuntimeError("Retained requests require request lease routing")
         method = "pause_generation_preserve" if preserve else "pause_generation"
-        self._worker_rpc(0, method, http_timeout=60.0)
+        self._group_rpc(self.borrowed_ranks, method, http_timeout=60.0)
         if pool is not None and not preserve:
-            pool.wait_empty(0)
-        self._pool_event("borrowed", rank=0, version=self.get_version())
+            for replica_rank in self.borrowed_ranks:
+                pool.wait_empty(replica_rank)
+        self._pool_event(
+            "borrowed", ranks=list(self.borrowed_ranks), version=self.get_version()
+        )
 
     def begin_shared_drain(self, timeout: float) -> float:
         """Close new leases without interrupting old-version native generation."""
@@ -233,13 +277,14 @@ class RolloutController:
         if pool is None or self._borrowed_pool is None:
             raise RuntimeError("Shared drain requires request lease routing")
         self._borrowed_pool.withdraw()
-        pool.close(0)
+        for replica_rank in self.borrowed_ranks:
+            pool.close(replica_rank)
         deadline = time.monotonic() + timeout
         request_trace.emit(
             "shared_drain_begin",
-            version=pool.versions[0],
+            versions=[pool.versions[r] for r in self.borrowed_ranks],
             timeout=timeout,
-            request_ids=pool.active_requests(0),
+            request_ids=self._borrowed_requests(),
         )
         return deadline
 
@@ -253,7 +298,9 @@ class RolloutController:
         from areal.infra.rolling_drain import RollingBatchCalibration
 
         if not hasattr(self, "_batch_calibration"):
-            self._batch_calibration = RollingBatchCalibration()
+            self._batch_calibration = RollingBatchCalibration(
+                replicas=self.rollout_alloc.parallel.dp_size
+            )
             self._batch_drain_wakeup = Event()
         with requests.Session() as session:
             session.trust_env = False
@@ -327,12 +374,13 @@ class RolloutController:
         with requests.Session() as session:
             session.trust_env = False
             while True:
-                if not pool.active_requests(0):
+                if not self._borrowed_requests():
                     return "empty"
                 if self.training_prefetch_ready(target):
                     return "next_batch_ready"
                 if (
-                    self.get_version() - pool.versions[0]
+                    self.get_version()
+                    - min(pool.versions[r] for r in self.borrowed_ranks)
                     > self.config.max_head_offpolicyness
                 ):
                     return "version_limit"
@@ -358,9 +406,10 @@ class RolloutController:
                     return "telemetry_error"
                 # Every endpoint constructs a fresh CPU snapshot. HTTP timeouts
                 # bound retrieval; monotonic clocks are not comparable across hosts.
-                if (
-                    not engines[0]["budget_valid"]
-                    or not engines[0]["generation_running"]
+                if any(
+                    not engines[r]["budget_valid"]
+                    or not engines[r]["generation_running"]
+                    for r in self.borrowed_ranks
                 ):
                     return "budget_invalid"
                 if batch_mode:
@@ -393,12 +442,13 @@ class RolloutController:
                 )
                 if batch_mode:
                     # Prediction is CPU work: recheck progress before acting.
-                    if not pool.active_requests(0):
+                    if not self._borrowed_requests():
                         return "empty"
                     if self.training_prefetch_ready(target):
                         return "next_batch_ready"
                     if (
-                        self.get_version() - pool.versions[0]
+                        self.get_version()
+                        - min(pool.versions[r] for r in self.borrowed_ranks)
                         > self.config.max_head_offpolicyness
                     ):
                         return "version_limit"
@@ -420,18 +470,23 @@ class RolloutController:
         if os.getenv("AREAL_ADAPTIVE_DRAIN", "0") == "1":
             reason = self._adaptive_drain_reason(target)
         else:
-            reason = pool.drain_until(
-                0, deadline, lambda: self.training_prefetch_ready(target)
-            )
-        remaining = pool.active_requests(0)
+            reason = "empty"
+            for rank in self.borrowed_ranks:
+                reason = pool.drain_until(
+                    rank, deadline, lambda: self.training_prefetch_ready(target)
+                )
+                if reason != "empty":
+                    break
+        remaining = self._borrowed_requests()
         self._batch_transition_started = time.monotonic()
         request_trace.emit(
             "shared_drain_decision", reason=reason, request_ids=remaining, target=target
         )
         # Even natural completion needs native idle ACK before capacity/model mutation.
         # On timeout this aborts only the remaining leases, whose clients reroute.
-        self._worker_rpc(0, "pause_generation", http_timeout=60.0)
-        pool.wait_empty(0)
+        self._group_rpc(self.borrowed_ranks, "pause_generation", http_timeout=60.0)
+        for replica_rank in self.borrowed_ranks:
+            pool.wait_empty(replica_rank)
         self._shared_transition_started = time.monotonic()
         request_trace.emit(
             "shared_drain_end", reason=reason, remaining_at_decision=len(remaining)
@@ -440,11 +495,14 @@ class RolloutController:
     def resume_training_inference(self) -> None:
         if getattr(self, "_request_pool", None) is None:
             raise RuntimeError("Concurrent training requires request lease routing")
-        self._worker_rpc(0, "continue_generation", http_timeout=60.0)
-        self._request_pool.open(0, self.get_version())
-        self._worker_rpc(0, "resume", http_timeout=60.0)
+        self._group_rpc(self.borrowed_ranks, "continue_generation", http_timeout=60.0)
+        for replica_rank in self.borrowed_ranks:
+            self._request_pool.reopen(replica_rank, self.get_version())
+        self._group_rpc(self.borrowed_ranks, "resume", http_timeout=60.0)
         self._pool_event(
-            "training_inference_resumed", rank=0, version=self.get_version()
+            "training_inference_resumed",
+            ranks=list(self.borrowed_ranks),
+            version=self.get_version(),
         )
 
     def wait_shared_publication(self) -> None:
@@ -459,26 +517,36 @@ class RolloutController:
         self._borrowed_pool.withdraw()
         pool = getattr(self, "_request_pool", None)
         if pool is not None:
-            pool.close(1)
-        self._worker_rpc(1, "pause_generation", http_timeout=60.0)
+            for replica_rank in self.fixed_ranks:
+                pool.close(replica_rank)
+        self._group_rpc(self.fixed_ranks, "pause_generation", http_timeout=60.0)
         if pool is not None:
-            pool.wait_empty(1)
+            for replica_rank in self.fixed_ranks:
+                pool.wait_empty(replica_rank)
         self._pool_event("fixed_pause", version=self.get_version())
 
     def publish_fixed_version(self, version: int) -> None:
         # Caller has awaited all HCCL buckets and the receiver's load ACK.
-        self._worker_rpc(1, "set_version", version=version, http_timeout=60.0)
+        self._group_rpc(
+            self.fixed_ranks, "set_version", version=version, http_timeout=60.0
+        )
         with self._version_lock:
             self._version = version
-        self._worker_rpc(1, "continue_generation", http_timeout=60.0)
+        self._group_rpc(self.fixed_ranks, "continue_generation", http_timeout=60.0)
         pool = getattr(self, "_request_pool", None)
         if pool is not None:
-            pool.open(1, version)
+            for replica_rank in self.fixed_ranks:
+                pool.open(replica_rank, version)
             self._collective_rpc("resume", http_timeout=60.0)
         else:
-            self._worker_rpc(1, "resume", http_timeout=60.0)
+            self._group_rpc(self.fixed_ranks, "resume", http_timeout=60.0)
         self.dispatcher.resume()
-        self._pool_event("fixed_ready", rank=1, version=version, time=time.time())
+        self._pool_event(
+            "fixed_ready",
+            ranks=list(self.fixed_ranks),
+            version=version,
+            time=time.time(),
+        )
 
     def load_shared_snapshot_async(self, meta: WeightUpdateMeta) -> None:
         self.wait_shared_publication()
@@ -509,13 +577,23 @@ class RolloutController:
         ).submit(self._rebalance_queued_once, version)
 
     def _rebalance_queued_once(self, version: int) -> None:
+        # Refresh each pair's snapshot after reserving earlier moves.
+        for target_rank in self.borrowed_ranks:
+            for source_rank in self.fixed_ranks:
+                self._rebalance_pair(version, source_rank, target_rank)
+
+    def _rebalance_pair(self, version: int, source_rank: int, target_rank: int) -> None:
         if os.getenv("AREAL_QUEUE_REBALANCE", "1") != "1":
             return
         pool = getattr(self, "_request_pool", None)
         if pool is None or os.getenv("AREAL_BATCH_DRAIN_METRICS", "0") != "1":
             return
         with pool.lock:
-            if not all(pool.ready) or pool.versions != [version, version] or pool.error:
+            if (
+                not all(pool.ready)
+                or any(v != version for v in pool.versions)
+                or pool.error
+            ):
                 return
         import requests
 
@@ -539,7 +617,12 @@ class RolloutController:
                 overhead = time.monotonic() - start
                 route = pool.drain_snapshot()
                 plan = plan_rebalance(
-                    getattr(self, "_queue_calibration", None), route, engines, overhead
+                    getattr(self, "_queue_calibration", None),
+                    route,
+                    engines,
+                    overhead,
+                    source_rank,
+                    target_rank,
                 )
                 planning_cost = time.monotonic() - start
                 plan["planning_seconds"] = planning_cost
@@ -553,15 +636,18 @@ class RolloutController:
                     return
                 leases = {r["request_id"]: r["lease_id"] for r in route["active"]}
                 reservations = pool.reserve_rebalance(
-                    {rid: leases[rid] for rid in plan["selected"]}, version
+                    {rid: leases[rid] for rid in plan["selected"]},
+                    version,
+                    source_rank,
+                    target_rank,
                 )
                 if not reservations:
                     return
-                native = engines[1]["internal_ids"]
+                native = engines[source_rank]["internal_ids"]
                 ids = [native[rid] for rid in reservations]
                 submitted = True
                 response = session.post(
-                    f"http://{pool.addresses[1]}/areal_queue_rebalance",
+                    f"http://{pool.addresses[source_rank]}/areal_queue_rebalance",
                     json={"action": "abort", "internal_ids": ids},
                     timeout=2,
                 )
@@ -599,31 +685,47 @@ class RolloutController:
     def _load_shared_snapshot(self, meta: WeightUpdateMeta) -> None:
         started = time.perf_counter()
         self._pool_event(
-            "shared_load_start", rank=0, version=meta.version, time=time.time()
+            "shared_load_start",
+            ranks=list(self.borrowed_ranks),
+            version=meta.version,
+            time=time.time(),
         )
         try:
             if getattr(self, "_preserve_borrowed_requests", False):
                 # Memory policy has restored the old model and its live KV.
                 # Keep admission closed until all old-version leases complete.
                 request_trace.emit("shared_retained_drain_begin", version=meta.version)
-                self._worker_rpc(0, "continue_generation", http_timeout=60.0)
-                self._request_pool.wait_empty(0, timeout=self.config.request_timeout)
+                self._group_rpc(
+                    self.borrowed_ranks, "continue_generation", http_timeout=60.0
+                )
+                for replica_rank in self.borrowed_ranks:
+                    self._request_pool.wait_empty(
+                        replica_rank, timeout=self.config.request_timeout
+                    )
                 request_trace.emit("shared_retained_drain_end", version=meta.version)
-                self._worker_rpc(0, "pause_generation", http_timeout=60.0)
+                self._group_rpc(
+                    self.borrowed_ranks, "pause_generation", http_timeout=60.0
+                )
             request_trace.emit("shared_model_load_begin", version=meta.version)
-            self._worker_rpc(0, "update_weights_from_disk", meta=meta)
+            self._group_rpc(self.borrowed_ranks, "update_weights_from_disk", meta=meta)
             request_trace.emit("shared_model_load_end", version=meta.version)
             with self._shared_publication_lock:
                 if meta.version != self.get_version():
                     raise RuntimeError("Shared publication was superseded before ACK")
-                self._worker_rpc(
-                    0, "set_version", version=meta.version, http_timeout=60.0
+                self._group_rpc(
+                    self.borrowed_ranks,
+                    "set_version",
+                    version=meta.version,
+                    http_timeout=60.0,
                 )
-                self._worker_rpc(0, "continue_generation", http_timeout=60.0)
+                self._group_rpc(
+                    self.borrowed_ranks, "continue_generation", http_timeout=60.0
+                )
                 pool = getattr(self, "_request_pool", None)
                 if pool is not None:
-                    pool.open(0, meta.version)
-                self._worker_rpc(0, "resume", http_timeout=60.0)
+                    for replica_rank in self.borrowed_ranks:
+                        pool.open(replica_rank, meta.version)
+                self._group_rpc(self.borrowed_ranks, "resume", http_timeout=60.0)
                 self._borrowed_pool.release(self.staleness_manager.get_stats().accepted)
                 self._shared_loading = False
                 transition = getattr(self, "_shared_transition_started", None)
@@ -640,7 +742,7 @@ class RolloutController:
                 self._schedule_queue_rebalance(meta.version)
                 self._pool_event(
                     "returned",
-                    rank=0,
+                    ranks=list(self.borrowed_ranks),
                     version=meta.version,
                     routing_state=self._borrowed_pool.state,
                     seconds=time.perf_counter() - started,
@@ -652,7 +754,11 @@ class RolloutController:
             self._borrowed_pool.withdraw()
             self.dispatcher.pause()
             self.dispatcher.fail_fast(exc)
-            self._pool_event("shared_load_failed", rank=0, version=meta.version)
+            self._pool_event(
+                "shared_load_failed",
+                ranks=list(self.borrowed_ranks),
+                version=meta.version,
+            )
             raise
 
     def initialize(
@@ -748,12 +854,16 @@ class RolloutController:
         jobs = [job]
         if self._borrowed_pool is not None:
             jobs = [
-                replace(job, replicas=1, tasks=job.tasks[:1]),
+                replace(
+                    job,
+                    replicas=len(self.borrowed_ranks),
+                    tasks=job.tasks[: len(self.borrowed_ranks)],
+                ),
                 replace(
                     job,
                     role=f"{job.role}-fixed",
-                    replicas=1,
-                    tasks=job.tasks[1:2],
+                    replicas=len(self.fixed_ranks),
+                    tasks=job.tasks[len(self.borrowed_ranks) :],
                     scheduling_strategy=SchedulingStrategy(type="separation"),
                 ),
             ]
@@ -1309,7 +1419,9 @@ class RolloutController:
             accepted = self.staleness_manager.get_stats().accepted
             rank, withdrawn = self._borrowed_pool.choose(accepted)
             if withdrawn:
-                self._pool_event("withdraw", rank=0, accepted=accepted)
+                self._pool_event(
+                    "withdraw", ranks=list(self.borrowed_ranks), accepted=accepted
+                )
             return self.workers[rank], rank
         worker = self.workers[self._current_worker_idx]
         rank = self._current_worker_idx
@@ -1663,14 +1775,24 @@ class RolloutController:
 
     async def init_weights_update_group(self, meta: WeightUpdateMeta) -> None:
         if meta.npu_share_fixed:
-            if self._borrowed_pool is None or meta.gen_allocation.world_size != 1:
-                raise ValueError("Fixed publication requires one remote replica")
-            await self.scheduler.async_call_engine(
-                worker_id=self.workers[1].id,
-                engine_name=self._engine_name(1),
-                method="init_weights_update_group",
-                meta=meta,
-                xccl_group_ranks=[0],
+            if (
+                self._borrowed_pool is None
+                or meta.gen_allocation.world_size * 2 != self.rollout_alloc.world_size
+            ):
+                raise ValueError(
+                    "Fixed publication allocation must match the dedicated device group"
+                )
+            await asyncio.gather(
+                *[
+                    self.scheduler.async_call_engine(
+                        worker_id=self.workers[rank].id,
+                        engine_name=self._engine_name(rank),
+                        method="init_weights_update_group",
+                        meta=meta,
+                        xccl_group_ranks=[index],
+                    )
+                    for index, rank in enumerate(self.fixed_ranks)
+                ]
             )
             return
         tasks = [
@@ -1689,12 +1811,17 @@ class RolloutController:
         self, meta: WeightUpdateMeta, param_specs: list[ParamSpec]
     ):
         if meta.npu_share_fixed:
-            await self.scheduler.async_call_engine(
-                worker_id=self.workers[1].id,
-                engine_name=self._engine_name(1),
-                method="update_weights_from_distributed",
-                meta=meta,
-                param_specs=param_specs,
+            await asyncio.gather(
+                *[
+                    self.scheduler.async_call_engine(
+                        worker_id=self.workers[rank].id,
+                        engine_name=self._engine_name(rank),
+                        method="update_weights_from_distributed",
+                        meta=meta,
+                        param_specs=param_specs,
+                    )
+                    for rank in self.fixed_ranks
+                ]
             )
         else:
             await self._collective_rpc_async(
@@ -1738,14 +1865,32 @@ class RolloutController:
         action: str = "status",
         target_free_bytes: int | None = None,
         kv_budget_bytes: int | None = None,
+        device_rank: int | None = None,
     ):
         kwargs = {"action": action}
         if kv_budget_bytes is not None:
             kwargs["kv_budget_bytes"] = kv_budget_bytes
         if target_free_bytes is not None:
             kwargs["target_free_bytes"] = target_free_bytes
+        if device_rank is not None:
+            tp = self.rollout_alloc.parallel.tp_size
+            replica, member = divmod(device_rank, tp)
+            if self._borrowed_pool is not None and replica not in self.borrowed_ranks:
+                raise ValueError(
+                    "Memory operation targeted a dedicated inference device"
+                )
+            result = self._worker_rpc(
+                replica, "colocation_memory", member_rank=member, **kwargs
+            )
+            while isinstance(result, list) and len(result) == 1:
+                result = result[0]
+            return result[member] if isinstance(result, list) else result
         if self._borrowed_pool is not None:
-            return self._worker_rpc(0, "colocation_memory", **kwargs)
+            from areal.trainer.colocation_memory import single_status
+
+            return single_status(
+                self._group_rpc(self.borrowed_ranks, "colocation_memory", **kwargs)
+            )
         return self._collective_rpc("colocation_memory", **kwargs)
 
     def offload(self) -> None:
@@ -1797,7 +1942,7 @@ class RolloutController:
                 if self._shared_publication.done():
                     self._shared_publication.result()
                 if self._shared_loading:
-                    self._worker_rpc(1, "resume", http_timeout=60.0)
+                    self._group_rpc(self.fixed_ranks, "resume", http_timeout=60.0)
                 else:
                     self._collective_rpc("resume", http_timeout=60.0)
                 self.dispatcher.resume()
@@ -1809,7 +1954,7 @@ class RolloutController:
             self._borrowed_pool.release(self.staleness_manager.get_stats().accepted)
             self._pool_event(
                 "returned",
-                rank=0,
+                ranks=list(self.borrowed_ranks),
                 version=self.get_version(),
                 routing_state=self._borrowed_pool.state,
             )

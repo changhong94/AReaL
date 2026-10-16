@@ -388,10 +388,9 @@ class FSDPEngine(TrainEngine):
                 or self.config.fsdp.per_layer_optim_step
                 or self.config.optimizer.type != "adam"
                 or self.config.use_lora
-                or dist.get_world_size() != 1
             ):
                 raise ValueError(
-                    "Adaptive memory requires single-NPU full-model AdamW without other offload"
+                    "Adaptive memory requires pure-DP full-model AdamW without other offload"
                 )
             current_platform.set_device(int(os.environ["LOCAL_RANK"]))
             self._adaptive_backend = AscendPoolBackend()
@@ -708,6 +707,8 @@ class FSDPEngine(TrainEngine):
             prewarm.wait()
         job = getattr(self, "_shared_snapshot", None)
         if job is None:
+            if version is not None and dist.get_rank() != 0:
+                return
             if version is not None:
                 raise RuntimeError("No shared snapshot was started")
             return
@@ -1132,13 +1133,28 @@ class FSDPEngine(TrainEngine):
             status["workspace_parked_bytes"] = workspace.restore_bytes
             status["restore_bytes"] += workspace.restore_bytes
         params = list(self.model.parameters())
+
+        def local(p):
+            return p.to_local() if isinstance(p, DTensor) else p
+
         status["gradient_bytes"] = sum(
-            p.numel() * p.element_size() for p in params if p.requires_grad
+            local(p).numel() * local(p).element_size()
+            for p in params
+            if p.requires_grad
         )
         status["future_optimizer_bytes"] = sum(
-            2 * p.numel() * p.element_size() + 4
+            2 * local(p).numel() * local(p).element_size() + 4
             for p in params
             if p.requires_grad and not self.optimizer.state.get(p)
+        )
+        # DP publication materializes a full compute-dtype model only on rank zero.
+        status["publication_workspace_bytes"] = (
+            sum(
+                p.numel() * torch.empty((), dtype=self._compute_dtype()).element_size()
+                for p in params
+            )
+            if dist.get_world_size() > 1 and dist.get_rank() == 0
+            else 0
         )
         status["optimizer_id"] = id(self.optimizer)
         self.logger.info("AUTO_MEMORY_ACTOR %s", status)
@@ -1904,26 +1920,28 @@ class FSDPEngine(TrainEngine):
 
                 if (
                     not meta.npu_share_fixed
-                    or dist.get_world_size() != 1
                     or self.config.use_lora
-                    or len(self.weight_update_groups) != 1
+                    or (main_rank and len(self.weight_update_groups) != 1)
                     or meta.path is None
                     or meta.version is None
                 ):
                     raise ValueError(
-                        "Fused snapshots require one full-model actor and one fixed receiver"
+                        "Fused snapshots require a full-model DP actor and fixed receivers"
                     )
                 self.wait_shared_snapshot()
-                parameters = list(param_iterator)
-                snapshot = IndependentSnapshot(
-                    meta.path, meta.version, parameters, self._compute_dtype()
-                )
-                self._shared_snapshot = snapshot
+                parameters = []
                 with torch.no_grad():
-                    for name, param in parameters:
+                    for name, param in param_iterator:
                         tensor = self._cast_to_compute_dtype(
                             self._get_full_tensor(param)
                         )
+                        if main_rank:
+                            parameters.append((name, tensor))
+                if main_rank:
+                    self._shared_snapshot = IndependentSnapshot(
+                        meta.path, meta.version, parameters, self._compute_dtype()
+                    )
+                    for name, tensor in parameters:
                         enqueue_tensor(name, tensor)
             else:
                 for name, param in param_iterator:
@@ -1971,28 +1989,27 @@ class FSDPEngine(TrainEngine):
             if meta.npu_share_snapshot:
                 from areal.engine.weight_snapshot import write_snapshot
 
-                if (
-                    dist.get_world_size() != 1
-                    or meta.version is None
-                    or self.config.use_lora
-                ):
+                if meta.version is None or self.config.use_lora:
                     raise ValueError(
                         "NPU snapshots require one full-model actor and a version"
                     )
                 started = time.perf_counter()
-                manifest = write_snapshot(
-                    meta.path,
-                    meta.version,
-                    list(self._get_model_name_parameters(meta)),
-                    self._compute_dtype(),
-                    lambda param: self._cast_to_compute_dtype(
-                        self._get_full_tensor(param)
-                    ),
-                )
-                self.logger.info(
-                    f"NPU_WEIGHT_SNAPSHOT export version={meta.version} "
-                    f"bytes={manifest['nbytes']} seconds={time.perf_counter() - started:.6f}"
-                )
+                parameters = []
+                for name, param in self._get_model_name_parameters(meta):
+                    tensor = self._cast_to_compute_dtype(self._get_full_tensor(param))
+                    if dist.get_rank() == 0:
+                        parameters.append((name, tensor))
+                if dist.get_rank() == 0:
+                    manifest = write_snapshot(
+                        meta.path,
+                        meta.version,
+                        parameters,
+                        self._compute_dtype(),
+                        lambda tensor: tensor,
+                    )
+                    self.logger.info(
+                        f"NPU_WEIGHT_SNAPSHOT export version={meta.version} bytes={manifest['nbytes']} seconds={time.perf_counter() - started:.6f}"
+                    )
             else:
                 self._save_model_to_hf(meta.path, self.tokenizer, self.processor)
             current_platform.synchronize()

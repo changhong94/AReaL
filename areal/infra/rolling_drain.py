@@ -79,8 +79,17 @@ def training_start(data: float, gate: float, tail: float, restore: float) -> tup
 class RollingBatchCalibration(BatchCalibration):
     """Freeze at PPO completion; retain up to three complete observation windows."""
 
-    def __init__(self, samples: int = 256, *, tail_model=True, dynamic_service=True):
+    def __init__(
+        self, samples: int = 256, *, tail_model=True, dynamic_service=True, replicas=2
+    ):
         super().__init__()
+        if replicas < 2 or replicas % 2:
+            raise ValueError("Drain calibration needs equal replica groups")
+        self.replicas = replicas
+        self.borrowed = set(range(replicas // 2))
+        self.fixed = tuple(range(replicas // 2, replicas))
+        self.decode = [{} for _ in range(replicas)]
+        self.first = [None] * replicas
         if samples < 2:
             raise ValueError("Distribution estimate requires at least two trials")
         self.samples = samples
@@ -148,7 +157,7 @@ class RollingBatchCalibration(BatchCalibration):
                 or self.tail_rate
             )
         engine_counts = []
-        for rank in (0, 1):
+        for rank in range(self.replicas):
             bins, firsts = {}, []
             for frame in self.frames:
                 profile = frame["engines"][rank]
@@ -258,7 +267,10 @@ class RollingBatchCalibration(BatchCalibration):
             needed, max(0, needed - 1 if prefetch_needed is None else prefetch_needed)
         )
         live = [{r["request_id"]: r for r in e["active"]} for e in engines]
-        requests = {r["request_id"]: dict(r, rank=1) for r in route["waiting"]}
+        requests = {
+            r["request_id"]: dict(r, rank=self.fixed[i % len(self.fixed)])
+            for i, r in enumerate(route["waiting"])
+        }
         requests.update({r["request_id"]: r for r in route["active"]})
         rows, questions = [], {}
         diagnostics = []
@@ -368,9 +380,23 @@ class RollingBatchCalibration(BatchCalibration):
 
         plans = [
             plan([i for i, r in enumerate(rows) if r["rank"] == rank], rank, False)
-            for rank in (0, 1)
+            for rank in range(self.replicas)
         ]
-        move_plan = plan(list(range(len(rows))), 1, True)
+        assignments = {
+            rank: [i for i, row in enumerate(rows) if row["rank"] == rank]
+            for rank in self.fixed
+        }
+        # Preserve fixed work, route withdrawn work to the least loaded fixed instance.
+        loads = {
+            rank: sum(sum(rows[i]["draws"]) / self.samples for i in ids)
+            for rank, ids in assignments.items()
+        }
+        for i, row in enumerate(rows):
+            if row["rank"] in self.borrowed:
+                rank = min(self.fixed, key=lambda rank: (loads[rank], rank))
+                assignments[rank].append(i)
+                loads[rank] += sum(row["draws"]) / self.samples
+        move_plans = [plan(assignments[rank], rank, True) for rank in self.fixed]
 
         service_seconds = BucketService(self.decode, self.service)
 
@@ -412,7 +438,8 @@ class RollingBatchCalibration(BatchCalibration):
             stay, move = {}, {}
             for p in plans:
                 schedule(p, trial, stay)
-            schedule(move_plan, trial, move)
+            for p in move_plans:
+                schedule(p, trial, move)
             parts = self.handoff_parts[trial % len(self.handoff_parts)]
             for name, times in (("stay", stay), ("move", move)):
                 qtimes = sorted(max(times[i] for i in q) for q in known)
@@ -424,7 +451,11 @@ class RollingBatchCalibration(BatchCalibration):
                     else min(
                         data,
                         max(
-                            (times[i] for i, r in enumerate(rows) if r["rank"] == 0),
+                            (
+                                times[i]
+                                for i, r in enumerate(rows)
+                                if r["rank"] in self.borrowed
+                            ),
                             default=0.0,
                         ),
                     )
@@ -454,7 +485,7 @@ class RollingBatchCalibration(BatchCalibration):
             handoff=self.handoff["seconds"],
             handoff_source=self.handoff_source,
             paired_delta_se=statistics.stdev(deltas) / math.sqrt(self.samples),
-            migrating=sum(r["rank"] == 0 for r in rows),
+            migrating=sum(r["rank"] in self.borrowed for r in rows),
             known_questions=len(known),
             prefetch_needed=gate_needed,
             horizon="currently_known_requests",
