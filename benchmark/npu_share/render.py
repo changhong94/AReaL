@@ -407,6 +407,7 @@ def write_summary_markdown(root, summary):
         "npu_count": "NPU 数量",
         "inference_tp": "推理 TP",
         "max_head_offpolicyness": "最大头部离策略限制",
+        "running_rebalance": "共享组运行中请求再均衡",
         "seed": "随机种子",
         "created": "创建时间",
     }

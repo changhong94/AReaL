@@ -2,10 +2,9 @@
 
 This is a proposed coverage plan, not a record of passed tests. Each case runs the
 existing **fixed-versus-shared comparison**; do not run another fixed/shared pair
-manually. The cases run sequentially and stop on the first failure. No command in this
-plan starts or stops `make-npu-busy`.
+manually. The cases run sequentially and stop on the first failure.
 
-The plan uses 14 selected configurations, not a Cartesian sweep. Start with the four
+The plan uses 16 selected configurations, not a Cartesian sweep. Start with the four
 core cases, then choose the suite relevant to the changed code. This is risk-based
 coverage, **not a mathematically complete pairwise covering array**.
 
@@ -75,8 +74,10 @@ Both arms receive identical CLI values.
 | C04 | core     | code | megatron |          16 |       3 |    2 |   1 |         2 | Code workflow plus second training backend                                   |
 | C05 | load     | math | fsdp     |          32 |       6 |    2 |   1 |         2 | Higher concurrency versus C01                                                |
 | C06 | load     | math | megatron |          32 |       6 |    2 |   1 |         2 | Higher concurrency versus C02                                                |
+| E00 | boundary | math | fsdp     |          16 |       6 |    2 |   1 |         0 | Synchronous admission; next batch executes only after weight publication     |
+| E04 | boundary | math | megatron |          16 |       3 |    2 |   1 |         0 | Zero-lookahead publication on the second training backend                    |
 | E01 | boundary | math | fsdp     |           1 |       1 |    2 |   1 |         1 | Minimum positive concurrency/staleness; no ordinary intermediate publication |
-| E02 | boundary | math | fsdp     |          16 |       6 |    2 |   1 |         1 | Tightest supported shared-pool bound versus C01                              |
+| E02 | boundary | math | fsdp     |          16 |       6 |    2 |   1 |         1 | Smallest positive lookahead bound versus E00 and C01                         |
 | E03 | boundary | math | fsdp     |          16 |       6 |    2 |   1 |         3 | Wider lookahead versus C01; watch stale/unused work                          |
 | T01 | topology | math | fsdp     |          16 |       3 |    4 |   1 |         2 | Multiple TP1 inference instances and two training ranks                      |
 | T02 | topology | math | fsdp     |          16 |       3 |    4 |   2 |         2 | TP2 versus T01 with the same devices/workload                                |
@@ -143,7 +144,7 @@ bias. Same-input replay is needed to isolate compute cost.
 - Concurrency 64+, larger models, different context lengths, multiple nodes, distributed
   failure recovery and training-quality evaluation are separate tests.
 
-- Invalid values (for example concurrency 0, offpolicy 0, NPUs 3, or TP2 on two total
+- Invalid values (for example concurrency 0, offpolicy -1, NPUs 3, or TP2 on two total
   NPUs) belong in CPU argument/config validation, not hardware experiments.
 
 - A 100-batch success is not proof of indefinite stability. Report the actual scope.
@@ -160,3 +161,20 @@ Preparation produces data/configuration and a `prepared` state, not performance 
 or measured speedups. If any case fails, the wrapper stops and preserves its log;
 inspect the child `state.json` and logs, fix the issue, then rerun only the failed ID.
 It does not automatically retry failures or recover checkpoints.
+
+`Offpolicy=0` is a supported synchronous-admission case, not an invalid-input test. At
+version v, at most (v + 1) batches can have been submitted/accepted in total; finishing
+a batch does not permit the next one until the published version advances. Both cards
+can still perform shared inference between training phases. Reopening inference during
+PPO is skipped because no future batch can execute then. E00 and E04 cover this boundary
+for FSDP and Megatron respectively.
+
+## Recorded zero-lookahead smoke validation
+
+On 2026-10-15, the FSDP two-NPU smoke run `20261015-224950-0700_math_fsdp_c16_b2_1f7359`
+completed fixed and shared arms with two batches, 16 questions per batch, and six
+answers per question. Each arm completed 192 answers: all 96 batch-one segments used
+version 0 and all 96 batch-two segments used version 1. The trace audit found no version
+violations. This validates the two-batch boundary path, not the full E00 six-batch case
+or Megatron E04. Full logs and `offpolicy-zero-audit.json` are retained in
+`/root/areal-benchmarks/` under the run ID above.

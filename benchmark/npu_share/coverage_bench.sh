@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run selected representative comparisons sequentially. No busy-container control.
+# Run selected representative comparisons sequentially.
 set -euo pipefail
 
 mode=prepare
@@ -34,10 +34,10 @@ case "$mode" in plan|prepare|run) ;; *) echo "Invalid mode: $mode" >&2; exit 2;;
 case "$suite" in
     core) defaults="C01 C02 C03 C04";;
     load) defaults="C05 C06";;
-    boundary) defaults="E01 E02 E03";;
+    boundary) defaults="E00 E01 E02 E03 E04";;
     topology) defaults="T01 T02 T03 T04";;
     long) defaults="L01";;
-    all) defaults="C01 C02 C03 C04 C05 C06 E01 E02 E03 T01 T02 T03 T04 L01";;
+    all) defaults="C01 C02 C03 C04 C05 C06 E00 E01 E02 E03 E04 T01 T02 T03 T04 L01";;
     *) echo "Invalid suite: $suite" >&2; exit 2;;
 esac
 selected="${selected:-$defaults}"
@@ -48,6 +48,8 @@ declare -A matrix=(
     [C04]="code megatron 16 3   2 1 2"
     [C05]="math fsdp     32 6   2 1 2"
     [C06]="math megatron 32 6   2 1 2"
+    [E00]="math fsdp     16 6   2 1 0"
+    [E04]="math megatron 16 3   2 1 0"
     [E01]="math fsdp      1 1   2 1 1"
     [E02]="math fsdp     16 6   2 1 1"
     [E03]="math fsdp     16 6   2 1 3"

@@ -12,19 +12,19 @@ python3 benchmark/npu_share/run_bench.py --rl code --concurrency 16 --engine fsd
 python3 benchmark/npu_share/run_bench.py --rl math --batches 100
 ```
 
-| Option                     | Default                  | Meaning                                                                                                   |
-| -------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `--rl`                     | `math`                   | `math` (GSM8K) or `code` (LeetCode through E2B/Kuasar)                                                    |
-| `--concurrency`            | `16`                     | Concurrent questions across the rollout controller                                                        |
-| `--engine`                 | `fsdp`                   | `fsdp` or `megatron`; the profile selects the interpreter/image                                           |
-| `--inference-tp`           | `1`                      | Devices per vLLM instance; must divide half the NPU count                                                 |
-| `--npu-count`              | `2`                      | Even total NPU count; supports 2, 4, or 8                                                                 |
-| `--max-head-offpolicyness` | `2`                      | Rollout head off-policy limit, identical in both arms; positive integer (shared mode requires at least 1) |
-| `--batches`                | `6`                      | Completed training batches in one epoch, in each arm                                                      |
-| `--workspace-root`         | Profile setting          | Output root, which must be outside the source repository                                                  |
-| `--timeout`                | `max(3600, batches*600)` | Seconds allowed for each arm                                                                              |
-| `--prepare-only`           | Off                      | Prepare data/configuration without NPU use or sandbox creation                                            |
-| `--render-only PATH`       | None                     | Regenerate charts from a completed workspace; no NPU use                                                  |
+| Option                     | Default                  | Meaning                                                                                                |
+| -------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `--rl`                     | `math`                   | `math` (GSM8K) or `code` (LeetCode through E2B/Kuasar)                                                 |
+| `--concurrency`            | `16`                     | Concurrent questions across the rollout controller                                                     |
+| `--engine`                 | `fsdp`                   | `fsdp` or `megatron`; the profile selects the interpreter/image                                        |
+| `--inference-tp`           | `1`                      | Devices per vLLM instance; must divide half the NPU count                                              |
+| `--npu-count`              | `2`                      | Even total NPU count; supports 2, 4, or 8                                                              |
+| `--max-head-offpolicyness` | `2`                      | Rollout head off-policy limit, identical in both arms; nonnegative integer; 0 disables stale lookahead |
+| `--batches`                | `6`                      | Completed training batches in one epoch, in each arm                                                   |
+| `--workspace-root`         | Profile setting          | Output root, which must be outside the source repository                                               |
+| `--timeout`                | `max(3600, batches*600)` | Seconds allowed for each arm                                                                           |
+| `--prepare-only`           | Off                      | Prepare data/configuration without NPU use or sandbox creation                                         |
+| `--render-only PATH`       | None                     | Regenerate charts from a completed workspace; no NPU use                                               |
 
 Batch size remains **16 questions**, with **six answers per question**. Concurrency does
 not change batch size. Six batches require 96 distinct questions; 100 batches require
@@ -256,3 +256,158 @@ inputs under `/root/areal-assets`, and code inputs/dependencies under
 `/root/areal-benchmark-assets/code-three-preflight`. Paths remain profile settings, not
 script constants. Old `/tmp/huawei` locations are compatibility symlinks; the profile
 uses persistent paths directly and does not depend on those symlinks.
+
+## Experimental running-request rebalancing (R001)
+
+`--running-rebalance off|shadow|budget|active|kv` controls only the shared arm and
+defaults to `off`. The fixed arm always disables it. `shadow` records causal forecasts
+without moving running requests. `active` may abort one eligible running request and
+resume its accumulated prefix on a compatible shared replica. This rebuilds KV through
+prefill; it does not transfer KV buffers.
+
+```bash
+python3 benchmark/npu_share/run_bench.py --batches 3 --running-rebalance shadow
+python3 benchmark/npu_share/run_bench.py --batches 3 --running-rebalance active
+python3 benchmark/npu_share/analyze_running_rebalance.py /path/to/workspace/latest
+```
+
+The policy prioritizes queued requests, requires an admitted inference-only KV budget,
+checks logical KV headroom, rejects imminent training, includes estimated prefix replay
+in its critical-tail forecast, and moves a request at most once. A handoff pins
+source/destination epochs until ownership transfers. Rejected admission retains the
+version constraint, with at most three attempts; ambiguous execution or loss of a
+compatible epoch fails closed. Publication waits at most 10 seconds for the ownership
+handshake; this is a failure watchdog, not a drain policy or a tunable performance
+target.
+
+This is experimental: the three-batch causal calibration estimates decode and prefill
+costs, but does not yet provide a calibrated future-training deadline or contention
+uncertainty model. A same-version handoff does not promise a single policy version for
+the entire RL trajectory. Normal later weight publication retains the framework's
+existing segment-version semantics. Sampling after prefix replay need not be bitwise
+identical to uninterrupted sampling.
+
+Use `--running-rebalance budget` as the matching-budget ablation: it establishes exactly
+the active policy's inference-only KV cap and records predictions, but never aborts
+running requests. Compare `budget` with `active` to isolate migration; comparing `off`
+with `active` measures the combined budget and scheduling change. The `shadow` mode
+remains read-only and does not change the original memory budget.
+
+## Experimental KV transport probe and offline batch planning
+
+These tools do not enable live vLLM KV migration. In a prepared Ascend runtime with two
+available NPUs, test real-model cache transfer and continuation:
+
+```bash
+python3 -m torch.distributed.run --standalone --nproc_per_node=2 \
+  benchmark/npu_share/kv_transfer_probe.py \
+  --model /path/to/local/model --output /path/to/workspace/kv-probe
+```
+
+The initial scope is TP=1 Qwen2.5-1.5B BF16 on two devices. The probe uses Transformers
+eager execution, not the vLLM scheduler. It records per-rank packing, HCCL and unpacking
+timings and 16-token greedy continuations. Verify both rank files before interpreting
+timings. Source and target use the same read-only model directory. The process-group
+communicator is warmed first.
+
+Replay a saved R001 arm's snapshots without using NPUs:
+
+```bash
+PYTHONPATH=. python3 benchmark/npu_share/replay_batch_rebalance.py \
+  /path/to/benchmark/latest --probe /path/to/workspace/kv-probe \
+  --output /path/to/workspace/batch-replay.json
+```
+
+The report distinguishes replay from hypothetical KV moves and varies the unmeasured
+ownership/import cost. It includes planning overhead and does not authorize execution.
+HCCL tensor transfer correctness does not establish vLLM block-ownership import
+correctness or end-to-end RL speedup.
+
+## Experimental live KV handoff
+
+`--running-rebalance kv` enables the two-device, TP=1 live KV adapter for the shared
+arm. The fixed arm remains unchanged. This mode requires the validated vLLM 0.26 Ascend
+dynamic-KV layout and matching model geometry and weight version. It supports one
+continuation per request, without repetition/presence/frequency penalties, per-request
+seeded RNG, stop strings, or prompt logprobs. Unsupported states fail closed; this is
+not a general TP migration implementation.
+
+```bash
+python3 benchmark/npu_share/run_bench.py --rl math --engine fsdp \
+  --batches 6 --concurrency 16 --running-rebalance kv
+```
+
+Queued-request stealing retains priority. When it selects nothing, the planner scans a
+snapshot and compares bounded KV subsets against leaving requests in place. It requires
+exact native computed-token counts, destination KV headroom, and predicted
+completion-time improvement after transfer/planning costs and a margin. The common
+transfer barrier and possible worker stalls are charged to both peers. Training
+readiness is rechecked during staging. If the gate rejects all candidates, no KV is
+moved; therefore an enabled run is not by itself evidence of migration or of a speedup.
+
+Request traces include `kv_rebalance_plan`, `kv_rebalance_snapshot`,
+`kv_rebalance_handoff`, and `kv_import_result`. A transport call alone does not prove
+successful KV reuse: check `import_applied` at the destination. The
+`kv_handoff_probe.py` tool performs a deterministic continuation comparison on actual
+vLLM engines. Current correctness evidence covers the tested Qwen2.5 model; performance
+and absence of regressions must be evaluated separately.
+
+For controlled ablations, the internal environment setting
+`AREAL_KV_REBALANCE_EXECUTE=0` keeps the same KV-mode memory policy, transport
+initialization, snapshot collection, and forecast, but returns before reserving or
+moving requests. The default is `1`. This environment setting must be passed explicitly
+into the experiment container; a host-shell export alone is not forwarded by the
+benchmark launcher. Record the override with the run results.
+
+### Experimental aggressive KV migration policy
+
+`AREAL_KV_REBALANCE_POLICY=aggressive` is an opt-in runtime experiment used with
+`AREAL_RUNNING_REBALANCE=kv`. The KV-mode default is the accepted moderated
+`exploratory` policy. Set this environment variable inside the training container when
+using a custom experiment driver; the standard benchmark CLI does not forward arbitrary
+host environment variables.
+
+The policy optimizes question-group readiness when the visible horizon is complete,
+otherwise mean request completion. It uses a common staging barrier, separate per-device
+stalls, rolling measured costs, a small net-gain margin, and bounded predicted tail
+regression. Version, lease, prefix, and memory checks remain required. See
+[the experiment protocol](../../docs/research/npu-sharing/experiments/2026-10-19-r001-aggressive-policy.md)
+for initial cost assumptions and prediction limitations.
+
+### Development tooling: persistent vLLM paired repetitions
+
+Implemented in `run_reuse_dev_bench.py`. This is benchmark tooling, not an NPU-sharing
+research contribution.
+
+The requested execution order is:
+
+1. Prepare the environment and initialize reusable inference services.
+1. Run fixed-card RL, repetition 1.
+1. Run shared-card RL, repetition 1.
+1. Run fixed-card RL, repetition 2.
+1. Run shared-card RL, repetition 2.
+
+Before each run, restore the same initial model and reset training/optimizer state,
+sampling state, queues, KV contents, handoff ownership, weight versions, scheduler
+calibration, and metrics. Verify equivalent warmup state. Keep model, TP layout, device
+placement, input data, and tracing comparable. Changing an incompatible engine topology
+requires recreation rather than unsafe reuse.
+
+Report each fixed/shared pair separately, including training-loop time, tokens,
+completed answers, migrations, and errors; provide an aggregate only in addition. Record
+initialization, reset, and warmup costs separately. Two repetitions improve visibility
+into variation but do not establish statistical significance.
+
+Run development repetitions with:
+
+```bash
+python3 benchmark/npu_share/run_reuse_dev_bench.py --batches 6 --concurrency 16 \
+  --running-rebalance kv --kv-policy exploratory --repetitions 2
+```
+
+This separate tool keeps topology-specific service pools, restores an immutable
+initial-weight DRAM snapshot independently of current-weight offload storage, checks
+weight digests and worker identity, and starts a fresh trainer per arm. Results are
+explicitly development-only. Use `run_bench.py` with independent engine startup for
+final confirmation; its execution flow does not reuse vLLM. See the
+[accepted policy record](../../docs/research/npu-sharing/experiments/2026-10-19-r001-accepted-policy.md).

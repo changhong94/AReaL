@@ -91,6 +91,13 @@ def positive(value):
     return n
 
 
+def nonnegative(value):
+    number = int(value)
+    if number < 0:
+        raise argparse.ArgumentTypeError("must be a nonnegative integer")
+    return number
+
+
 def npu_count(value):
     count = positive(value)
     if count < 2 or count % 2:
@@ -129,10 +136,16 @@ def arguments():
     p.add_argument("--engine", choices=["fsdp", "megatron"], default="fsdp")
     p.add_argument("--batches", type=positive, default=6)
     p.add_argument(
+        "--running-rebalance",
+        choices=["off", "shadow", "budget", "active", "kv"],
+        default="off",
+        help="R001 policy for the shared arm only (experimental)",
+    )
+    p.add_argument(
         "--max-head-offpolicyness",
-        type=positive,
+        type=nonnegative,
         default=2,
-        help="rollout head off-policy limit for both arms (default: 2; shared mode requires >=1)",
+        help="rollout head off-policy limit for both arms (default: 2; 0 allows no stale lookahead)",
     )
     p.add_argument(
         "--npu-count",
@@ -288,6 +301,9 @@ def docker_args(profile, settings, workspace, arm=None):
     for split in ["train", "test"]:
         mounts.append((Path(data[split]), "/input/" + split + ".parquet", "ro"))
     env = environment(arm == "latest")
+    env["AREAL_RUNNING_REBALANCE"] = (
+        settings.get("running_rebalance", "off") if arm == "latest" else "off"
+    )
     if arm == "latest" and settings.get("inference_tp", 1) > 1:
         env["AREAL_NPU_SHARE_PAUSE_KEEP"] = "1"
     env.update(PYTHONPATH="/tool:/repo", AREAL_BENCH_WORKSPACE="/work")
@@ -345,6 +361,10 @@ def main():
             progress.close()
         return
     validate_topology(opts.npu_count, opts.inference_tp)
+    if opts.running_rebalance == "kv" and (
+        opts.npu_count != 2 or opts.inference_tp != 1
+    ):
+        raise ValueError("Experimental KV handoff requires two NPUs and TP=1")
     repo = Path(profile["repo"]).resolve()
     root = (opts.workspace_root or Path(profile["workspace_root"])).resolve()
     if root == repo or repo in root.parents:
@@ -386,6 +406,7 @@ def main():
         concurrency=opts.concurrency,
         max_head_offpolicyness=opts.max_head_offpolicyness,
         batches=opts.batches,
+        running_rebalance=opts.running_rebalance,
         batch_size=16,
         answers=6,
         questions=16 * opts.batches,

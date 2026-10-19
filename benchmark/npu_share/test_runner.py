@@ -41,6 +41,7 @@ class RunnerTests(unittest.TestCase):
                 engine="fsdp",
                 concurrency=1,
                 max_head_offpolicyness=3,
+                running_rebalance="shadow",
                 batches=100,
                 npu_count=2,
                 inference_tp=1,
@@ -110,6 +111,7 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(settings["questions"], 1600)
             self.assertEqual(settings["concurrency"], 1)
             self.assertEqual(settings["max_head_offpolicyness"], 3)
+            self.assertEqual(settings["running_rebalance"], "shadow")
             self.assertTrue((workspace / "benchmark/templates/entry.py").exists())
             self.assertTrue((workspace / "benchmark/run_bench.py").exists())
             self.assertFalse(any(a[:2] == ["docker", "stop"] for a in calls))
@@ -173,6 +175,14 @@ class RunnerTests(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         run.validate_topology(count, tp)
 
+    def test_running_policy_argument(self):
+        with patch.object(sys, "argv", ["run_bench.py"]):
+            self.assertEqual(run.arguments().running_rebalance, "off")
+        with patch.object(
+            sys, "argv", ["run_bench.py", "--running-rebalance", "active"]
+        ):
+            self.assertEqual(run.arguments().running_rebalance, "active")
+
     def test_offpolicy_argument(self):
         with patch.object(sys, "argv", ["run_bench.py"]):
             self.assertEqual(run.arguments().max_head_offpolicyness, 2)
@@ -180,7 +190,11 @@ class RunnerTests(unittest.TestCase):
             sys, "argv", ["run_bench.py", "--max-head-offpolicyness", "4"]
         ):
             self.assertEqual(run.arguments().max_head_offpolicyness, 4)
-        for value in ["0", "-1"]:
+        with patch.object(
+            sys, "argv", ["run_bench.py", "--max-head-offpolicyness", "0"]
+        ):
+            self.assertEqual(run.arguments().max_head_offpolicyness, 0)
+        for value in ["-1"]:
             with patch.object(
                 sys, "argv", ["run_bench.py", "--max-head-offpolicyness", value]
             ):
