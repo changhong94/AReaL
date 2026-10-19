@@ -1,0 +1,44 @@
+{
+  "arm": "/root/areal-benchmarks/20261015-235533-0700_math_fsdp_c16_b3_795d4f/latest",
+  "trace_event_count": 9376,
+  "reasons": {
+    "no_predicted_gain": 2
+  },
+  "forecasts": [
+    {
+      "event": "running_rebalance_shadow",
+      "time": 1792134713.1073782,
+      "pid": 1,
+      "selected": [],
+      "reason": "no_predicted_gain",
+      "predictions": [],
+      "mode": "shadow",
+      "version": 1,
+      "source_rank": 1,
+      "target_rank": 0,
+      "execution_path": "abort_then_prefix_replay",
+      "uncertainty": "training_contention_and_handoff_cost_not_yet_validated",
+      "planning_seconds": 0.04465705528855324
+    },
+    {
+      "event": "running_rebalance_shadow",
+      "time": 1792134726.4030716,
+      "pid": 1,
+      "selected": [],
+      "reason": "no_predicted_gain",
+      "predictions": [],
+      "mode": "shadow",
+      "version": 2,
+      "source_rank": 1,
+      "target_rank": 0,
+      "execution_path": "abort_then_prefix_replay",
+      "uncertainty": "training_contention_and_handoff_cost_not_yet_validated",
+      "planning_seconds": 0.0024509578943252563
+    }
+  ],
+  "acknowledged_running_moves": 0,
+  "moves": [],
+  "ownership_violations": [],
+  "outstanding_leases": 0,
+  "caveat": "Trace audit checks ownership and handoff epochs; it does not prove identical sampled answers or causal speedup."
+}

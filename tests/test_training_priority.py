@@ -114,6 +114,7 @@ def test_overlap_admission_requires_successful_memory_budget(monkeypatch):
     monkeypatch.setenv("AREAL_TRAIN_PRIORITY_INFERENCE", "1")
     monkeypatch.setenv("AREAL_NPU_SHARE_PAUSE_KEEP", "0")
     trainer = object.__new__(PPOTrainer)
+    trainer.config = SimpleNamespace(rollout=SimpleNamespace(max_head_offpolicyness=2))
     trainer._memory_policy = Mock()
     trainer.rollout = Mock()
     trainer._memory_policy.concurrent_train.return_value = False
@@ -169,3 +170,48 @@ def test_native_vllm_reset_and_usage_follow_reduced_capacity():
     set_scheduler_capacity(pool, 40)
     assert pool.reset_prefix_cache()
     assert pool.get_num_free_blocks() == 39
+
+
+def test_zero_staleness_does_not_reopen_inference_during_training(monkeypatch):
+    from areal.trainer.rl_trainer import PPOTrainer
+
+    monkeypatch.setenv("AREAL_TRAIN_PRIORITY_INFERENCE", "1")
+    trainer = object.__new__(PPOTrainer)
+    trainer.config = SimpleNamespace(rollout=SimpleNamespace(max_head_offpolicyness=0))
+    trainer._memory_policy = Mock()
+    trainer.rollout = Mock()
+    trainer._resume_training_inference()
+    trainer._memory_policy.concurrent_train.assert_not_called()
+    trainer.rollout.resume_training_inference.assert_not_called()
+
+
+def test_inference_budget_does_not_reserve_or_restore_actor():
+    p, actor, rollout = policy(restore=20 * GIB)
+    actor.return_value["workspace_parked_bytes"] = 10 * GIB
+    assert p.inference_budget()
+    rollout.assert_any_call("kv_budget", kv_budget_bytes=27 * GIB)
+    actor.assert_not_called()
+    assert not p.concurrent_train()
+
+
+def test_inference_budget_respects_device_cap_and_failure():
+    p, _, rollout = policy(cap=60)
+    assert p.inference_budget()
+    rollout.assert_any_call("kv_budget", kv_budget_bytes=23 * GIB)
+    p, _, rollout = policy(admitted=False)
+    assert not p.inference_budget()
+    rollout.assert_any_call("kv_budget_clear")
+
+
+def test_inference_budget_group_checks_every_device_and_clears_on_failure():
+    from areal.trainer.colocation_memory import GroupColocationMemoryPolicy
+
+    group = object.__new__(GroupColocationMemoryPolicy)
+    group.policies = [Mock(), Mock()]
+    group.policies[0].inference_budget.return_value = True
+    group.policies[1].inference_budget.return_value = False
+    group.rollout = Mock()
+    assert not group.inference_budget()
+    for member in group.policies:
+        member.inference_budget.assert_called_once_with()
+    group.rollout.assert_called_once_with("kv_budget_clear")

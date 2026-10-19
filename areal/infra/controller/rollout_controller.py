@@ -247,11 +247,24 @@ class RolloutController:
     def training_prefetch_ready(self, target: int) -> bool:
         return self.staleness_manager.get_stats().accepted >= target
 
+    def wait_running_rebalance(self) -> None:
+        """Fence native pauses against an in-flight running-request handoff."""
+        if os.getenv("AREAL_RUNNING_REBALANCE", "off") != "kv":
+            return
+        future = getattr(self, "_queue_rebalance_future", None)
+        if future is not None:
+            started = time.monotonic()
+            future.result()
+            request_trace.emit(
+                "kv_rebalance_transition_wait", seconds=time.monotonic() - started
+            )
+
     def borrow_for_training(self) -> None:
         """Only the actor's replica stops; the other replica keeps generating."""
         if self._borrowed_pool is None:
             raise RuntimeError("No borrowed replica configured")
         self.wait_shared_publication()
+        self.wait_running_rebalance()
         self._borrowed_pool.withdraw()
         pool = getattr(self, "_request_pool", None)
         if pool is not None:
@@ -276,6 +289,8 @@ class RolloutController:
         pool = getattr(self, "_request_pool", None)
         if pool is None or self._borrowed_pool is None:
             raise RuntimeError("Shared drain requires request lease routing")
+        self.wait_shared_publication()
+        self.wait_running_rebalance()
         self._borrowed_pool.withdraw()
         for replica_rank in self.borrowed_ranks:
             pool.close(replica_rank)
@@ -514,6 +529,7 @@ class RolloutController:
         self.wait_shared_publication()
         if self._borrowed_pool is None:
             raise RuntimeError("Asymmetric publication requires a borrowed replica")
+        self.wait_running_rebalance()
         self._borrowed_pool.withdraw()
         pool = getattr(self, "_request_pool", None)
         if pool is not None:
@@ -616,6 +632,27 @@ class RolloutController:
                     engines.append(response.json())
                 overhead = time.monotonic() - start
                 route = pool.drain_snapshot()
+                running_mode = os.getenv("AREAL_RUNNING_REBALANCE", "off")
+                shadow = None
+                if running_mode in {"shadow", "active", "budget"}:
+                    from areal.infra.running_rebalance import plan_running_shadow
+
+                    shadow_started = time.monotonic()
+                    shadow = plan_running_shadow(
+                        getattr(self, "_queue_calibration", None),
+                        route,
+                        engines,
+                        overhead,
+                        source_rank,
+                        target_rank,
+                    )
+                    request_trace.emit(
+                        "running_rebalance_shadow",
+                        **shadow,
+                        planning_seconds=time.monotonic() - shadow_started,
+                        route=route,
+                        engines=engines,
+                    )
                 plan = plan_rebalance(
                     getattr(self, "_queue_calibration", None),
                     route,
@@ -624,6 +661,39 @@ class RolloutController:
                     source_rank,
                     target_rank,
                 )
+                if running_mode == "kv" and not plan["selected"]:
+                    from areal.infra.kv_rebalance import rebalance
+
+                    rebalance(
+                        self,
+                        version,
+                        route,
+                        engines,
+                        overhead,
+                        source_rank,
+                        target_rank,
+                    )
+                    return
+                running_move = False
+                if (
+                    not plan["selected"]
+                    and running_mode == "active"
+                    and shadow
+                    and shadow["selected"]
+                ):
+                    if self.training_prefetch_ready(self.training_prefetch_target()):
+                        shadow.update(selected=[], reason="training_imminent")
+                    else:
+                        plan = {k: v for k, v in shadow.items() if k != "version"}
+                        running_move = True
+                if running_mode in {"shadow", "active", "budget"}:
+                    request_trace.emit(
+                        "running_rebalance_decision",
+                        policy=running_mode,
+                        selected=plan["selected"] if running_move else [],
+                        reason=shadow["reason"] if shadow else "not_planned",
+                        version=version,
+                    )
                 planning_cost = time.monotonic() - start
                 plan["planning_seconds"] = planning_cost
                 if any(
@@ -640,6 +710,7 @@ class RolloutController:
                     version,
                     source_rank,
                     target_rank,
+                    **({"running": True} if running_move else {}),
                 )
                 if not reservations:
                     return
@@ -648,7 +719,10 @@ class RolloutController:
                 submitted = True
                 response = session.post(
                     f"http://{pool.addresses[source_rank]}/areal_queue_rebalance",
-                    json={"action": "abort", "internal_ids": ids},
+                    json={
+                        "action": "abort_running" if running_move else "abort",
+                        "internal_ids": ids,
+                    },
                     timeout=2,
                 )
                 response.raise_for_status()
@@ -662,6 +736,10 @@ class RolloutController:
                 )
                 request_trace.emit(
                     "queue_rebalance_result",
+                    running=running_move,
+                    execution_path="prefix_replay"
+                    if running_move
+                    else "queued_restart",
                     version=version,
                     requested=len(ids),
                     withdrawn=len(acknowledged),
@@ -840,6 +918,17 @@ class RolloutController:
         self._start_callback_server()
         if self._request_pool is not None:
             self._collective_rpc("configure_request_router", address=self.callback_addr)
+            if os.getenv("AREAL_RUNNING_REBALANCE", "off") == "kv":
+                from areal.infra.kv_rebalance import initialize_pair
+
+                if dp_size != 2 or instance_size != 1:
+                    raise ValueError("KV handoff requires two TP=1 inference replicas")
+                self._kv_peer_geometry = initialize_pair(
+                    self._request_pool.addresses,
+                    self.fixed_ranks[0],
+                    self.borrowed_ranks[0],
+                )
+                self._kv_block_tokens = self._kv_peer_geometry["block_tokens"]
 
     async def _async_initialize(
         self,
@@ -971,6 +1060,10 @@ class RolloutController:
             self.wait_shared_publication()
         except Exception:
             logger.exception("Shared publication failed before teardown")
+        try:
+            self.wait_running_rebalance()
+        except Exception:
+            logger.exception("Running handoff failed before teardown")
         # Stop background threads and shutdown the async task runner
         if self._dispatcher is not None:
             self._dispatcher.destroy()
@@ -1844,6 +1937,8 @@ class RolloutController:
         )
 
     async def pause_generation(self):
+        await asyncio.to_thread(self.wait_shared_publication)
+        await asyncio.to_thread(self.wait_running_rebalance)
         pool = getattr(self, "_request_pool", None)
         if pool is not None:
             for rank in range(len(self.workers)):
@@ -1920,6 +2015,7 @@ class RolloutController:
 
     def pause(self):
         self.wait_shared_publication()
+        self.wait_running_rebalance()
         self.dispatcher.pause()
         pool = getattr(self, "_request_pool", None)
         if pool is not None:

@@ -34,6 +34,7 @@ from areal.engine.vllm_ext.generation_gate import (
     run_weight_update_while_paused,
     update_weights_while_paused,
 )
+from areal.engine.vllm_ext.kv_handoff import install as install_kv_handoff
 from areal.engine.vllm_ext.kv_slab_adapter import (
     install_scheduler_slab,
     slab_blocks,
@@ -50,6 +51,8 @@ from areal.utils import generation_progress, request_trace
 # Spawned EngineCore processes import this entry module, but not worker extensions.
 install_scheduler_slab()
 install_queue_rebalance()
+
+install_kv_handoff()
 request_trace.install_scheduler_trace()
 
 
@@ -65,6 +68,7 @@ async def validate_slab_endpoint(request: Request):
         "/areal_colocation_memory",
         "/areal_generation_progress",
         "/areal_queue_rebalance",
+        "/areal_kv_handoff",
         "/v1/completions",
         "/inference/v1/generate",
     }:
@@ -90,7 +94,8 @@ original_create_completion = inspect.unwrap(_decorated_create_completion)
 request_trace.install_request_id_trace()
 
 generation_progress.install()
-_concurrent_budget_valid = False
+_kv_budget_valid = False
+_kv_external_tickets = {}
 _trace_active_requests = set()
 _trace_paused_requests = set()
 
@@ -465,9 +470,41 @@ class ColocationMemoryRequest(OpenAIBaseModel):
 async def areal_generation_progress(raw_request: Request):
     body = await raw_request.json()
     result = generation_progress.registry.snapshot(rotate=body.get("rotate", False))
-    result["budget_valid"] = _concurrent_budget_valid
+    result["budget_valid"] = _kv_budget_valid
     result["generation_running"] = _generation_run_event.is_set()
     return result
+
+
+@router.post("/areal_kv_handoff")
+async def areal_kv_handoff(raw_request: Request):
+    from areal.engine.vllm_ext.kv_handoff import enabled
+
+    if not enabled():
+        raise HTTPException(status_code=409, detail="KV handoff disabled")
+    body = await raw_request.json()
+    async with _memory_transition_lock:
+        if not _generation_run_event.is_set() and body["action"] not in {
+            "discard",
+            "unfreeze",
+            "import_status",
+        }:
+            raise HTTPException(status_code=409, detail="Replica transitioning")
+        result = (
+            await raw_request.app.state.engine_client.engine_core.call_utility_async(
+                "areal_kv_handoff", body["action"], body.get("data", {})
+            )
+        )
+        if body["action"] == "register":
+            _kv_external_tickets[body["data"]["external_id"]] = (
+                body["data"]["ticket"],
+                body["data"]["version"],
+            )
+        if body["action"] == "discard":
+            for rid, ticket in list(_kv_external_tickets.items()):
+                if ticket[0] == body["data"]["ticket"]:
+                    del _kv_external_tickets[rid]
+        request_trace.emit("kv_handoff", action=body["action"], result=result)
+        return result
 
 
 @router.post("/areal_queue_rebalance")
@@ -481,7 +518,7 @@ async def areal_queue_rebalance(raw_request: Request):
         raise HTTPException(status_code=409, detail="Queue rebalance disabled")
     body = await raw_request.json()
     action = body.get("action", "snapshot")
-    if action not in ("snapshot", "abort"):
+    if action not in ("snapshot", "abort", "abort_running"):
         raise HTTPException(status_code=400, detail="Invalid queue operation")
     async with _memory_transition_lock:
         if not _generation_run_event.is_set():
@@ -498,15 +535,31 @@ async def areal_queue_rebalance(raw_request: Request):
             "areal_queue_rebalance", action, ids
         )
         if action == "snapshot":
+            progress = generation_progress.registry.snapshot()
+            computed = {
+                mapping[i]: n
+                for i, n in result.get("computed_tokens", {}).items()
+                if i in mapping
+            }
+            for row in progress["active"]:
+                if row["request_id"] in computed:
+                    row["computed_tokens"] = computed[row["request_id"]]
             return dict(
                 queue=dict(
                     queued=[mapping[i] for i in result["queued"] if i in mapping],
                     waiting=[mapping[i] for i in result["waiting"] if i in mapping],
                     running=[mapping[i] for i in result["running"] if i in mapping],
                     width=result["width"],
+                    free_kv_tokens=result["free_kv_tokens"],
                 ),
-                internal_ids={mapping[i]: i for i in result["queued"] if i in mapping},
-                **generation_progress.registry.snapshot(),
+                internal_ids={
+                    mapping[i]: i
+                    for i in result["queued"] + result["running"]
+                    if i in mapping
+                },
+                budget_valid=_kv_budget_valid,
+                generation_running=_generation_run_event.is_set(),
+                **progress,
             )
         request_trace.emit("queue_rebalance_source_ack", internal_ids=result["aborted"])
         return result
@@ -516,7 +569,7 @@ async def areal_queue_rebalance(raw_request: Request):
 async def areal_colocation_memory(
     request: ColocationMemoryRequest, raw_request: Request
 ):
-    global _concurrent_budget_valid
+    global _kv_budget_valid
     from areal.engine.colocation_memory import adaptive_memory_enabled
 
     if not adaptive_memory_enabled():
@@ -561,7 +614,7 @@ async def areal_colocation_memory(
             for row in result:
                 row["concurrent_admitted"] = admitted
                 row["effective_capacity_blocks"] = cap
-            _concurrent_budget_valid = request.action == "kv_budget" and admitted
+            _kv_budget_valid = request.action == "kv_budget" and admitted
             if admitted:
                 await llm.engine_core.call_utility_async("areal_set_kv_capacity", cap)
         return result
@@ -650,6 +703,7 @@ async def generate(request: GenerateRequest, raw_request: Request):
             server_rank=int(raw_request.headers["X-Areal-Route-Rank"]),
         )
         _trace_active_requests.add(rid)
+        handoff_ticket = None
         try:
             if not _generation_run_event.is_set():
                 if getattr(
@@ -660,10 +714,40 @@ async def generate(request: GenerateRequest, raw_request: Request):
                     request_trace.emit("server_gate_wait_end", request_id=rid)
                 else:
                     raise RoutingPaused("Replica paused")
+            if raw_request.headers.get("X-Areal-Running-Handoff") == "1":
+                # Recheck the admitted phase-specific KV budget at the actual HTTP
+                # continuation, not only during the controller forecast.
+                if not _kv_budget_valid:
+                    raise RoutingPaused("Running handoff budget invalid")
+                state = await raw_request.app.state.engine_client.engine_core.call_utility_async(
+                    "areal_queue_rebalance", "snapshot", []
+                )
+                need = len(request.token_ids) + request.sampling_params.max_tokens
+                if state["free_kv_tokens"] is None or state["free_kv_tokens"] < need:
+                    raise RoutingPaused("Running handoff has insufficient KV headroom")
+            ticket = _kv_external_tickets.pop(rid, None)
+            if ticket is not None:
+                if (
+                    int(raw_request.headers.get("X-Areal-Route-Version", "-1"))
+                    != ticket[1]
+                ):
+                    raise RuntimeError("KV handoff route version mismatch")
+                ticket = ticket[0]
+                handoff_ticket = ticket
+                request.sampling_params.extra_args = dict(
+                    request.sampling_params.extra_args or {}, areal_kv_ticket=ticket
+                )
             return await original_generate(request, raw_request)
         except RoutingPaused:
             return JSONResponse(status_code=409, content={"areal_route_rejected": True})
         finally:
+            if handoff_ticket is not None:
+                try:
+                    await raw_request.app.state.engine_client.engine_core.call_utility_async(
+                        "areal_kv_handoff", "discard", {"ticket": handoff_ticket}
+                    )
+                except Exception:
+                    logger.exception("KV ticket cleanup failed")
             _trace_active_requests.discard(rid)
             generation_progress.registry.discard_external(rid)
             request_trace.emit("server_return", request_id=rid)

@@ -1,0 +1,185 @@
+{
+  "scope": "Forced integration diagnostic; excluded from performance claims",
+  "workspace": "/root/areal-benchmarks/20261016-125343-0700_math_fsdp_c16_b2_74d726",
+  "answers": 192,
+  "tokens": 45252,
+  "events": [
+    {
+      "event": "kv_handoff",
+      "time": 1792180833.963786,
+      "pid": 691,
+      "action": "init",
+      "result": {
+        "tensors": 56,
+        "block_bytes": 65536,
+        "block_tokens": 128
+      }
+    },
+    {
+      "event": "kv_handoff",
+      "time": 1792180833.9640865,
+      "pid": 690,
+      "action": "init",
+      "result": {
+        "tensors": 56,
+        "block_bytes": 65536,
+        "block_tokens": 128
+      }
+    },
+    {
+      "event": "kv_rebalance_plan",
+      "time": 1792180902.2790904,
+      "pid": 1,
+      "version": 1,
+      "selected": [
+        {
+          "request_id": "c3090a6963c74e1caf12b84558b5842a",
+          "method": "kv",
+          "bytes": 11010048,
+          "setup_s": 0.17033074088394642,
+          "prefill_s": 0.00094785758604606,
+          "total_setup_s": 0.1712785984699925
+        }
+      ],
+      "reason": "diagnostic_forced_not_a_performance_result",
+      "pending_requests": [],
+      "completed_requests": [],
+      "execution_ready": false,
+      "scope": "offline_counterfactual",
+      "baseline_tail_s": 5.578802169495539,
+      "baseline_total_s": 73.10268002533749,
+      "predicted_tail_s": 5.578802169495539,
+      "predicted_gain_s": 0.0,
+      "planning_s": 0.01129182055592537,
+      "net_predicted_gain_s": 999.0
+    },
+    {
+      "event": "kv_handoff",
+      "time": 1792180902.3063016,
+      "pid": 690,
+      "action": "export",
+      "result": {
+        "skipped": "unstable_computed_tokens",
+        "computed": 331,
+        "tokens": 331,
+        "inflight": 1,
+        "placeholders": 1
+      }
+    },
+    {
+      "event": "kv_handoff",
+      "time": 1792180902.3694625,
+      "pid": 690,
+      "action": "export",
+      "result": {
+        "tensors": 56,
+        "block_bytes": 65536,
+        "block_tokens": 128,
+        "bytes": 11010048,
+        "pack_s": 0.015249799937009811,
+        "computed": 331,
+        "key": "0dbe7343e191582a3f3ce855893b96af93b370861c53ea60a7f606d54c42aea3",
+        "blocks": 3,
+        "tokens": 332
+      }
+    },
+    {
+      "event": "kv_handoff",
+      "time": 1792180902.4191637,
+      "pid": 691,
+      "action": "transfer",
+      "result": {
+        "transfer_s": 0.04413778893649578
+      }
+    },
+    {
+      "event": "kv_handoff",
+      "time": 1792180902.4196672,
+      "pid": 690,
+      "action": "transfer",
+      "result": {
+        "transfer_s": 0.001550082117319107
+      }
+    },
+    {
+      "event": "kv_handoff",
+      "time": 1792180902.4229267,
+      "pid": 691,
+      "action": "register",
+      "result": {}
+    },
+    {
+      "event": "kv_handoff",
+      "time": 1792180902.4741182,
+      "pid": 691,
+      "action": "import_status",
+      "result": {
+        "results": {}
+      }
+    },
+    {
+      "event": "kv_handoff",
+      "time": 1792180902.487416,
+      "pid": 691,
+      "action": "import_status",
+      "result": {
+        "results": {}
+      }
+    },
+    {
+      "event": "kv_import_result",
+      "time": 1792180902.5383916,
+      "pid": 878,
+      "ticket": "88cee35647ab4e869b1bb00fdc013828",
+      "outcome": "import_applied",
+      "computed": 331,
+      "request_id": "generate-tokens-c3090a6963c74e1caf12b84558b5842a-9ed2d013"
+    },
+    {
+      "event": "kv_handoff",
+      "time": 1792180902.53933,
+      "pid": 691,
+      "action": "import_status",
+      "result": {
+        "results": {
+          "88cee35647ab4e869b1bb00fdc013828": {
+            "outcome": "import_applied",
+            "computed": 331,
+            "request_id": "generate-tokens-c3090a6963c74e1caf12b84558b5842a-9ed2d013"
+          }
+        }
+      }
+    },
+    {
+      "event": "kv_rebalance_handoff",
+      "time": 1792180902.5404408,
+      "pid": 1,
+      "request_ids": [
+        "c3090a6963c74e1caf12b84558b5842a"
+      ],
+      "seconds": 0.27271574549376965,
+      "version": 1
+    },
+    {
+      "event": "kv_handoff",
+      "time": 1792180902.570056,
+      "pid": 690,
+      "action": "discard",
+      "result": {}
+    },
+    {
+      "event": "kv_handoff",
+      "time": 1792180902.6189282,
+      "pid": 690,
+      "action": "unfreeze",
+      "result": {}
+    }
+  ],
+  "source_override": {
+    "scope": "Forced one-request routing correctness test; exclude from performance claims",
+    "file": "/root/areal-benchmarks/20261016-125343-0700_math_fsdp_c16_b2_74d726/source/areal/infra/kv_rebalance.py",
+    "original_sha256": "64ac75d3ad67d53dd291b5e9e10b40a484bc567712dac406cb9d6f6e64d03588",
+    "patched_sha256": "6e99642c058fc41c79ffe6f64cad9de90f12dcaa0bf5c54fa9115feb34a4b21c",
+    "patch": "    # Diagnostic-only override in this frozen workspace, never in repository source.\n    if not getattr(controller, \"_diagnostic_forced_done\", False) and \"baseline_tail_s\" in plan:\n        def required_tokens(r):\n            n = r[\"metrics\"][\"prompt_tokens\"] + r[\"metrics\"][\"max_new_tokens\"]\n            return ((n + block_tokens - 1) // block_tokens) * block_tokens\n        target_reserved = sum(required_tokens(r) for r in route[\"active\"] if r[\"rank\"] == target)\n        by_id = {r[\"request_id\"]: r for r in route[\"active\"]}\n        available = engines[target][\"queue\"][\"free_kv_tokens\"] - target_reserved\n        eligible = [x for x in plan[\"candidates\"] if x[\"computed_tokens_exact\"]\n                    and any(a[\"method\"] == \"kv\" for a in x[\"alternatives\"])\n                    and required_tokens(by_id[x[\"request_id\"]]) <= available]\n        if eligible:\n            item = min(eligible, key=lambda x: x[\"computed_tokens_used\"])\n            choice = next(a for a in item[\"alternatives\"] if a[\"method\"] == \"kv\")\n            plan.update(selected=[dict(request_id=item[\"request_id\"], **choice)],\n                        net_predicted_gain_s=999.0, reason=\"diagnostic_forced_not_a_performance_result\")\n            controller._diagnostic_forced_done = True\n"
+  }
+}

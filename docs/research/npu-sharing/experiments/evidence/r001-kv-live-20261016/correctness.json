@@ -1,0 +1,28 @@
+{
+  "import_result": {
+    "outcome": "import_applied",
+    "computed": 91,
+    "request_id": "generate-tokens-kv-probe-a4c50ac7"
+  },
+  "tokens_equal": true,
+  "logprob_max_error": 0.0,
+  "prefix_tokens": 34,
+  "export": {
+    "tensors": 56,
+    "block_bytes": 65536,
+    "block_tokens": 128,
+    "bytes": 3670016,
+    "pack_s": 0.0115680992603302,
+    "computed": 91,
+    "key": "0df5f1b899e6b42b83e4c1b1625710c5fd5ceeddea4a046fd5365e33ff702c40",
+    "blocks": 1,
+    "tokens": 92
+  },
+  "total_tokens": 256,
+  "workspace": "/root/areal-benchmarks/20261016-112420--0700-kv-live-probe",
+  "scope": "One deterministic vLLM TP=1 Qwen2.5-1.5B request; not a throughput measurement.",
+  "source_sha256": {
+    "areal/engine/vllm_ext/kv_handoff.py": "dc180be3ff9d24b3603b03c05c7040e57d222ef41e34c9fbdc73355ed1820e7c",
+    "benchmark/npu_share/kv_handoff_probe.py": "a912c9de346adc7e90d3b1446605cabd3bd3d9a822054da62468961a656e20f6"
+  }
+}

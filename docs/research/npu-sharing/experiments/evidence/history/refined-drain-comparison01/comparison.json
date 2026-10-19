@@ -1107,8 +1107,7 @@
     "smoke_answers": 384,
     "formal_answers_each": 576,
     "formal_updates_each": 6,
-    "npu_released": true,
-    "make_npu_busy_running": false
+    "npu_released": true
   },
   "limitations": [
     "Single run per policy; generated token counts differ.",

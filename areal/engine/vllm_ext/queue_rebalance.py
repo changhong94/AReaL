@@ -18,7 +18,7 @@ def eligible(scheduler, request, waiting_status):
 def queue_operation(core, action, ids, waiting_status, aborted_status):
     """Called only by EngineCore's serialized utility dispatcher, never an API thread."""
     scheduler = core.scheduler
-    if action not in ("snapshot", "abort"):
+    if action not in ("snapshot", "abort", "abort_running"):
         raise ValueError("Unknown queue rebalance operation")
     available = [r for r in scheduler.waiting if eligible(scheduler, r, waiting_status)]
     if action == "snapshot":
@@ -27,7 +27,24 @@ def queue_operation(core, action, ids, waiting_status, aborted_status):
             waiting=[r.request_id for r in scheduler.waiting],
             running=[r.request_id for r in scheduler.running],
             width=scheduler.max_num_running_reqs,
+            computed_tokens={
+                r.request_id: r.num_computed_tokens
+                - getattr(r, "num_in_flight_tokens", 0)
+                for r in scheduler.running
+            }
+            if os.getenv("AREAL_RUNNING_REBALANCE", "off") == "kv"
+            else {},
+            free_kv_tokens=(
+                scheduler.kv_cache_manager.block_pool.get_num_free_blocks()
+                * scheduler.block_size
+            )
+            if hasattr(scheduler, "kv_cache_manager")
+            else None,
         )
+    if action == "abort_running":
+        if os.getenv("AREAL_RUNNING_REBALANCE", "off") not in {"active", "kv"}:
+            raise ValueError("Running rebalance is not enabled")
+        available = list(scheduler.running)
     selected = set(ids)
     safe = [r.request_id for r in available if r.request_id in selected]
     # Eligibility is checked again here, after the planning round trip. No

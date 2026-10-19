@@ -1,0 +1,204 @@
+[
+  {
+    "policy": "conservative",
+    "workspace": "/root/areal-benchmarks/20261019-103047-0700_math_fsdp_c16_b6_6834ed",
+    "exit_code": 0,
+    "loop_s": 158.05426001548767,
+    "answers": 576,
+    "tokens": 134710,
+    "kv_requests": 0,
+    "kv_transactions": 0,
+    "handoffs": [],
+    "imports": {},
+    "plans": [
+      {
+        "version": 1,
+        "reason": "no_predicted_gain",
+        "policy": null,
+        "objective": null,
+        "predicted_gain_s": 0.0,
+        "net_predicted_gain_s": -0.05735298804938793,
+        "predicted_tail_gain_s": null,
+        "selected": [],
+        "planning_s": 0.05735298804938793
+      },
+      {
+        "version": 2,
+        "reason": "admission_priority",
+        "policy": null,
+        "objective": null,
+        "predicted_gain_s": null,
+        "net_predicted_gain_s": null,
+        "predicted_tail_gain_s": null,
+        "selected": [],
+        "planning_s": null
+      },
+      {
+        "version": 3,
+        "reason": "admission_priority",
+        "policy": null,
+        "objective": null,
+        "predicted_gain_s": null,
+        "net_predicted_gain_s": null,
+        "predicted_tail_gain_s": null,
+        "selected": [],
+        "planning_s": null
+      },
+      {
+        "version": 4,
+        "reason": "no_predicted_gain",
+        "policy": null,
+        "objective": null,
+        "predicted_gain_s": 0.0,
+        "net_predicted_gain_s": -0.05330382287502289,
+        "predicted_tail_gain_s": null,
+        "selected": [],
+        "planning_s": 0.05330382287502289
+      },
+      {
+        "version": 5,
+        "reason": "no_predicted_gain",
+        "policy": null,
+        "objective": null,
+        "predicted_gain_s": 0.0,
+        "net_predicted_gain_s": -0.02143148146569729,
+        "predicted_tail_gain_s": null,
+        "selected": [],
+        "planning_s": 0.02143148146569729
+      }
+    ],
+    "skips": {},
+    "batch_ready": [
+      {
+        "batch": 1,
+        "seconds": 30.93110203742981
+      },
+      {
+        "batch": 2,
+        "seconds": 47.1358163356781
+      },
+      {
+        "batch": 3,
+        "seconds": 65.73521089553833
+      },
+      {
+        "batch": 4,
+        "seconds": 88.29384636878967
+      },
+      {
+        "batch": 5,
+        "seconds": 104.657785654068
+      },
+      {
+        "batch": 6,
+        "seconds": 137.2683243751526
+      }
+    ],
+    "hashes": {
+      "areal/infra/batch_rebalance.py": "9ebe1e9a69000501cf73baaa9e7112c12b1e7fffa4057ae77932748d4dedd4db",
+      "areal/infra/kv_rebalance.py": "2b2fad8d95812e20453a1105460fb6324193a732867d0ba5f1759f54b335357c",
+      "areal/engine/vllm_ext/kv_handoff.py": "0224b04898372040adec2cc5b47f0481eacf5e5925a50142e69d64fc36ff9e59"
+    }
+  },
+  {
+    "policy": "aggressive",
+    "workspace": "/root/areal-benchmarks/20261019-104121-0700_math_fsdp_c16_b6_400e5d",
+    "exit_code": 0,
+    "loop_s": 149.90006256103516,
+    "answers": 576,
+    "tokens": 135253,
+    "kv_requests": 0,
+    "kv_transactions": 0,
+    "handoffs": [],
+    "imports": {},
+    "plans": [
+      {
+        "version": 1,
+        "reason": "no_predicted_gain",
+        "policy": "aggressive",
+        "objective": "batch_ready",
+        "predicted_gain_s": 0.0,
+        "net_predicted_gain_s": -0.07614000141620636,
+        "predicted_tail_gain_s": 0.0,
+        "selected": [],
+        "planning_s": 0.07614000141620636
+      },
+      {
+        "version": 2,
+        "reason": "admission_priority",
+        "policy": null,
+        "objective": null,
+        "predicted_gain_s": null,
+        "net_predicted_gain_s": null,
+        "predicted_tail_gain_s": null,
+        "selected": [],
+        "planning_s": null
+      },
+      {
+        "version": 3,
+        "reason": "no_predicted_gain",
+        "policy": "aggressive",
+        "objective": "batch_ready",
+        "predicted_gain_s": 0.0,
+        "net_predicted_gain_s": -0.08638828061521053,
+        "predicted_tail_gain_s": 0.0,
+        "selected": [],
+        "planning_s": 0.08638828061521053
+      },
+      {
+        "version": 4,
+        "reason": "no_predicted_gain",
+        "policy": "aggressive",
+        "objective": "batch_ready",
+        "predicted_gain_s": 0.0,
+        "net_predicted_gain_s": -0.07075119204819202,
+        "predicted_tail_gain_s": 0.0,
+        "selected": [],
+        "planning_s": 0.07075119204819202
+      },
+      {
+        "version": 5,
+        "reason": "no_predicted_gain",
+        "policy": "aggressive",
+        "objective": "batch_ready",
+        "predicted_gain_s": 0.0,
+        "net_predicted_gain_s": -0.041108351200819016,
+        "predicted_tail_gain_s": 0.0,
+        "selected": [],
+        "planning_s": 0.041108351200819016
+      }
+    ],
+    "skips": {},
+    "batch_ready": [
+      {
+        "batch": 1,
+        "seconds": 28.994839191436768
+      },
+      {
+        "batch": 2,
+        "seconds": 45.719902753829956
+      },
+      {
+        "batch": 3,
+        "seconds": 66.11025786399841
+      },
+      {
+        "batch": 4,
+        "seconds": 85.86158752441406
+      },
+      {
+        "batch": 5,
+        "seconds": 102.35271334648132
+      },
+      {
+        "batch": 6,
+        "seconds": 129.7053439617157
+      }
+    ],
+    "hashes": {
+      "areal/infra/batch_rebalance.py": "9ebe1e9a69000501cf73baaa9e7112c12b1e7fffa4057ae77932748d4dedd4db",
+      "areal/infra/kv_rebalance.py": "2b2fad8d95812e20453a1105460fb6324193a732867d0ba5f1759f54b335357c",
+      "areal/engine/vllm_ext/kv_handoff.py": "0224b04898372040adec2cc5b47f0481eacf5e5925a50142e69d64fc36ff9e59"
+    }
+  }
+]

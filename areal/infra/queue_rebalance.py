@@ -7,14 +7,27 @@ from areal.infra.drain_prediction import simulate_decode
 from areal.infra.rolling_drain import residual_distribution
 
 
-def plan_rebalance(calibration, route, engines, overhead, source_rank=1, target_rank=0):
+def plan_rebalance(
+    calibration,
+    route,
+    engines,
+    overhead,
+    source_rank=1,
+    target_rank=0,
+    *,
+    running=False,
+):
     """Compare expected completion of the live set; never select running work.
 
     Estimates use the already frozen rolling window, not future completions.
     Public waiting tickets take precedence over stealing native queued work.
     """
     result = dict(selected=[], reason="no_queued_work", predictions=[])
-    candidates = set(engines[source_rank]["queue"]["queued"])
+    candidates = set(
+        engines[source_rank]["queue"].get("running" if running else "queued", [])
+    )
+    if running:
+        result["reason"] = "no_running_work"
     if not candidates:
         return result
     if route["waiting"]:
@@ -129,13 +142,14 @@ def plan_rebalance(calibration, route, engines, overhead, source_rank=1, target_
     current = forecast(moved)
     # Re-evaluate total completion after each proposed move. Do not pursue
     # equal request counts at the expense of the critical tail.
-    for _ in range(room):
+    for _ in range(min(room, 1) if running else room):
         choices = []
         for i, r in enumerate(rows):
             if (
                 i in moved
                 or r["rank"] != source_rank
                 or r["request_id"] not in candidates
+                or (running and r["request_id"] in route.get("running_moved", []))
             ):
                 continue
             predicted = forecast(moved | {i})
@@ -149,6 +163,9 @@ def plan_rebalance(calibration, route, engines, overhead, source_rank=1, target_
         result["predictions"].append(
             dict(
                 request_id=rows[i]["request_id"],
+                replay_tokens=rows[i]["context"],
+                replay_s=rows[i]["context"] * calibration.first[target_rank]["unit"],
+                remaining_tokens=rows[i]["draws"][0],
                 stay_s=current[i],
                 move_s=predicted[i],
                 tail_gain_s=gain,

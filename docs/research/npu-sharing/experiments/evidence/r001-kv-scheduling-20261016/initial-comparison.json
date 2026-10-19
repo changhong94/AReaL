@@ -1,0 +1,365 @@
+[
+  {
+    "workspace": "/root/areal-benchmarks/20261016-113020-0700_math_fsdp_c16_b6_fe0b33",
+    "arm": "fixed",
+    "settings": {
+      "rl": "math",
+      "engine": "fsdp",
+      "concurrency": 16,
+      "max_head_offpolicyness": 2,
+      "batches": 6,
+      "running_rebalance": "kv",
+      "batch_size": 16,
+      "answers": 6,
+      "questions": 96,
+      "seed": 1,
+      "max_new_tokens": 1024,
+      "timezone": "America/Vancouver",
+      "created": "20261016-113020-0700",
+      "timeout": 1800,
+      "container_prefix": "areal-bench-97bb137dde26",
+      "image": "areal-timeshare:ascend-v0.26-a2-dev1",
+      "devices": [
+        1,
+        2
+      ],
+      "npu_count": 2,
+      "inference_tp": 1,
+      "allocation": {
+        "total": 2,
+        "training": 1,
+        "dedicated_inference": 1,
+        "shared_inference_max": 2
+      },
+      "inference_replicas": 1,
+      "image_id": "sha256:6deffddcf7fec443c62c27863432120e3a194a447d57a9a748ec232724865be3"
+    },
+    "followup": {},
+    "loop_seconds": 186.55303859710693,
+    "answers": 576,
+    "tokens": 140696,
+    "kv_handoffs": 0,
+    "kv_requests": 0,
+    "kv_seconds": 0,
+    "imports": {},
+    "skip_reasons": {},
+    "plans": [],
+    "batch_ready": [
+      {
+        "batch": 1,
+        "seconds": 37.93307328224182
+      },
+      {
+        "batch": 2,
+        "seconds": 59.09956216812134
+      },
+      {
+        "batch": 3,
+        "seconds": 81.70325779914856
+      },
+      {
+        "batch": 4,
+        "seconds": 104.56776928901672
+      },
+      {
+        "batch": 5,
+        "seconds": 129.03628873825073
+      },
+      {
+        "batch": 6,
+        "seconds": 167.33055019378662
+      }
+    ],
+    "queued_requests": 0,
+    "source_hashes": {
+      "areal/infra/kv_rebalance.py": "7e6159dd5607c6e23e14358dfb54b3628c93b547e0dd1fb0f81b7324d7bcf4ba",
+      "areal/infra/batch_rebalance.py": "672e8334a89aca0e5c8d313062741c1fddb2fd2d215cb19e2c1d90defaf96af3",
+      "areal/engine/vllm_ext/kv_handoff.py": "654ba4041c236c3e7b3aa235287d7530e824a59c44e195017f81f6ead383ade8"
+    }
+  },
+  {
+    "workspace": "/root/areal-benchmarks/20261016-113020-0700_math_fsdp_c16_b6_fe0b33",
+    "arm": "latest",
+    "settings": {
+      "rl": "math",
+      "engine": "fsdp",
+      "concurrency": 16,
+      "max_head_offpolicyness": 2,
+      "batches": 6,
+      "running_rebalance": "kv",
+      "batch_size": 16,
+      "answers": 6,
+      "questions": 96,
+      "seed": 1,
+      "max_new_tokens": 1024,
+      "timezone": "America/Vancouver",
+      "created": "20261016-113020-0700",
+      "timeout": 1800,
+      "container_prefix": "areal-bench-97bb137dde26",
+      "image": "areal-timeshare:ascend-v0.26-a2-dev1",
+      "devices": [
+        1,
+        2
+      ],
+      "npu_count": 2,
+      "inference_tp": 1,
+      "allocation": {
+        "total": 2,
+        "training": 1,
+        "dedicated_inference": 1,
+        "shared_inference_max": 2
+      },
+      "inference_replicas": 1,
+      "image_id": "sha256:6deffddcf7fec443c62c27863432120e3a194a447d57a9a748ec232724865be3"
+    },
+    "followup": {},
+    "loop_seconds": 156.72409439086914,
+    "answers": 576,
+    "tokens": 142415,
+    "kv_handoffs": 0,
+    "kv_requests": 0,
+    "kv_seconds": 0,
+    "imports": {},
+    "skip_reasons": {},
+    "plans": [
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792176470.9615796,
+        "pid": 1,
+        "version": 1,
+        "selected": [],
+        "reason": "insufficient_margin",
+        "execution_ready": false,
+        "scope": "offline_counterfactual"
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792176486.5384357,
+        "pid": 1,
+        "version": 2,
+        "selected": [],
+        "reason": "insufficient_margin",
+        "execution_ready": false,
+        "scope": "offline_counterfactual"
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792176505.4383245,
+        "pid": 1,
+        "version": 3,
+        "selected": [],
+        "reason": "insufficient_margin",
+        "execution_ready": false,
+        "scope": "offline_counterfactual"
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792176528.6920462,
+        "pid": 1,
+        "version": 4,
+        "selected": [],
+        "reason": "insufficient_margin",
+        "execution_ready": false,
+        "scope": "offline_counterfactual"
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792176546.6797833,
+        "pid": 1,
+        "version": 5,
+        "selected": [],
+        "reason": "insufficient_margin",
+        "execution_ready": false,
+        "scope": "offline_counterfactual"
+      }
+    ],
+    "batch_ready": [
+      {
+        "batch": 1,
+        "seconds": 32.681965351104736
+      },
+      {
+        "batch": 2,
+        "seconds": 49.06823801994324
+      },
+      {
+        "batch": 3,
+        "seconds": 71.84396862983704
+      },
+      {
+        "batch": 4,
+        "seconds": 94.51108407974243
+      },
+      {
+        "batch": 5,
+        "seconds": 112.86634755134583
+      },
+      {
+        "batch": 6,
+        "seconds": 137.21486401557922
+      }
+    ],
+    "queued_requests": 0,
+    "source_hashes": {
+      "areal/infra/kv_rebalance.py": "7e6159dd5607c6e23e14358dfb54b3628c93b547e0dd1fb0f81b7324d7bcf4ba",
+      "areal/infra/batch_rebalance.py": "672e8334a89aca0e5c8d313062741c1fddb2fd2d215cb19e2c1d90defaf96af3",
+      "areal/engine/vllm_ext/kv_handoff.py": "654ba4041c236c3e7b3aa235287d7530e824a59c44e195017f81f6ead383ade8"
+    }
+  },
+  {
+    "workspace": "/root/areal-benchmarks/20261016-115138-0700_math_fsdp_c16_b6_49f1e1",
+    "arm": "fixed",
+    "settings": {
+      "rl": "math",
+      "engine": "fsdp",
+      "concurrency": 16,
+      "max_head_offpolicyness": 2,
+      "batches": 6,
+      "running_rebalance": "off",
+      "batch_size": 16,
+      "answers": 6,
+      "questions": 96,
+      "seed": 1,
+      "max_new_tokens": 1024,
+      "timezone": "America/Vancouver",
+      "created": "20261016-115138-0700",
+      "timeout": 1800,
+      "container_prefix": "areal-bench-58914122ba2a",
+      "image": "areal-timeshare:ascend-v0.26-a2-dev1",
+      "devices": [
+        1,
+        2
+      ],
+      "npu_count": 2,
+      "inference_tp": 1,
+      "allocation": {
+        "total": 2,
+        "training": 1,
+        "dedicated_inference": 1,
+        "shared_inference_max": 2
+      },
+      "inference_replicas": 1,
+      "image_id": "sha256:6deffddcf7fec443c62c27863432120e3a194a447d57a9a748ec232724865be3"
+    },
+    "followup": {},
+    "loop_seconds": 176.02583050727844,
+    "answers": 576,
+    "tokens": 135983,
+    "kv_handoffs": 0,
+    "kv_requests": 0,
+    "kv_seconds": 0,
+    "imports": {},
+    "skip_reasons": {},
+    "plans": [],
+    "batch_ready": [
+      {
+        "batch": 1,
+        "seconds": 34.95561861991882
+      },
+      {
+        "batch": 2,
+        "seconds": 57.9463210105896
+      },
+      {
+        "batch": 3,
+        "seconds": 77.32012629508972
+      },
+      {
+        "batch": 4,
+        "seconds": 100.30098009109497
+      },
+      {
+        "batch": 5,
+        "seconds": 125.7462568283081
+      },
+      {
+        "batch": 6,
+        "seconds": 155.92487239837646
+      }
+    ],
+    "queued_requests": 0,
+    "source_hashes": {
+      "areal/infra/kv_rebalance.py": "bebe7a11c0ed77497dfc5661552c22ff5da612e1f0469c684881acdd7f5632d9",
+      "areal/infra/batch_rebalance.py": "d46f4544a5a47b192711dc5c6ee9a487cb9be9ed1ea507045cea8988fd576e16",
+      "areal/engine/vllm_ext/kv_handoff.py": "654ba4041c236c3e7b3aa235287d7530e824a59c44e195017f81f6ead383ade8"
+    }
+  },
+  {
+    "workspace": "/root/areal-benchmarks/20261016-115138-0700_math_fsdp_c16_b6_49f1e1",
+    "arm": "latest",
+    "settings": {
+      "rl": "math",
+      "engine": "fsdp",
+      "concurrency": 16,
+      "max_head_offpolicyness": 2,
+      "batches": 6,
+      "running_rebalance": "off",
+      "batch_size": 16,
+      "answers": 6,
+      "questions": 96,
+      "seed": 1,
+      "max_new_tokens": 1024,
+      "timezone": "America/Vancouver",
+      "created": "20261016-115138-0700",
+      "timeout": 1800,
+      "container_prefix": "areal-bench-58914122ba2a",
+      "image": "areal-timeshare:ascend-v0.26-a2-dev1",
+      "devices": [
+        1,
+        2
+      ],
+      "npu_count": 2,
+      "inference_tp": 1,
+      "allocation": {
+        "total": 2,
+        "training": 1,
+        "dedicated_inference": 1,
+        "shared_inference_max": 2
+      },
+      "inference_replicas": 1,
+      "image_id": "sha256:6deffddcf7fec443c62c27863432120e3a194a447d57a9a748ec232724865be3"
+    },
+    "followup": {},
+    "loop_seconds": 160.5511989593506,
+    "answers": 576,
+    "tokens": 140305,
+    "kv_handoffs": 0,
+    "kv_requests": 0,
+    "kv_seconds": 0,
+    "imports": {},
+    "skip_reasons": {},
+    "plans": [],
+    "batch_ready": [
+      {
+        "batch": 1,
+        "seconds": 32.05751061439514
+      },
+      {
+        "batch": 2,
+        "seconds": 51.287983417510986
+      },
+      {
+        "batch": 3,
+        "seconds": 72.74036312103271
+      },
+      {
+        "batch": 4,
+        "seconds": 90.96401143074036
+      },
+      {
+        "batch": 5,
+        "seconds": 108.68918824195862
+      },
+      {
+        "batch": 6,
+        "seconds": 137.74057412147522
+      }
+    ],
+    "queued_requests": 0,
+    "source_hashes": {
+      "areal/infra/kv_rebalance.py": "bebe7a11c0ed77497dfc5661552c22ff5da612e1f0469c684881acdd7f5632d9",
+      "areal/infra/batch_rebalance.py": "d46f4544a5a47b192711dc5c6ee9a487cb9be9ed1ea507045cea8988fd576e16",
+      "areal/engine/vllm_ext/kv_handoff.py": "654ba4041c236c3e7b3aa235287d7530e824a59c44e195017f81f6ead383ade8"
+    }
+  }
+]

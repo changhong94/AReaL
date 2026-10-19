@@ -1,0 +1,174 @@
+[
+  {
+    "arm": "fixed",
+    "complete": true,
+    "seconds": 179.2318298816681,
+    "answers": 576,
+    "tokens": 137098,
+    "imports": {},
+    "transfers": [],
+    "transition_wait_s": 0,
+    "plans": []
+  },
+  {
+    "arm": "latest",
+    "complete": true,
+    "seconds": 152.84655356407166,
+    "answers": 576,
+    "tokens": 138424,
+    "imports": {
+      "import_applied": 10
+    },
+    "transfers": [
+      {
+        "version": 1,
+        "seconds": 1.0775223691016436,
+        "staging_seconds": 0.7863154038786888,
+        "request_ids": [
+          "8246ea26444c4cc8a546e9d9ac51327e",
+          "8905b2eb815b44d6974a49f159f0fc7b",
+          "7e14cd26dc2844f5bc5e8e21175de511",
+          "8516fc9415c542c0842edf4df76c06af",
+          "8557f2b91df24fe7be7b43a46733b8bd"
+        ]
+      },
+      {
+        "version": 4,
+        "seconds": 1.3074378818273544,
+        "staging_seconds": 1.019048223271966,
+        "request_ids": [
+          "20a36eefed7341cfbe432f4973222a71",
+          "34355c73d0a74133892f6ad82d243e4d",
+          "dc69f39463fb44a39929a0f4634442cd",
+          "191e7694dd3c4367a5be298652ed6261",
+          "2f28690084d74f42a8d928abb64f8efa"
+        ]
+      }
+    ],
+    "transition_wait_s": 0.8778857197612524,
+    "plans": [
+      {
+        "version": 1,
+        "reason": "bounded_exploration",
+        "training_ready_s": null,
+        "training_remaining_questions": null,
+        "exploration_stage_budget_s": 0.9799999999999999,
+        "selected": [
+          {
+            "request_id": "8246ea26444c4cc8a546e9d9ac51327e",
+            "method": "kv",
+            "bytes": 3670016,
+            "setup_s": 0.18,
+            "prefill_s": 0.00032745634641828414,
+            "total_setup_s": 0.18032745634641828
+          },
+          {
+            "request_id": "8905b2eb815b44d6974a49f159f0fc7b",
+            "method": "kv",
+            "bytes": 3670016,
+            "setup_s": 0.18,
+            "prefill_s": 0.00032745634641828414,
+            "total_setup_s": 0.18032745634641828
+          },
+          {
+            "request_id": "7e14cd26dc2844f5bc5e8e21175de511",
+            "method": "kv",
+            "bytes": 3670016,
+            "setup_s": 0.18,
+            "prefill_s": 0.00032745634641828414,
+            "total_setup_s": 0.18032745634641828
+          },
+          {
+            "request_id": "8516fc9415c542c0842edf4df76c06af",
+            "method": "kv",
+            "bytes": 3670016,
+            "setup_s": 0.18,
+            "prefill_s": 0.00032745634641828414,
+            "total_setup_s": 0.18032745634641828
+          },
+          {
+            "request_id": "8557f2b91df24fe7be7b43a46733b8bd",
+            "method": "kv",
+            "bytes": 3670016,
+            "setup_s": 0.18,
+            "prefill_s": 0.00032745634641828414,
+            "total_setup_s": 0.18032745634641828
+          }
+        ]
+      },
+      {
+        "version": 2,
+        "reason": "native_snapshot_race",
+        "training_ready_s": null,
+        "training_remaining_questions": null,
+        "exploration_stage_budget_s": null,
+        "selected": []
+      },
+      {
+        "version": 3,
+        "reason": "native_snapshot_race",
+        "training_ready_s": null,
+        "training_remaining_questions": null,
+        "exploration_stage_budget_s": null,
+        "selected": []
+      },
+      {
+        "version": 4,
+        "reason": "bounded_exploration",
+        "training_ready_s": null,
+        "training_remaining_questions": null,
+        "exploration_stage_budget_s": 1.0288198105990887,
+        "selected": [
+          {
+            "request_id": "20a36eefed7341cfbe432f4973222a71",
+            "method": "kv",
+            "bytes": 3670016,
+            "setup_s": 0.16234778612852097,
+            "prefill_s": 0.0004563895353943493,
+            "total_setup_s": 0.1628041756639153
+          },
+          {
+            "request_id": "34355c73d0a74133892f6ad82d243e4d",
+            "method": "kv",
+            "bytes": 3670016,
+            "setup_s": 0.16234778612852097,
+            "prefill_s": 0.0004563895353943493,
+            "total_setup_s": 0.1628041756639153
+          },
+          {
+            "request_id": "dc69f39463fb44a39929a0f4634442cd",
+            "method": "kv",
+            "bytes": 3670016,
+            "setup_s": 0.16234778612852097,
+            "prefill_s": 0.0004563895353943493,
+            "total_setup_s": 0.1628041756639153
+          },
+          {
+            "request_id": "191e7694dd3c4367a5be298652ed6261",
+            "method": "kv",
+            "bytes": 3670016,
+            "setup_s": 0.16234778612852097,
+            "prefill_s": 0.0004563895353943493,
+            "total_setup_s": 0.1628041756639153
+          },
+          {
+            "request_id": "2f28690084d74f42a8d928abb64f8efa",
+            "method": "kv",
+            "bytes": 3670016,
+            "setup_s": 0.16234778612852097,
+            "prefill_s": 0.0004563895353943493,
+            "total_setup_s": 0.1628041756639153
+          }
+        ]
+      },
+      {
+        "version": 5,
+        "reason": "no_predicted_gain",
+        "training_ready_s": null,
+        "training_remaining_questions": null,
+        "exploration_stage_budget_s": null,
+        "selected": []
+      }
+    ]
+  }
+]

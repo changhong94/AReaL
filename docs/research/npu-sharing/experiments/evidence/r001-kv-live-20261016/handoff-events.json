@@ -1,0 +1,125 @@
+[
+  {
+    "event": "kv_handoff",
+    "time": 1792175254.827618,
+    "pid": 216,
+    "action": "info",
+    "result": {
+      "tensors": 56,
+      "block_bytes": 65536,
+      "block_tokens": 128
+    }
+  },
+  {
+    "event": "kv_handoff",
+    "time": 1792175254.8349204,
+    "pid": 217,
+    "action": "info",
+    "result": {
+      "tensors": 56,
+      "block_bytes": 65536,
+      "block_tokens": 128
+    }
+  },
+  {
+    "event": "kv_handoff",
+    "time": 1792175256.0321574,
+    "pid": 216,
+    "action": "init",
+    "result": {
+      "tensors": 56,
+      "block_bytes": 65536,
+      "block_tokens": 128
+    }
+  },
+  {
+    "event": "kv_handoff",
+    "time": 1792175256.0345845,
+    "pid": 217,
+    "action": "init",
+    "result": {
+      "tensors": 56,
+      "block_bytes": 65536,
+      "block_tokens": 128
+    }
+  },
+  {
+    "event": "kv_handoff",
+    "time": 1792175273.694925,
+    "pid": 216,
+    "action": "export",
+    "result": {
+      "skipped": "unstable_computed_tokens",
+      "computed": 91,
+      "tokens": 91,
+      "inflight": 1,
+      "placeholders": 1
+    }
+  },
+  {
+    "event": "kv_handoff",
+    "time": 1792175273.722378,
+    "pid": 216,
+    "action": "export",
+    "result": {
+      "tensors": 56,
+      "block_bytes": 65536,
+      "block_tokens": 128,
+      "bytes": 3670016,
+      "pack_s": 0.0115680992603302,
+      "computed": 91,
+      "key": "0df5f1b899e6b42b83e4c1b1625710c5fd5ceeddea4a046fd5365e33ff702c40",
+      "blocks": 1,
+      "tokens": 92
+    }
+  },
+  {
+    "event": "kv_handoff",
+    "time": 1792175273.7343004,
+    "pid": 216,
+    "action": "transfer",
+    "result": {
+      "transfer_s": 0.005073120817542076
+    }
+  },
+  {
+    "event": "kv_handoff",
+    "time": 1792175273.735256,
+    "pid": 217,
+    "action": "transfer",
+    "result": {
+      "transfer_s": 0.0018417425453662872
+    }
+  },
+  {
+    "event": "kv_handoff",
+    "time": 1792175273.738958,
+    "pid": 217,
+    "action": "register",
+    "result": {}
+  },
+  {
+    "event": "kv_import_result",
+    "time": 1792175273.8201356,
+    "pid": 304,
+    "ticket": "50c34398adef419aa37bdca66015393d",
+    "outcome": "import_applied",
+    "computed": 91,
+    "request_id": "generate-tokens-kv-probe-a4c50ac7"
+  },
+  {
+    "event": "kv_handoff",
+    "time": 1792175287.1376748,
+    "pid": 217,
+    "action": "import_status",
+    "result": {
+      "results": {
+        "50c34398adef419aa37bdca66015393d": {
+          "outcome": "import_applied",
+          "computed": 91,
+          "request_id": "generate-tokens-kv-probe-a4c50ac7"
+        }
+      }
+    }
+  }
+]

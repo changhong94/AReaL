@@ -52,9 +52,11 @@ def test_drain_rejects_open_admission():
 
 @pytest.mark.parametrize("natural", [True, False])
 def test_controller_native_pause_and_lease_release_precede_drain_completion(natural):
+    from areal.api.alloc_mode import ModelAllocation
     from areal.infra.controller.rollout_controller import RolloutController
 
     controller = object.__new__(RolloutController)
+    controller.rollout_alloc = ModelAllocation.from_str("vllm:d2p1t1")
     pool, lease = pool_with_request()
     controller._request_pool = pool
     controller._borrowed_pool = Mock()

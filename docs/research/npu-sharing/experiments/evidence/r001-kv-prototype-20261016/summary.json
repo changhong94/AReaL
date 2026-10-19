@@ -1,0 +1,32 @@
+{
+  "local_date": "2026-10-16",
+  "scope": "TP=1 Qwen2.5-1.5B BF16 Transformers eager on two NPUs; not vLLM live scheduler migration",
+  "rows": [
+    {
+      "computed_tokens": 64,
+      "payload_bytes": 1835008,
+      "kv_equal": true,
+      "continuation_equal": true,
+      "transport_median_ms": 3.9268825203180313,
+      "replay_ms": 63.26678954064846
+    },
+    {
+      "computed_tokens": 256,
+      "payload_bytes": 7340032,
+      "kv_equal": true,
+      "continuation_equal": true,
+      "transport_median_ms": 4.1731614619493484,
+      "replay_ms": 69.42077912390232
+    },
+    {
+      "computed_tokens": 1024,
+      "payload_bytes": 29360128,
+      "kv_equal": true,
+      "continuation_equal": true,
+      "transport_median_ms": 4.101633094251156,
+      "replay_ms": 133.49108025431633
+    }
+  ],
+  "caveat": "Five transfers per length, first excluded from median. Transfer includes packing/copy/unpacking but not scheduler freeze, block import, version handshake, or concurrent training/publication traffic.",
+  "workspace": "/root/areal-benchmarks/20261016-101845-0700_kv-hccl-probe"
+}

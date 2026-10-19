@@ -97,8 +97,10 @@ def test_pool_failed_pause_never_loads_or_resumes(trainer):
     trainer.rollout.continue_generation.assert_not_called()
 
 
-def test_pool_configuration_requires_prefetch(trainer):
+def test_pool_configuration_accepts_zero_and_rejects_negative_staleness(trainer):
     trainer.rollout_alloc = ModelAllocation.from_str("vllm:d2p1t1")
+    trainer._validate_npu_share()
+    trainer.config.rollout.max_head_offpolicyness = -1
     with pytest.raises(ValueError, match="batch admission"):
         trainer._validate_npu_share()
     trainer.config.rollout.max_head_offpolicyness = 2
@@ -237,3 +239,34 @@ def test_withdraw_and_restore_share_one_remaining_threshold(batch_size):
         assert pool.choose(target) == (1, True)
         assert pool.choose(target) == (1, False)
         pool.batch_ready(batch_size)
+
+
+def test_borrow_waits_for_kv_handoff_before_native_pause(monkeypatch):
+    monkeypatch.setenv("AREAL_RUNNING_REBALANCE", "kv")
+    controller = object.__new__(RolloutController)
+    controller.rollout_alloc = ModelAllocation.from_str("vllm:d2p1t1")
+    controller._borrowed_pool = BorrowedRolloutPool(8)
+    controller._worker_rpc = Mock()
+    controller._pool_event = Mock()
+    controller.get_version = Mock(return_value=1)
+    future = Mock()
+    future.done.return_value = False
+    future.result.side_effect = lambda: controller._worker_rpc.assert_not_called()
+    controller._queue_rebalance_future = future
+    controller.borrow_for_training()
+    future.result.assert_called_once_with()
+    assert controller._worker_rpc.call_args_list[-1].args[1] == "pause_generation"
+
+
+def test_handoff_failure_prevents_native_pause(monkeypatch):
+    monkeypatch.setenv("AREAL_RUNNING_REBALANCE", "kv")
+    controller = object.__new__(RolloutController)
+    controller._borrowed_pool = BorrowedRolloutPool(8)
+    controller._worker_rpc = Mock()
+    future = Mock()
+    future.done.return_value = False
+    future.result.side_effect = RuntimeError("Handoff failed")
+    controller._queue_rebalance_future = future
+    with pytest.raises(RuntimeError, match="Handoff failed"):
+        controller.borrow_for_training()
+    controller._worker_rpc.assert_not_called()

@@ -35,6 +35,10 @@ class RequestLeasePool:
         self.window_migrations = []
         self.interrupted = {}
         self.rebalance_reservations = {}
+        self.running_moved = set()
+        self.running_versions = {}
+        self.running_attempts = {}
+        self.closing = set()
 
     def acquire(
         self,
@@ -70,7 +74,7 @@ class RequestLeasePool:
             available = [
                 r
                 for r in range(len(counts))
-                if self.ready[r] and counts[r] < self.capacity
+                if self.ready[r] and r not in self.closing and counts[r] < self.capacity
             ]
             group_load = [
                 sum(g["size"] for g in self.groups.values() if g["rank"] == r)
@@ -91,6 +95,12 @@ class RequestLeasePool:
                 reservation = self.rebalance_reservations.get(pending["request_id"])
                 if reservation is not None:
                     r = reservation["rank"]
+                    if (
+                        reservation.get("running")
+                        and self.versions[r] != reservation["version"]
+                    ):
+                        self.error = "Running handoff destination changed version"
+                        raise RuntimeError(self.error)
                     candidates = (
                         [r] if self.ready[r] and counts[r] <= self.capacity else []
                     )
@@ -98,6 +108,14 @@ class RequestLeasePool:
                     candidates = [group["rank"]] if group["rank"] in available else []
                 else:
                     candidates = available
+                required_version = self.running_versions.get(pending["request_id"])
+                if required_version is not None:
+                    candidates = [
+                        r for r in candidates if self.versions[r] == required_version
+                    ]
+                    if not any(v == required_version for v in self.versions):
+                        self.error = "No compatible epoch remains for running handoff"
+                        raise RuntimeError(self.error)
                 if not candidates:
                     continue
                 if waiting_ticket != ticket:
@@ -124,6 +142,12 @@ class RequestLeasePool:
                         previous_rank=previous["rank"] if previous else None,
                     )
                 self.groups[group_id] = dict(rank=rank, size=group_size)
+            if request_id in self.running_versions:
+                attempts = self.running_attempts.get(request_id, 0) + 1
+                if attempts > 3:
+                    self.error = "Running handoff exceeded admission retry limit"
+                    raise RuntimeError(self.error)
+                self.running_attempts[request_id] = attempts
             self.serial += 1
             lease = dict(
                 ticket=ticket,
@@ -134,6 +158,7 @@ class RequestLeasePool:
                 rank=rank,
                 server=self.addresses[rank],
                 version=self.versions[rank],
+                running_handoff=request_id in self.running_versions,
                 metrics=metrics or {},
             )
             self.waiting.pop(ticket)
@@ -170,8 +195,18 @@ class RequestLeasePool:
                 self.error = "Generation transport failed with unknown execution state"
                 request_trace.emit("route_uncertain", **lease)
                 return  # Fail closed: no second execution and no unsafe weight update.
+            if observation and (
+                observation.get("finished")
+                or (
+                    lease.get("running_handoff")
+                    and observation.get("segment_tokens", 0) > 0
+                )
+            ):
+                self.running_versions.pop(lease["request_id"], None)
+                self.running_attempts.pop(lease["request_id"], None)
             if observation and observation.get("finished"):
                 self.rebalance_reservations.pop(lease["request_id"], None)
+                self.running_moved.discard(lease["request_id"])
                 question = lease.get("metrics", {}).get("question_id")
                 if question is not None:
                     self.completed.setdefault(question, set()).add(lease["request_id"])
@@ -208,16 +243,46 @@ class RequestLeasePool:
                 self.error = "Request cancelled with an outstanding lease"
 
     def close(self, rank: int):
+        # A running handoff pins both epochs until the response prefix has
+        # arrived and the destination owns a lease. Never hold the pool lock
+        # while waiting: release/acquire callbacks must be able to progress.
+        deadline = time.monotonic() + 10.0
         with self.lock:
-            self.ready[rank] = False
-            self.rebalance_reservations = {
-                rid: r
-                for rid, r in self.rebalance_reservations.items()
-                if r["rank"] != rank
-            }
+            self.closing.add(rank)
+        while True:
+            with self.lock:
+                pinned = any(
+                    r.get("running") and rank in (r["source_rank"], r["rank"])
+                    for r in self.rebalance_reservations.values()
+                )
+                if self.error:
+                    raise RuntimeError(self.error)
+                if not pinned:
+                    self.ready[rank] = False
+                    self.closing.discard(rank)
+                    self.rebalance_reservations = {
+                        rid: r
+                        for rid, r in self.rebalance_reservations.items()
+                        if r["rank"] != rank
+                    }
+                    return
+                if time.monotonic() >= deadline:
+                    self.error = (
+                        "Running handoff did not acknowledge before publication"
+                    )
+                    raise TimeoutError(self.error)
+            time.sleep(0.01)
+
+    def _check_handoff_epoch(self, rank):
+        if any(
+            r.get("running") and rank in (r["source_rank"], r["rank"])
+            for r in self.rebalance_reservations.values()
+        ):
+            raise RuntimeError("Running handoff pins replica epoch")
 
     def open(self, rank: int, version: int):
         with self.lock:
+            self._check_handoff_epoch(rank)
             if self.error:
                 raise RuntimeError(self.error)
             if any(x["rank"] == rank for x in self.active.values()):
@@ -240,6 +305,7 @@ class RequestLeasePool:
 
     def set_version(self, rank: int, version: int):
         with self.lock:
+            self._check_handoff_epoch(rank)
             if any(x["rank"] == rank for x in self.active.values()):
                 raise RuntimeError("Version change requires drained requests")
             self.versions[rank] = version
@@ -257,6 +323,10 @@ class RequestLeasePool:
                 self.window_observations.clear()
             return dict(
                 capacity=self.capacity,
+                ready=list(self.ready),
+                versions=list(self.versions),
+                task_affinity=self.task_affinity,
+                running_moved=list(self.running_moved),
                 reserved=len(self.rebalance_reservations),
                 window_lengths=lengths,
                 window_migrations=migrations,
@@ -267,12 +337,16 @@ class RequestLeasePool:
                 lengths=list(self.lengths),
             )
 
-    def reserve_rebalance(self, request_ids, version, source_rank=1, target_rank=0):
+    def reserve_rebalance(
+        self, request_ids, version, source_rank=1, target_rank=0, *, running=False
+    ):
         """Reserve target slots without releasing any source execution lease."""
         with self.lock:
             if (
                 self.error
                 or not all(self.ready)
+                or source_rank in self.closing
+                or target_rank in self.closing
                 or any(v != version for v in self.versions)
             ):
                 return {}
@@ -300,12 +374,20 @@ class RequestLeasePool:
                     or leases[0]["lease_id"] != expected_lease
                     or leases[0]["version"] != version
                     or rid in self.rebalance_reservations
+                    or (running and rid in self.running_moved)
                 ):
                     continue
                 lease = leases[0]
                 self.rebalance_reservations[rid] = dict(
-                    rank=target_rank, version=version, lease_id=lease["lease_id"]
+                    rank=target_rank,
+                    version=version,
+                    lease_id=lease["lease_id"],
+                    running=running,
+                    source_rank=source_rank,
                 )
+                if running:
+                    self.running_moved.add(rid)
+                    self.running_versions[rid] = version
                 chosen[rid] = lease["lease_id"]
                 room -= 1
             return chosen
@@ -315,6 +397,8 @@ class RequestLeasePool:
             for rid, lease_id in reservations.items():
                 current = self.rebalance_reservations.get(rid)
                 if current and current["lease_id"] == lease_id:
+                    if current.get("running"):
+                        self.running_versions.pop(rid, None)
                     del self.rebalance_reservations[rid]
 
     def active_requests(self, rank: int) -> list[str]:

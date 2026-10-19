@@ -1145,6 +1145,10 @@ class RemoteInfEngine(InferenceEngine):
                         headers={
                             "X-Areal-Request-Routing": "1",
                             "X-Areal-Route-Rank": str(lease["rank"]),
+                            "X-Areal-Route-Version": str(request_version),
+                            "X-Areal-Running-Handoff": str(
+                                int(lease.get("running_handoff", False))
+                            ),
                         },
                         timeout=aiohttp.ClientTimeout(
                             total=self.config.request_timeout
@@ -1164,6 +1168,7 @@ class RemoteInfEngine(InferenceEngine):
                                     in ["stop", "length", "tool_calls"],
                                     total_tokens=len(accumulated_output_tokens)
                                     + len(parsed.output_tokens),
+                                    segment_tokens=len(parsed.output_tokens),
                                 )
                         acknowledged = True
                 finally:

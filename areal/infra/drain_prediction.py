@@ -112,11 +112,19 @@ def simulate_decode(
             admit(i)
         while cursor < len(queue) and len(active) + len(prefills) < width:
             i = queue[cursor]
-            transfer = migration if moving and rows[i]["rank"] != rank else 0.0
+            transfer = (
+                rows[i].get("handoff_ready_s", migration)
+                if moving and rows[i]["rank"] != rank
+                else 0.0
+            )
             if transfer > now + 1e-9:
                 break
             cursor += 1
-            prefill = rows[i]["context"] * first_unit
+            prefill = (
+                rows[i].get("handoff_prefill_s", rows[i]["context"] * first_unit)
+                if moving and rows[i]["rank"] != rank
+                else rows[i]["context"] * first_unit
+            )
             if prefill <= 1e-9:
                 admit(i)
             else:
@@ -128,7 +136,11 @@ def simulate_decode(
         next_times = [prefills[0][0]] if prefills else []
         if cursor < len(queue) and len(active) + len(prefills) < width:
             i = queue[cursor]
-            transfer = migration if moving and rows[i]["rank"] != rank else 0.0
+            transfer = (
+                rows[i].get("handoff_ready_s", migration)
+                if moving and rows[i]["rank"] != rank
+                else 0.0
+            )
             if transfer > now + 1e-9:
                 next_times.append(transfer)
         if active:

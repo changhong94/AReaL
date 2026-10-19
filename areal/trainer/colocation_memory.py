@@ -215,6 +215,35 @@ class ColocationMemoryPolicy:
             self._rollout("kv_budget_clear")
         return admitted
 
+    def inference_budget(self):
+        """Bound inference-only KV without reserving the next training phase."""
+        rollout = self._rollout()
+        if rollout["restore_bytes"] or not rollout.get("dynamic_kv"):
+            return False
+        # Actor storage may stay resident or be reclaimed by inference().
+        # Training prefetch closes inference admission and reclaims KV before
+        # restoring the actor; its workspace is not concurrent in this phase.
+        needed = self.required(self.config.inference_workspace_gib)
+        budget = max(
+            0, self.free(rollout) - needed + rollout["dynamic_kv"]["mapped_bytes"]
+        )
+        status = self._rollout("kv_budget", kv_budget_bytes=budget)
+        admitted = status["concurrent_admitted"]
+        self.log(
+            "INFERENCE_MEMORY "
+            + json.dumps(
+                dict(
+                    admitted=admitted,
+                    kv_budget_bytes=budget,
+                    reserved_growth_bytes=needed,
+                    capacity_blocks=status["capacity_blocks"],
+                )
+            )
+        )
+        if not admitted:
+            self._rollout("kv_budget_clear")
+        return admitted
+
     def inference(self):
         status = self._rollout()
         needed = self.required(
@@ -273,6 +302,12 @@ class GroupColocationMemoryPolicy:
         # Apply each member's budget while every inference scheduler is paused.
         # Resume is a separate group operation, after every member ACKs.
         admitted = [policy.concurrent_train() for policy in self.policies]
+        if not all(admitted):
+            self.rollout("kv_budget_clear")
+        return all(admitted)
+
+    def inference_budget(self):
+        admitted = [policy.inference_budget() for policy in self.policies]
         if not all(admitted):
             self.rollout("kv_budget_clear")
         return all(admitted)

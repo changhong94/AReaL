@@ -3,7 +3,13 @@
     "id": "R001",
     "en": "optimizations/R001-runtime-request-rebalancing.md",
     "zh": "optimizations/R001-runtime-request-rebalancing.zh.md",
-    "status": "proposed"
+    "status": "experimental; live validation pending",
+    "code_paths": [
+      "areal/infra/running_rebalance.py",
+      "areal/infra/request_router.py",
+      "areal/infra/controller/rollout_controller.py",
+      "areal/engine/vllm_ext/queue_rebalance.py"
+    ]
   },
   {
     "id": "R002",

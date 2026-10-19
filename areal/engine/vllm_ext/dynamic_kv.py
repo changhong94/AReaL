@@ -477,7 +477,9 @@ def install_dynamic_state_hook(cls):
         pending = coordinated_state_call(
             pool, lambda: pending_blocks(self.requests, output)
         )
-        coordinated_reconcile(pool, pending)
+        pins = getattr(self, "_areal_kv_import_pins", {})
+        imported = set().union(*pins.values()) if pins else set()
+        coordinated_reconcile(pool, pending | imported)
         result = coordinated_state_call(pool, lambda: original(self, output))
         live = coordinated_state_call(
             pool,
@@ -488,7 +490,11 @@ def install_dynamic_state_hook(cls):
                 )
             ),
         )
-        coordinated_reconcile(pool, live)
+        for rid in list(pins):
+            if rid in self.requests or rid in output.finished_req_ids:
+                del pins[rid]
+        imported = set().union(*pins.values()) if pins else set()
+        coordinated_reconcile(pool, live | imported)
         after = pool.snapshot()
         if before["mapped_bytes"] != after["mapped_bytes"]:
             logging.getLogger("vllm.areal_kv_slab").info(

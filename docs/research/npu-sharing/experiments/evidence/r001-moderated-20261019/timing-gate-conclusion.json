@@ -1,0 +1,9 @@
+{
+  "gate_triggered": 0,
+  "confirmed_migrations": 5,
+  "aborted_probe_seconds": 1.952897023409605,
+  "fixed_s": 184.2213249206543,
+  "shared_s": 160.0673553943634,
+  "transition_wait_s": 0.8564784619957209,
+  "conclusion": "No demonstrated benefit from the timing gate; retained as opt-in. Formal runner unchanged. Future development validation uses reusable vLLM tooling; independent startup reserved for final confirmation."
+}

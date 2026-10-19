@@ -1,0 +1,626 @@
+[
+  {
+    "workspace": "/root/areal-benchmarks/20261016-121318-0700_math_fsdp_c16_b6_1c8315",
+    "arm": "latest",
+    "settings": {
+      "rl": "math",
+      "engine": "fsdp",
+      "concurrency": 16,
+      "max_head_offpolicyness": 2,
+      "batches": 6,
+      "running_rebalance": "kv",
+      "batch_size": 16,
+      "answers": 6,
+      "questions": 96,
+      "seed": 1,
+      "max_new_tokens": 1024,
+      "timezone": "America/Vancouver",
+      "created": "20261016-121318-0700",
+      "timeout": 3600,
+      "container_prefix": "areal-bench-481b1c167fdb",
+      "image": "areal-timeshare:ascend-v0.26-a2-dev1",
+      "devices": [
+        1,
+        2
+      ],
+      "npu_count": 2,
+      "inference_tp": 1,
+      "allocation": {
+        "total": 2,
+        "training": 1,
+        "dedicated_inference": 1,
+        "shared_inference_max": 2
+      },
+      "inference_replicas": 1,
+      "image_id": "sha256:6deffddcf7fec443c62c27863432120e3a194a447d57a9a748ec232724865be3"
+    },
+    "followup": {
+      "phase": "complete",
+      "current": "latest",
+      "scope": "shared_only_followup",
+      "workspace": "/root/areal-benchmarks/20261016-121318-0700_math_fsdp_c16_b6_1c8315",
+      "concurrency": 16,
+      "mode": "kv",
+      "execute": 1,
+      "exit_code": 0
+    },
+    "loop_seconds": 150.85959839820862,
+    "answers": 576,
+    "tokens": 136471,
+    "kv_handoffs": 0,
+    "kv_requests": 0,
+    "kv_seconds": 0,
+    "imports": {},
+    "skip_reasons": {},
+    "plans": [
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792178465.616576,
+        "pid": 1,
+        "version": 1,
+        "selected": [],
+        "reason": "snapshot_race",
+        "execution_ready": false,
+        "scope": "offline_counterfactual"
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792178480.4311726,
+        "pid": 1,
+        "version": 2,
+        "selected": [],
+        "reason": "snapshot_race",
+        "execution_ready": false,
+        "scope": "offline_counterfactual"
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792178495.8773606,
+        "pid": 1,
+        "version": 3,
+        "selected": [],
+        "reason": "snapshot_race",
+        "execution_ready": false,
+        "scope": "offline_counterfactual"
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792178515.340205,
+        "pid": 1,
+        "version": 4,
+        "selected": [],
+        "reason": "no_predicted_gain",
+        "execution_ready": false,
+        "scope": "offline_counterfactual",
+        "baseline_tail_s": 11.685357739326703,
+        "baseline_total_s": 443.9092851576552,
+        "predicted_tail_s": 11.685357739326703,
+        "predicted_gain_s": 0.0,
+        "planning_s": 0.05625011771917343,
+        "net_predicted_gain_s": -0.05625011771917343
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792178536.1528785,
+        "pid": 1,
+        "version": 5,
+        "selected": [],
+        "reason": "no_predicted_gain",
+        "execution_ready": false,
+        "scope": "offline_counterfactual",
+        "baseline_tail_s": 4.681785105636645,
+        "baseline_total_s": 92.02024158635884,
+        "predicted_tail_s": 4.681785105636645,
+        "predicted_gain_s": 0.0,
+        "planning_s": 0.019076459109783173,
+        "net_predicted_gain_s": -0.019076459109783173
+      }
+    ],
+    "batch_ready": [
+      {
+        "batch": 1,
+        "seconds": 30.7610604763031
+      },
+      {
+        "batch": 2,
+        "seconds": 45.615479707717896
+      },
+      {
+        "batch": 3,
+        "seconds": 64.43755078315735
+      },
+      {
+        "batch": 4,
+        "seconds": 84.51927638053894
+      },
+      {
+        "batch": 5,
+        "seconds": 103.61243796348572
+      },
+      {
+        "batch": 6,
+        "seconds": 130.74868655204773
+      }
+    ],
+    "queued_requests": 0,
+    "source_hashes": {
+      "areal/infra/kv_rebalance.py": "64ac75d3ad67d53dd291b5e9e10b40a484bc567712dac406cb9d6f6e64d03588",
+      "areal/infra/batch_rebalance.py": "c9f094dbca6dc8363312e2c19e9ffce51ce1c2a341864f21ed5adb5a18a208c4",
+      "areal/engine/vllm_ext/kv_handoff.py": "654ba4041c236c3e7b3aa235287d7530e824a59c44e195017f81f6ead383ade8"
+    }
+  },
+  {
+    "workspace": "/root/areal-benchmarks/20261016-122322-0700_math_fsdp_c16_b6_759cff",
+    "arm": "latest",
+    "settings": {
+      "rl": "math",
+      "engine": "fsdp",
+      "concurrency": 16,
+      "max_head_offpolicyness": 2,
+      "batches": 6,
+      "running_rebalance": "kv",
+      "batch_size": 16,
+      "answers": 6,
+      "questions": 96,
+      "seed": 1,
+      "max_new_tokens": 1024,
+      "timezone": "America/Vancouver",
+      "created": "20261016-122322-0700",
+      "timeout": 3600,
+      "container_prefix": "areal-bench-9ecd134a6fdf",
+      "image": "areal-timeshare:ascend-v0.26-a2-dev1",
+      "devices": [
+        1,
+        2
+      ],
+      "npu_count": 2,
+      "inference_tp": 1,
+      "allocation": {
+        "total": 2,
+        "training": 1,
+        "dedicated_inference": 1,
+        "shared_inference_max": 2
+      },
+      "inference_replicas": 1,
+      "image_id": "sha256:6deffddcf7fec443c62c27863432120e3a194a447d57a9a748ec232724865be3"
+    },
+    "followup": {
+      "phase": "complete",
+      "current": "latest",
+      "scope": "shared_only_followup",
+      "workspace": "/root/areal-benchmarks/20261016-122322-0700_math_fsdp_c16_b6_759cff",
+      "concurrency": 16,
+      "mode": "kv",
+      "execute": 0,
+      "exit_code": 0
+    },
+    "loop_seconds": 162.3604657649994,
+    "answers": 576,
+    "tokens": 135945,
+    "kv_handoffs": 0,
+    "kv_requests": 0,
+    "kv_seconds": 0,
+    "imports": {},
+    "skip_reasons": {},
+    "plans": [
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792179065.7977536,
+        "pid": 1,
+        "version": 1,
+        "selected": [],
+        "reason": "admission_priority",
+        "execution_ready": false,
+        "scope": "offline_counterfactual"
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792179080.3689272,
+        "pid": 1,
+        "version": 2,
+        "selected": [],
+        "reason": "snapshot_race",
+        "execution_ready": false,
+        "scope": "offline_counterfactual"
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792179095.2849696,
+        "pid": 1,
+        "version": 3,
+        "selected": [],
+        "reason": "snapshot_race",
+        "execution_ready": false,
+        "scope": "offline_counterfactual"
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792179118.5047793,
+        "pid": 1,
+        "version": 4,
+        "selected": [],
+        "reason": "snapshot_race",
+        "execution_ready": false,
+        "scope": "offline_counterfactual"
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792179135.3528206,
+        "pid": 1,
+        "version": 5,
+        "selected": [],
+        "reason": "no_predicted_gain",
+        "execution_ready": false,
+        "scope": "offline_counterfactual",
+        "baseline_tail_s": 6.4722978904984405,
+        "baseline_total_s": 156.08275223748632,
+        "predicted_tail_s": 6.4722978904984405,
+        "predicted_gain_s": 0.0,
+        "planning_s": 0.028469344601035118,
+        "net_predicted_gain_s": -0.028469344601035118
+      }
+    ],
+    "batch_ready": [
+      {
+        "batch": 1,
+        "seconds": 33.84130573272705
+      },
+      {
+        "batch": 2,
+        "seconds": 47.491337060928345
+      },
+      {
+        "batch": 3,
+        "seconds": 65.70994567871094
+      },
+      {
+        "batch": 4,
+        "seconds": 88.1447286605835
+      },
+      {
+        "batch": 5,
+        "seconds": 106.88262581825256
+      },
+      {
+        "batch": 6,
+        "seconds": 140.70404291152954
+      }
+    ],
+    "queued_requests": 0,
+    "source_hashes": {
+      "areal/infra/kv_rebalance.py": "64ac75d3ad67d53dd291b5e9e10b40a484bc567712dac406cb9d6f6e64d03588",
+      "areal/infra/batch_rebalance.py": "c9f094dbca6dc8363312e2c19e9ffce51ce1c2a341864f21ed5adb5a18a208c4",
+      "areal/engine/vllm_ext/kv_handoff.py": "654ba4041c236c3e7b3aa235287d7530e824a59c44e195017f81f6ead383ade8"
+    }
+  },
+  {
+    "workspace": "/root/areal-benchmarks/20261016-123331-0700_math_fsdp_c32_b6_cc4636",
+    "arm": "latest",
+    "settings": {
+      "rl": "math",
+      "engine": "fsdp",
+      "concurrency": 32,
+      "max_head_offpolicyness": 2,
+      "batches": 6,
+      "running_rebalance": "kv",
+      "batch_size": 16,
+      "answers": 6,
+      "questions": 96,
+      "seed": 1,
+      "max_new_tokens": 1024,
+      "timezone": "America/Vancouver",
+      "created": "20261016-123331-0700",
+      "timeout": 3600,
+      "container_prefix": "areal-bench-e4aa3c5d9745",
+      "image": "areal-timeshare:ascend-v0.26-a2-dev1",
+      "devices": [
+        1,
+        2
+      ],
+      "npu_count": 2,
+      "inference_tp": 1,
+      "allocation": {
+        "total": 2,
+        "training": 1,
+        "dedicated_inference": 1,
+        "shared_inference_max": 2
+      },
+      "inference_replicas": 1,
+      "image_id": "sha256:6deffddcf7fec443c62c27863432120e3a194a447d57a9a748ec232724865be3"
+    },
+    "followup": {
+      "phase": "complete",
+      "current": "latest",
+      "scope": "shared_only_followup",
+      "workspace": "/root/areal-benchmarks/20261016-123331-0700_math_fsdp_c32_b6_cc4636",
+      "concurrency": 32,
+      "mode": "kv",
+      "execute": 0,
+      "exit_code": 0
+    },
+    "loop_seconds": 124.86750054359436,
+    "answers": 576,
+    "tokens": 133891,
+    "kv_handoffs": 0,
+    "kv_requests": 0,
+    "kv_seconds": 0,
+    "imports": {},
+    "skip_reasons": {},
+    "plans": [
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792179687.1730707,
+        "pid": 1,
+        "version": 1,
+        "selected": [],
+        "reason": "no_predicted_gain",
+        "pending_requests": [],
+        "completed_requests": [
+          "76c1fe89b36b4512b03c97baf611d15f"
+        ],
+        "execution_ready": false,
+        "scope": "offline_counterfactual",
+        "baseline_tail_s": 13.089152817793208,
+        "baseline_total_s": 1282.4149422992562,
+        "predicted_tail_s": 13.089152817793208,
+        "predicted_gain_s": 0.0,
+        "planning_s": 0.10239754430949688,
+        "net_predicted_gain_s": -0.10239754430949688
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792179701.6783721,
+        "pid": 1,
+        "version": 2,
+        "selected": [],
+        "reason": "admission_priority",
+        "pending_requests": [],
+        "completed_requests": [],
+        "execution_ready": false,
+        "scope": "offline_counterfactual"
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792179716.4412456,
+        "pid": 1,
+        "version": 3,
+        "selected": [],
+        "reason": "admission_priority",
+        "pending_requests": [],
+        "completed_requests": [],
+        "execution_ready": false,
+        "scope": "offline_counterfactual"
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792179733.524534,
+        "pid": 1,
+        "version": 4,
+        "selected": [],
+        "reason": "no_predicted_gain",
+        "pending_requests": [],
+        "completed_requests": [],
+        "execution_ready": false,
+        "scope": "offline_counterfactual",
+        "baseline_tail_s": 8.537495062136271,
+        "baseline_total_s": 525.753960426611,
+        "predicted_tail_s": 8.537495062136271,
+        "predicted_gain_s": 0.0,
+        "planning_s": 0.06809219531714916,
+        "net_predicted_gain_s": -0.06809219531714916
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792179747.1607745,
+        "pid": 1,
+        "version": 5,
+        "selected": [],
+        "reason": "no_predicted_gain",
+        "pending_requests": [],
+        "completed_requests": [
+          "5139d64e63d04604a9c113d66355cc84"
+        ],
+        "execution_ready": false,
+        "scope": "offline_counterfactual",
+        "baseline_tail_s": 2.1047053747834297,
+        "baseline_total_s": 4.1306914540533075,
+        "predicted_tail_s": 2.1047053747834297,
+        "predicted_gain_s": 0.0,
+        "planning_s": 0.0012382939457893372,
+        "net_predicted_gain_s": -0.0012382939457893372
+      }
+    ],
+    "batch_ready": [
+      {
+        "batch": 1,
+        "seconds": 22.572591066360474
+      },
+      {
+        "batch": 2,
+        "seconds": 34.16226863861084
+      },
+      {
+        "batch": 3,
+        "seconds": 53.48764729499817
+      },
+      {
+        "batch": 4,
+        "seconds": 70.14914584159851
+      },
+      {
+        "batch": 5,
+        "seconds": 85.97521686553955
+      },
+      {
+        "batch": 6,
+        "seconds": 102.92872166633606
+      }
+    ],
+    "queued_requests": 0,
+    "source_hashes": {
+      "areal/infra/kv_rebalance.py": "64ac75d3ad67d53dd291b5e9e10b40a484bc567712dac406cb9d6f6e64d03588",
+      "areal/infra/batch_rebalance.py": "9caefd06737c650b8cc5ab5ef14b2fe8bdea3d5e9a4a6ba4ea36a4101448a644",
+      "areal/engine/vllm_ext/kv_handoff.py": "654ba4041c236c3e7b3aa235287d7530e824a59c44e195017f81f6ead383ade8"
+    }
+  },
+  {
+    "workspace": "/root/areal-benchmarks/20261016-124327-0700_math_fsdp_c32_b6_99f89d",
+    "arm": "latest",
+    "settings": {
+      "rl": "math",
+      "engine": "fsdp",
+      "concurrency": 32,
+      "max_head_offpolicyness": 2,
+      "batches": 6,
+      "running_rebalance": "kv",
+      "batch_size": 16,
+      "answers": 6,
+      "questions": 96,
+      "seed": 1,
+      "max_new_tokens": 1024,
+      "timezone": "America/Vancouver",
+      "created": "20261016-124327-0700",
+      "timeout": 3600,
+      "container_prefix": "areal-bench-e256169e0700",
+      "image": "areal-timeshare:ascend-v0.26-a2-dev1",
+      "devices": [
+        1,
+        2
+      ],
+      "npu_count": 2,
+      "inference_tp": 1,
+      "allocation": {
+        "total": 2,
+        "training": 1,
+        "dedicated_inference": 1,
+        "shared_inference_max": 2
+      },
+      "inference_replicas": 1,
+      "image_id": "sha256:6deffddcf7fec443c62c27863432120e3a194a447d57a9a748ec232724865be3"
+    },
+    "followup": {
+      "phase": "complete",
+      "current": "latest",
+      "scope": "shared_only_followup",
+      "workspace": "/root/areal-benchmarks/20261016-124327-0700_math_fsdp_c32_b6_99f89d",
+      "concurrency": 32,
+      "mode": "kv",
+      "execute": 1,
+      "exit_code": 0
+    },
+    "loop_seconds": 124.52357316017151,
+    "answers": 576,
+    "tokens": 134361,
+    "kv_handoffs": 0,
+    "kv_requests": 0,
+    "kv_seconds": 0,
+    "imports": {},
+    "skip_reasons": {},
+    "plans": [
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792180275.5577,
+        "pid": 1,
+        "version": 1,
+        "selected": [],
+        "reason": "admission_priority",
+        "pending_requests": [],
+        "completed_requests": [],
+        "execution_ready": false,
+        "scope": "offline_counterfactual"
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792180289.784898,
+        "pid": 1,
+        "version": 2,
+        "selected": [],
+        "reason": "admission_priority",
+        "pending_requests": [],
+        "completed_requests": [],
+        "execution_ready": false,
+        "scope": "offline_counterfactual"
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792180305.1665576,
+        "pid": 1,
+        "version": 3,
+        "selected": [],
+        "reason": "admission_priority",
+        "pending_requests": [],
+        "completed_requests": [],
+        "execution_ready": false,
+        "scope": "offline_counterfactual"
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792180319.545197,
+        "pid": 1,
+        "version": 4,
+        "selected": [],
+        "reason": "no_predicted_gain",
+        "pending_requests": [],
+        "completed_requests": [],
+        "execution_ready": false,
+        "scope": "offline_counterfactual",
+        "baseline_tail_s": 9.26273641035379,
+        "baseline_total_s": 632.1168239612962,
+        "predicted_tail_s": 9.26273641035379,
+        "predicted_gain_s": 0.0,
+        "planning_s": 0.07175098545849323,
+        "net_predicted_gain_s": -0.07175098545849323
+      },
+      {
+        "event": "kv_rebalance_plan",
+        "time": 1792180334.5905802,
+        "pid": 1,
+        "version": 5,
+        "selected": [],
+        "reason": "no_predicted_gain",
+        "pending_requests": [],
+        "completed_requests": [],
+        "execution_ready": false,
+        "scope": "offline_counterfactual",
+        "baseline_tail_s": 5.567261802608813,
+        "baseline_total_s": 47.32133923878364,
+        "predicted_tail_s": 5.567261802608813,
+        "predicted_gain_s": 0.0,
+        "planning_s": 0.005765499547123909,
+        "net_predicted_gain_s": -0.005765499547123909
+      }
+    ],
+    "batch_ready": [
+      {
+        "batch": 1,
+        "seconds": 21.33080530166626
+      },
+      {
+        "batch": 2,
+        "seconds": 34.0137140750885
+      },
+      {
+        "batch": 3,
+        "seconds": 51.036208391189575
+      },
+      {
+        "batch": 4,
+        "seconds": 66.30602169036865
+      },
+      {
+        "batch": 5,
+        "seconds": 84.69574904441833
+      },
+      {
+        "batch": 6,
+        "seconds": 104.30110239982605
+      }
+    ],
+    "queued_requests": 0,
+    "source_hashes": {
+      "areal/infra/kv_rebalance.py": "64ac75d3ad67d53dd291b5e9e10b40a484bc567712dac406cb9d6f6e64d03588",
+      "areal/infra/batch_rebalance.py": "9caefd06737c650b8cc5ab5ef14b2fe8bdea3d5e9a4a6ba4ea36a4101448a644",
+      "areal/engine/vllm_ext/kv_handoff.py": "654ba4041c236c3e7b3aa235287d7530e824a59c44e195017f81f6ead383ade8"
+    }
+  }
+]

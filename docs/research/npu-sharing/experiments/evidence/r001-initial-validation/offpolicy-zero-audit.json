@@ -1,0 +1,26 @@
+{
+  "fixed": {
+    "batch_versions": {
+      "1": {
+        "0": 96
+      },
+      "2": {
+        "1": 96
+      }
+    },
+    "completed_answers": 192,
+    "version_violations": []
+  },
+  "latest": {
+    "batch_versions": {
+      "1": {
+        "0": 96
+      },
+      "2": {
+        "1": 96
+      }
+    },
+    "completed_answers": 192,
+    "version_violations": []
+  }
+}

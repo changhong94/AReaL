@@ -1,0 +1,65 @@
+{
+  "scope": "Observed mean frame intervals in context bucket 512, pooled across six windows; not a controlled concurrency sweep",
+  "rows": [
+    {
+      "rank": 0,
+      "concurrency_bucket": 64,
+      "mean_ms": 55.54139697838814,
+      "frames": 109
+    },
+    {
+      "rank": 0,
+      "concurrency_bucket": 128,
+      "mean_ms": 57.52393154098707,
+      "frames": 51
+    },
+    {
+      "rank": 1,
+      "concurrency_bucket": 1,
+      "mean_ms": 45.80814270302653,
+      "frames": 20
+    },
+    {
+      "rank": 1,
+      "concurrency_bucket": 2,
+      "mean_ms": 48.348811619422015,
+      "frames": 17
+    },
+    {
+      "rank": 1,
+      "concurrency_bucket": 4,
+      "mean_ms": 49.01832549699715,
+      "frames": 35
+    },
+    {
+      "rank": 1,
+      "concurrency_bucket": 8,
+      "mean_ms": 49.09525942057371,
+      "frames": 30
+    },
+    {
+      "rank": 1,
+      "concurrency_bucket": 16,
+      "mean_ms": 49.67126609491451,
+      "frames": 28
+    },
+    {
+      "rank": 1,
+      "concurrency_bucket": 32,
+      "mean_ms": 50.85439870754878,
+      "frames": 75
+    },
+    {
+      "rank": 1,
+      "concurrency_bucket": 64,
+      "mean_ms": 53.28274191067683,
+      "frames": 267
+    },
+    {
+      "rank": 1,
+      "concurrency_bucket": 128,
+      "mean_ms": 55.845835665240884,
+      "frames": 240
+    }
+  ]
+}

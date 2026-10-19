@@ -174,6 +174,7 @@ def test_batch_mode_stops_on_first_cost_vote(monkeypatch):
 
     monkeypatch.setenv("AREAL_BATCH_DRAIN", "1")
     c = object.__new__(RolloutController)
+    c.rollout_alloc = SimpleNamespace(parallel=SimpleNamespace(dp_size=2))
     c._request_pool = RequestLeasePool(["a", "b"], 8)
     c._request_pool.acquire("t", "r")
     c.config = SimpleNamespace(request_timeout=60, max_head_offpolicyness=2)

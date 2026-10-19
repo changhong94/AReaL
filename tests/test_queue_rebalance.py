@@ -205,7 +205,12 @@ def test_controller_handoff_preserves_ack_fence(monkeypatch, outcome):
     monkeypatch.setenv("AREAL_QUEUE_REBALANCE", "1")
     monkeypatch.setenv("AREAL_BATCH_DRAIN_METRICS", "1")
     p, lease = source_pool()
-    owner = SimpleNamespace(_request_pool=p, _batch_calibration=None)
+    owner = SimpleNamespace(
+        _request_pool=p, _batch_calibration=None, borrowed_ranks=[0], fixed_ranks=[1]
+    )
+    owner._rebalance_pair = lambda *args: RolloutController._rebalance_pair(
+        owner, *args
+    )
     monkeypatch.setattr(
         planner,
         "plan_rebalance",

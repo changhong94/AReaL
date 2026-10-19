@@ -808,6 +808,8 @@ class PPOTrainer:
         )
 
     def _resume_training_inference(self):
+        if self.config.rollout.max_head_offpolicyness == 0:
+            return  # The next batch cannot execute before weight publication.
         if os.getenv("AREAL_TRAIN_PRIORITY_INFERENCE", "0") != "1":
             return
         if self._memory_policy.concurrent_train():
@@ -993,6 +995,19 @@ class PPOTrainer:
         ):
             request_trace.emit("shared_memory_switch_begin", version=new_version)
             self._memory_policy.inference()
+            if os.getenv("AREAL_RUNNING_REBALANCE", "off") in {
+                "active",
+                "budget",
+                "kv",
+            }:
+                # A completed training phase normally clears its KV cap. R001
+                # establishes an inference-only budget while still paused.
+                # Training prefetch later fences admission before restoring
+                # actor storage and applying the training-phase budget.
+                admitted = self._memory_policy.inference_budget()
+                request_trace.emit(
+                    "running_rebalance_budget", version=new_version, admitted=admitted
+                )
             request_trace.emit("shared_memory_switch_end", version=new_version)
         self.rollout.load_shared_snapshot_async(snapshot_meta)
         if self.eval_rollout is not None:
@@ -1959,7 +1974,7 @@ class PPOTrainer:
             and not config.rollout.use_lora
             and config.vllm.enforce_eager,
             "compatible batch admission": (
-                config.rollout.max_head_offpolicyness >= 1
+                config.rollout.max_head_offpolicyness >= 0
                 if self._uses_npu_share_pool
                 else config.rollout.max_head_offpolicyness == 0
             ),

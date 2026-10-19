@@ -90,6 +90,11 @@ install_ascend_kernel_warmup()
 
 
 class VLLMWorkerExtension:
+    def areal_kv_handoff(self, action, data):
+        from areal.engine.vllm_ext.kv_handoff import worker_operation
+
+        return worker_operation(self, action, data)
+
     def areal_colocation_memory(
         self,
         action: str = "status",

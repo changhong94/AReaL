@@ -1,0 +1,72 @@
+[
+  {
+    "input": "/tmp/r001-kv-events.jsonl",
+    "version": 1,
+    "reason": "no_predicted_gain",
+    "selected": 0,
+    "setup_s": 0.3
+  },
+  {
+    "input": "/tmp/r001-kv-events.jsonl",
+    "version": 2,
+    "reason": "no_predicted_gain",
+    "selected": 0,
+    "setup_s": 0.3
+  },
+  {
+    "input": "/tmp/r001-kv-events.jsonl",
+    "version": 3,
+    "reason": "no_predicted_gain",
+    "selected": 0,
+    "setup_s": 0.3
+  },
+  {
+    "input": "/tmp/r001-kv-events.jsonl",
+    "version": 4,
+    "reason": "no_predicted_gain",
+    "selected": 0,
+    "setup_s": 0.3
+  },
+  {
+    "input": "/tmp/r001-kv-events.jsonl",
+    "version": 5,
+    "reason": "no_predicted_gain",
+    "selected": 0,
+    "setup_s": 0.3
+  },
+  {
+    "input": "/tmp/r001-kv-c32-events.jsonl",
+    "version": 1,
+    "reason": "no_predicted_gain",
+    "selected": 0,
+    "setup_s": 0.3
+  },
+  {
+    "input": "/tmp/r001-kv-c32-events.jsonl",
+    "version": 2,
+    "reason": "admission_priority",
+    "selected": 0,
+    "setup_s": 0.3
+  },
+  {
+    "input": "/tmp/r001-kv-c32-events.jsonl",
+    "version": 3,
+    "reason": "admission_priority",
+    "selected": 0,
+    "setup_s": 0.3
+  },
+  {
+    "input": "/tmp/r001-kv-c32-events.jsonl",
+    "version": 4,
+    "reason": "no_predicted_gain",
+    "selected": 0,
+    "setup_s": 0.3
+  },
+  {
+    "input": "/tmp/r001-kv-c32-events.jsonl",
+    "version": 5,
+    "reason": "no_predicted_gain",
+    "selected": 0,
+    "setup_s": 0.3
+  }
+]
