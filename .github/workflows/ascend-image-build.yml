@@ -1,0 +1,188 @@
+name: Ascend NPU Nightly Images
+
+on:
+  push:
+    branches:
+      - ascend
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Git ref to build
+        required: false
+        default: ascend
+        type: string
+  workflow_call:
+    inputs:
+      source_ref:
+        description: Git ref to build
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+  packages: write
+
+concurrency:
+  group: ascend-image-build-${{ github.repository }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-and-publish:
+    name: build-and-publish-${{ matrix.accelerator }}-nightly
+    if: github.repository == 'HwVanICI/AReaL'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 180
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - accelerator: a2
+          - accelerator: a3
+          - accelerator: a5
+            source_ref: ascend-950-dev
+
+    env:
+      ACCELERATOR: ${{ matrix.accelerator }}
+      DOCKERFILE: Dockerfile.${{ matrix.accelerator }}
+      IMAGE_CACHE: ghcr.io/hwvanici/areal_npu_buildcache:${{ matrix.accelerator }}
+      IMAGE: ghcr.io/hwvanici/areal_npu:${{ matrix.accelerator }}-nightly
+
+    steps:
+      - name: Checkout workflow helpers
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.workflow_sha }}
+          sparse-checkout: .github/scripts
+
+      - name: Preserve dependency reporter
+        run: |
+          mkdir -p "${RUNNER_TEMP}/image-dependencies"
+          cp .github/scripts/image_dependencies.py "${RUNNER_TEMP}/image-dependencies/"
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ matrix.source_ref || inputs.source_ref || github.sha }}
+
+      - name: Record source revision
+        id: source
+        run: |
+          source_sha=$(git rev-parse HEAD)
+          echo "sha=${source_sha}" >> "$GITHUB_OUTPUT"
+          echo "Building source revision ${source_sha}"
+
+      - name: Inspect runner and Docker access
+        run: |
+          set -euo pipefail
+
+          echo "Runner: ${RUNNER_NAME:-unknown}"
+          echo "Architecture: $(uname -m)"
+          echo "Available CPUs: $(nproc)"
+          free -h
+          df -h /
+
+          docker version
+          docker buildx version
+          docker system df
+
+      - name: Log in to GitHub Container Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            docker login ghcr.io --username "${{ github.actor }}" --password-stdin
+
+      - name: Restore previous nightly dependency inventory
+        id: previous
+        continue-on-error: true
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 "${RUNNER_TEMP}/image-dependencies/image_dependencies.py" restore \
+            --image "${IMAGE}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --accelerator "${ACCELERATOR}" \
+            --output "${RUNNER_TEMP}/image-dependencies/previous.json"
+
+      - name: Build and publish Dockerfile.${{ matrix.accelerator }}
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          set -euo pipefail
+
+          docker buildx create \
+            --driver docker-container \
+            --name "areal-${ACCELERATOR}-builder" \
+            --use
+          docker buildx inspect --bootstrap
+
+          report_dir="${RUNNER_TEMP}/image-dependencies"
+          python3 "${report_dir}/image_dependencies.py" prepare \
+            --dockerfile "${DOCKERFILE}" \
+            --image "${IMAGE}" \
+            --cache "${IMAGE_CACHE}" \
+            --revision "${SOURCE_SHA}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --output "${report_dir}"
+
+          SECONDS=0
+          docker buildx bake \
+            --file "${report_dir}/bake.json" \
+            --allow "fs.read=${GITHUB_WORKSPACE}" \
+            --allow "fs.read=${report_dir}" \
+            --allow "fs.write=${report_dir}" \
+            --metadata-file "${report_dir}/build.json" \
+            --progress=plain
+          echo "Build duration: ${SECONDS}s"
+
+      - name: Record published image dependency inventory
+        id: inventory
+        run: |
+          set -euo pipefail
+          report_dir="${RUNNER_TEMP}/image-dependencies"
+          python3 "${report_dir}/image_dependencies.py" record \
+            --image "${IMAGE}" \
+            --metadata "${report_dir}/build.json" \
+            --inventory "${report_dir}/export/dependencies.json" \
+            --output "${report_dir}/current.json"
+          digest=$(jq -er '.runtime["containerimage.digest"]' "${report_dir}/build.json")
+          echo "artifact_name=image-dependencies-${ACCELERATOR}-${digest#sha256:}" >> "$GITHUB_OUTPUT"
+
+      - name: Summarize dependency changes
+        id: dependencies
+        continue-on-error: true
+        run: |
+          report_dir="${RUNNER_TEMP}/image-dependencies"
+          python3 "${report_dir}/image_dependencies.py" report \
+            --previous "${report_dir}/previous.json" \
+            --current "${report_dir}/current.json" \
+            --output "${report_dir}/summary.md"
+          cat "${report_dir}/summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report inventory failures
+        if: always() && (steps.previous.outcome == 'failure' || steps.inventory.outcome == 'failure' || steps.dependencies.outcome == 'failure')
+        run: |
+          echo '::warning::Dependency inventory is incomplete. See the inventory step logs.'
+          echo 'Dependency inventory is incomplete. See the inventory step logs.' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload dependency inventories
+        if: always() && steps.inventory.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.inventory.outputs.artifact_name }}
+          path: |
+            ${{ runner.temp }}/image-dependencies/current.json
+            ${{ runner.temp }}/image-dependencies/summary.md
+          if-no-files-found: error
+          overwrite: true
+
+      - name: Report final storage usage
+        if: always()
+        run: |
+          docker system df || true
+          df -h / /var/lib/docker || true
