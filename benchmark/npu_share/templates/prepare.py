@@ -9,6 +9,7 @@ import pyarrow.parquet as pq
 import yaml
 
 from areal.dataset import _get_custom_dataset
+from areal.engine.vllm_ext.graph_compat import full_graph_config
 from areal.utils.hf_utils import load_hf_tokenizer
 
 root = Path("/work")
@@ -40,7 +41,7 @@ for split, count in [("train", s["questions"]), ("test", 16)]:
             break
     if len(selected) < count:
         raise ValueError(
-            f"{split}: need {count} eligible distinct questions; found {len(selected)}. Reduce --batches or configure a larger dataset."
+            f"{split}: need {count} eligible distinct questions; found {len(selected)}. Reduce --batches/--batch-size or configure a larger dataset."
         )
     pq.write_table(table.take(selected), data / (split + ".parquet"))
     manifest[split] = dict(
@@ -61,9 +62,11 @@ for split, count in [("train", s["questions"]), ("test", 16)]:
             f"{split}: actual preprocessing count {len(actual)} != {count}"
         )
 (root / "data-manifest.json").write_text(json.dumps(manifest, indent=2))
-training_devices = s.get("npu_count", 2) // 2
+training_devices = s.get("allocation", {}).get("training", s.get("npu_count", 2) // 2)
+inference_devices = s.get("npu_count", 2) - training_devices
 inference_tp = s.get("inference_tp", 1)
-instances = training_devices // inference_tp
+instances = inference_devices // inference_tp
+shared_instances = s.get("npu_count", 2) // inference_tp
 for arm in ["fixed", "latest"]:
     shared = arm == "latest"
     c = yaml.safe_load(Path("/tool/base.yaml").read_text())
@@ -86,7 +89,7 @@ for arm in ["fixed", "latest"]:
         n_samples=s["answers"], max_new_tokens=s["max_new_tokens"], max_tokens=4096
     )
     c["rollout"].update(
-        backend=f"vllm:d{instances * (2 if shared else 1)}p1t{inference_tp}",
+        backend=f"vllm:d{shared_instances if shared else instances}p1t{inference_tp}",
         max_concurrent_rollouts=s["concurrency"],
         max_head_offpolicyness=s.get("max_head_offpolicyness", 2),
         queue_size=max(32, s["concurrency"] * 16),
@@ -101,9 +104,22 @@ for arm in ["fixed", "latest"]:
         gpu_memory_utilization=0.4,
         max_num_seqs=max(64, s["concurrency"] * 4),
     )
+    inference_mode = s.get("inference_mode", "eager")
+    if inference_mode not in {"graph", "eager"}:
+        raise ValueError("Invalid inference mode")
+    c["vllm"]["enforce_eager"] = inference_mode == "eager"
+    c["vllm"]["compilation_config"] = (
+        full_graph_config(
+            c["vllm"].get("max_num_batched_tokens", 2048), c["vllm"]["max_num_seqs"]
+        )
+        if inference_mode == "graph"
+        else None
+    )
     for split in ["train", "valid"]:
         c[split + "_dataset"].update(
-            path=str(data), batch_size=16 if split == "train" else 4, max_length=2048
+            path=str(data),
+            batch_size=s["batch_size"] if split == "train" else 4,
+            max_length=2048,
         )
     c["train_dataset"]["shuffle"] = False
     c["perf_tracer"].update(enabled=True)

@@ -20,6 +20,36 @@ from matplotlib.patches import Patch
 from matplotlib.text import Text
 
 
+def summed_utilization(samples, devices, metric):
+    """Sum same-snapshot device percentages; missing devices remain gaps."""
+    values = []
+    for sample in samples:
+        readings = [
+            sample.get("devices", {}).get(str(card), {}).get(metric) for card in devices
+        ]
+        values.append(
+            sum(readings)
+            if all(v is not None and math.isfinite(v) for v in readings)
+            else float("nan")
+        )
+    return values
+
+
+def request_windows(count, page_size=512):
+    """Select at most three disjoint windows of logical requests per arm."""
+    if count <= 3 * page_size:
+        return [
+            ("all", start, min(count, start + page_size))
+            for start in range(0, count, page_size)
+        ]
+    middle = (count - page_size) // 2
+    return [
+        ("first", 0, page_size),
+        ("middle", middle, middle + page_size),
+        ("last", count - page_size, count),
+    ]
+
+
 def rows(path):
     if not path.exists():
         return []
@@ -29,8 +59,16 @@ def rows(path):
 
 def load(root, arm, settings=None):
     settings = settings or {}
-    replicas = settings.get("npu_count", 2) // settings.get("inference_tp", 1)
-    offset = replicas // 2 if arm == "fixed" else 0
+    offset = (
+        (
+            settings.get("allocation", {}).get(
+                "training", settings.get("npu_count", 2) // 2
+            )
+            // settings.get("inference_tp", 1)
+        )
+        if arm == "fixed"
+        else 0
+    )
 
     def instance(rank):
         return offset + rank + 1
@@ -265,14 +303,123 @@ def pairs(d, begin, end, key="version"):
     return result
 
 
+def reward_execution_spans(data):
+    """Union active scoring intervals; queue wait is deliberately excluded."""
+    starts = {}
+    spans = []
+    for event in data["events"]:
+        key = (event.get("pid"), event.get("request_id"))
+        if event["event"] == "code_reward_begin":
+            starts[key] = event["time"] - data["base"]
+        elif event["event"] == "code_reward_end" and key in starts:
+            spans.append((starts.pop(key), event["time"] - data["base"]))
+    return merged(spans)
+
+
+def training_card_spans(data, devices, training_count):
+    """Project controller training spans onto participating physical cards.
+
+    These are group-level phase boundaries, not per-rank kernel timestamps.
+    Exclude recorded handoff intervals from training participation.
+    """
+    result = {card: [] for card in devices}
+    events = sorted(data["events"], key=lambda e: e["time"])
+    updates = sorted(
+        (s for s in data["stages"] if s["name"] == "ppo_update"),
+        key=lambda s: s["start"],
+    )
+    previous_end = float("-inf")
+    for batch, update in enumerate(updates, 1):
+        beginnings = [
+            s["start"]
+            for s in data["stages"]
+            if s["name"] in ("recompute_logp", "compute_advantage")
+            and previous_end <= s["start"] <= update["start"]
+        ]
+        start, end = min(beginnings, default=update["start"]), update["end"]
+        selected = [
+            e
+            for e in events
+            if e["event"] == "idle_training_selected" and e.get("batch") == batch
+        ]
+        world = int(selected[-1]["world_size"]) if selected else training_count
+        switches = sorted(
+            (
+                s
+                for s in data["stages"]
+                if s["name"] in ("idle_switch_in", "idle_switch_out")
+                and start <= s["start"] < end
+            ),
+            key=lambda s: s["start"],
+        )
+        cursor = start
+        pieces = []
+        for switch in switches:
+            pieces.append((cursor, switch["start"], world))
+            cursor = max(cursor, switch["end"])
+            world = (
+                len(devices) if switch["name"] == "idle_switch_in" else training_count
+            )
+        pieces.append((cursor, end, world))
+        for a, z, world in pieces:
+            if z <= a:
+                continue
+            if not 1 <= world <= len(devices):
+                raise ValueError(f"Unsupported training world size: {world}")
+            for card in devices[:world]:
+                result[card].append(dict(start=a, end=z, batch=batch, world=world))
+        previous_end = end
+    # Helper service includes restore/export/release, not pure kernel time.
+    helper_starts = {e["token"]: e for e in events if e["event"] == "idle_helper_begin"}
+    for event in events:
+        if event["event"] == "idle_helper_end" and event["token"] in helper_starts:
+            begin = helper_starts[event["token"]]
+            result[devices[-1]].append(
+                dict(
+                    start=begin["time"] - data["base"],
+                    end=event["time"] - data["base"],
+                    batch=event["batch"],
+                    world=1,
+                    helper=True,
+                )
+            )
+    return result
+
+
+def checkpoint_write_spans(data):
+    """Pair CPU writer events by output path, independently of training ranks."""
+    starts = {
+        e["path"]: e["time"]
+        for e in data["events"]
+        if e["event"] == "hf_save_write_begin"
+    }
+    return [
+        (starts[e["path"]] - data["base"], e["time"] - data["base"])
+        for e in data["events"]
+        if e["event"] == "hf_save_write_end" and e["path"] in starts
+    ]
+
+
 def translate_phase_text(value):
     """Translate phase-chart text while preserving every numeric measurement."""
+    value = value.replace("helper service", "辅助服务（含准备/回传）")
+    value = re.sub(r"Card (\d+) training", r"卡 \1 训练", value)
+    value = re.sub(r"(\d+)-card", r"\1卡", value)
     labels = {
+        "Training card rows: Bn | participating card count; black tick = phase start. Group-level timing, not per-card kernel timestamps. Handoff gaps excluded.": "逐卡训练行：Bn | 参与卡数；黑色短线为阶段开始。时间来自训练组阶段日志，并非逐卡算子时间；切换区间留空。",
+        "Reward scoring (any worker active)": "评分（至少一个 worker 活跃）",
+        "Training switch: single to multi": "训练切换：单卡到多卡",
+        "Training switch: multi to single": "训练切换：多卡到单卡",
+        "Prepare single-card training": "提前准备单卡训练",
+        "Prepare dual-card training": "提前准备双卡训练",
+        "DRAM-backed inference publication": "从 DRAM 发布推理权重",
         "Shared-group inference": "共享组推理",
         "Log-prob recomputation": "重算对数概率",
         "Advantages": "计算优势",
         "PPO update": "PPO 参数更新",
-        "Checkpoint": "保存检查点",
+        "Checkpoint": "保存检查点（异步时为快照准备）",
+        "Background checkpoint write": "后台检查点写盘",
+        "Wait for final checkpoint write": "等待最终检查点写盘",
         "Training-group snapshot export": "训练组导出权重快照",
         "Shared-group memory switch": "共享组显存切换",
         "Shared-group weight load": "共享组加载权重",
@@ -288,9 +435,9 @@ def translate_phase_text(value):
     }
     value = "\n".join(labels.get(line, line) for line in value.split("\n"))
     value = re.sub(
-        r"(\S+) \| (math|code) RL \| (\d+) questions x 6 answers \| concurrency (\d+) \| (\d+) batches",
+        r"(\S+) \| (math|code) RL \| (\d+) questions x (\d+) answers \| concurrency (\d+) \| (\d+) batches",
         lambda m: (
-            f"{m[1]} | {'算术' if m[2] == 'math' else '代码'} RL | {m[3]}题 × 每题6个回答 | 并发{m[4]}题 | {m[5]}个批次"
+            f"{m[1]} | {'算术' if m[2] == 'math' else '代码'} RL | {m[3]}题 × 每题{m[4]}个回答 | 并发{m[5]}题 | {m[6]}个批次"
         ),
         value,
     )
@@ -402,12 +549,15 @@ def write_summary_markdown(root, summary):
         "engine": "训练引擎",
         "concurrency": "题目并发数",
         "batches": "批次数",
+        "batch_size": "每批题数",
         "questions": "题目数",
         "answers": "每题回答数",
         "npu_count": "NPU 数量",
         "inference_tp": "推理 TP",
+        "inference_mode": "推理执行模式",
         "max_head_offpolicyness": "最大头部离策略限制",
         "running_rebalance": "共享组运行中请求再均衡",
+        "adaptive_concurrency": "共享组动态并发策略",
         "seed": "随机种子",
         "created": "创建时间",
     }
@@ -526,7 +676,7 @@ def main():
     devices = settings.get("devices", [1, 2])
     tp = settings.get("inference_tp", 1)
     instances = list(range(1, len(devices) // tp + 1))
-    half = len(instances) // 2
+    half = settings.get("allocation", {}).get("training", len(devices) // 2) // tp
 
     def instance_label(card):
         return f"Instance {card} (NPU {devices[(card - 1) * tp : card * tp]}, TP={tp})"
@@ -537,11 +687,19 @@ def main():
         "questions", questions
     ):
         raise ValueError("Completed workload differs from requested workload")
+    answers_per_question = settings.get("answers", 6)
     for d in data:
-        if len(d["batches"]) != n or len(d["requests"]) != questions * 6:
+        if (
+            len(d["batches"]) != n
+            or len(d["requests"]) != questions * answers_per_question
+        ):
             raise ValueError("Unequal completed workload")
-        if set(Counter(r["task"] for r in d["requests"]).values()) != {6}:
-            raise ValueError("Each question must have six completed answers")
+        if set(Counter(r["task"] for r in d["requests"]).values()) != {
+            answers_per_question
+        }:
+            raise ValueError(
+                "Each question must have the configured number of completed answers"
+            )
     hashes = []
     for arm in ["fixed", "latest"]:
         hashes.append(
@@ -561,7 +719,7 @@ def main():
     date = dt.datetime.now(ZoneInfo(settings.get("timezone", "UTC"))).strftime(
         "%Y-%m-%d"
     )
-    title = f"{settings['engine'].upper()} | {settings['rl']} RL | {questions} questions x 6 answers | concurrency {settings['concurrency']} | {n} batches"
+    title = f"{settings.get('inference_mode', 'eager').upper()} inference | {settings['engine'].upper()} | {settings['rl']} RL | {questions} questions x {answers_per_question} answers | concurrency {settings['concurrency']} | {n} batches"
     extent = math.ceil(max(d["end"] for d in data) / 10) * 10
     cmap = plt.get_cmap("tab20")
     palette = ["#2477b8", "#d68622", "#8b58aa", "#278b69", "#bd4d65", "#826342"]
@@ -678,7 +836,55 @@ def main():
                 if e["event"] == "_publish_fixed_weights.end"
             ]
             values[9] = list(zip(starts, ends))[: n - 1]
+        for name in extra_phase_names:
+            if name == "Reward scoring (any worker active)":
+                values.append(reward_execution_spans(d))
+            elif name == "Background checkpoint write":
+                values.append(checkpoint_write_spans(d))
+            else:
+                if name == "DRAM-backed inference publication":
+                    values.append(
+                        [
+                            (
+                                e["time"] - d["base"] - e["seconds"],
+                                e["time"] - d["base"],
+                            )
+                            for e in d["events"]
+                            if e["event"] == "idle_training_dram_publication"
+                        ]
+                    )
+                else:
+                    stage = extra_stage_labels[name]
+                    values.append(
+                        [
+                            (s["start"], s["end"])
+                            for s in d["stages"]
+                            if s["name"] == stage
+                        ]
+                    )
         return values
+
+    extra_stage_labels = {
+        "Training switch: single to multi": "idle_switch_in",
+        "Training switch: multi to single": "idle_switch_out",
+        "Prepare single-card training": "idle_entry_single",
+        "Prepare dual-card training": "idle_entry_multi",
+        "Wait for final checkpoint write": "save_finalize",
+    }
+    extra_phase_names = []
+    if any(checkpoint_write_spans(d) for d in data):
+        extra_phase_names.append("Background checkpoint write")
+    if any(reward_execution_spans(d) for d in data):
+        extra_phase_names.append("Reward scoring (any worker active)")
+    for label, stage in extra_stage_labels.items():
+        if any(s["name"] == stage for d in data for s in d["stages"]):
+            extra_phase_names.append(label)
+    if any(
+        e["event"] == "idle_training_dram_publication"
+        for d in data
+        for e in d["events"]
+    ):
+        extra_phase_names.append("DRAM-backed inference publication")
 
     # Overview plus six-batch detail pages for long runs.
     pages = [(0, extent, "overview", n <= 6)]
@@ -689,7 +895,9 @@ def main():
             hi = max(d["end"] if last == n else d["batches"][last + 1] for d in data)
             pages.append((lo, hi, f"batches_{first:03d}_{last:03d}", True))
     for lo, hi, label, labels in pages:
-        fig, axs = plt.subplots(2, 1, figsize=(24, 12))
+        fig, axs = plt.subplots(
+            2, 1, figsize=(24, 12 + len(extra_phase_names) + len(devices))
+        )
         names = [
             "Shared-group inference",
             "Log-prob recomputation",
@@ -701,6 +909,8 @@ def main():
             "Shared-group weight load",
             "Dedicated-group inference",
             "Dedicated-group weight publication",
+            *extra_phase_names,
+            *[f"Card {card} training" for card in devices],
         ]
         for ax, d in zip(axs, data):
             for y, spans in enumerate(stage_spans(d)):
@@ -725,6 +935,42 @@ def main():
                             f"{a:.2f}-{z:.2f}, {z - a:.2f}s",
                             ha="center",
                             fontsize=6,
+                        )
+            card_spans = training_card_spans(
+                d,
+                devices,
+                settings.get("allocation", {}).get("training", len(devices) // 2),
+            )
+            first_card_row = len(names) - len(devices)
+            for index, card in enumerate(devices):
+                y = first_card_row + index
+                for span in card_spans[card]:
+                    a, z = span["start"], span["end"]
+                    if z < lo or a > hi:
+                        continue
+                    ax.broken_barh(
+                        [(a, z - a)],
+                        (y - 0.23, 0.46),
+                        facecolors="#5470b4"
+                        if span.get("helper")
+                        else "#258574"
+                        if span["world"] > 1
+                        else "#e1a146",
+                    )
+                    ax.plot(a, y, "|", color="black", markersize=9)
+                    if labels:
+                        ax.text(
+                            (a + z) / 2,
+                            y - 0.3,
+                            f"B{span['batch']} | "
+                            + (
+                                "helper service\n"
+                                if span.get("helper")
+                                else f"{span['world']}-card\n"
+                            )
+                            + f"{a:.2f}-{z:.2f}, {z - a:.2f}s",
+                            ha="center",
+                            fontsize=7,
                         )
             markers(ax, d)
             if labels:
@@ -768,7 +1014,7 @@ def main():
                 yticks=[-2, -1, *range(len(names))],
                 yticklabels=["Batch step (odd)", "Batch step (even)", *names],
                 xlim=(lo, hi),
-                ylim=(9.5, -2.6),
+                ylim=(len(names) - 0.5, -2.6),
                 xlabel="Seconds since training loop started",
                 title=f"{d['arm']} | {d['end']:.2f}s",
             )
@@ -779,6 +1025,7 @@ def main():
             "Rn, Xs: X = time since previous readiness node; R1 is measured from loop start. Dotted line = controller receives the complete batch.\n"
             "Shared Rn, Xs, saved +/-Ys: Y = fixed interval X - shared interval X. Positive = time saved in this interval; negative = extra time, no saving.\n"
             "Bn, duration: acquisition entry to step-tail end; batch bars can overlap, so do not sum. Stage blocks: start-end, duration.\n"
+            "Training card rows: Bn | participating card count; black tick = phase start. Group-level timing, not per-card kernel timestamps. Handoff gaps excluded.\n"
             "Stars: last consumed answer ends. Blue: execution windows (gaps <=15ms merged). Each run starts at 0s; initialization excluded.",
         )
     # Request pages preserve question groups and show both cards on each page.
@@ -787,14 +1034,20 @@ def main():
         for r in d["requests"]:
             groups[r["task"]].append(r)
         order = sorted(groups, key=lambda q: min(r["start"] for r in groups[q]))
-        page_questions = questions if n <= 6 else 16
-        for page, start in enumerate(range(0, len(order), page_questions), 1):
-            rs = []
-            labels = {}
-            for q in order[start : start + page_questions]:
-                for i, r in enumerate(sorted(groups[q], key=lambda r: r["start"]), 1):
-                    rs.append(r)
-                    labels[r["id"]] = f"Q{q} A{i} B{r['batch']}"
+        ordered = []
+        labels = {}
+        for q in order:
+            for i, r in enumerate(sorted(groups[q], key=lambda r: r["start"]), 1):
+                ordered.append(r)
+                labels[r["id"]] = f"Q{q} A{i} B{r['batch']}"
+        # Remove only this renderer's same-date request pages before regeneration.
+        request_dir = output / (date + "_requests")
+        for old in request_dir.glob(f"{d['arm']}_*.png"):
+            if re.fullmatch(rf"{re.escape(d['arm'])}_\d{{3}}\.png", old.name):
+                old.unlink()
+        for page, (region, start, stop) in enumerate(request_windows(len(ordered)), 1):
+            rs = ordered[start:stop]
+            selection = f"{region}: requests {start + 1}-{stop} / {len(ordered)}"
             heights = [
                 max(10, sum(any(s["card"] == c for s in r["segments"]) for r in rs))
                 for c in instances
@@ -902,7 +1155,7 @@ def main():
                     yticklabels=[labels[r["id"]] for r in rr],
                     ylim=(max(1, len(rr)), -1),
                     xlim=(0, extent),
-                    title=f"{d['arm']} | {instance_label(card)} | page {page}",
+                    title=f"{d['arm']} | {instance_label(card)} | {selection}",
                     xlabel="Seconds since training loop started",
                 )
                 ax.tick_params(axis="y", labelsize=6)
@@ -918,12 +1171,14 @@ def main():
             save(
                 fig,
                 f"requests/{d['arm']}_{page:03d}",
+                f"Selection: {selection}. Up to 512 requests/page, 1536/arm; question-group order, boundary groups may span pages.\n"
                 "Color: batch. Light: queue/routing; medium: native queue; dark: execution-window span; hollow: logged pause (not exclusive NPU occupancy). Arrow: interrupted segment. Star: last consumed answer; dotted lines: batch ready. All logical answers completed.",
             )
     fig, axs = plt.subplots(
         2 * len(devices), 2, figsize=(20, 7 * len(devices)), sharex=True, sharey=True
     )
     utilization = {}
+    utilization_series = {}
     for k, d in enumerate(data):
         samples = [
             r
@@ -935,6 +1190,7 @@ def main():
             raise ValueError("No NPU utilization samples")
         times = [(r["start"] + r["end"]) / 2 - d["base"] for r in samples]
         utilization[d["arm"]] = {}
+        utilization_series[d["arm"]] = (times, samples)
         for device_index, card in enumerate(devices):
             for j, metric in enumerate(["aicore", "hbm_used_pct"]):
                 ax = axs[k * len(devices) + device_index, j]
@@ -954,6 +1210,39 @@ def main():
         fig,
         "utilization/overview",
         "Approximately 2-second samples; short peaks may be missed. HBM includes allocated/cached/reserved memory; AI Core activity is not achieved FLOPS.",
+    )
+    fig, axs = plt.subplots(2, 1, figsize=(22, 12), sharex=True)
+    for ax, metric, heading in zip(
+        axs,
+        ("aicore", "hbm_used_pct"),
+        ("Summed AI Core utilization", "Summed HBM utilization"),
+    ):
+        for d, line_color in zip(data, ("#2477b8", "#e87924")):
+            times, samples = utilization_series[d["arm"]]
+            ax.plot(
+                times,
+                summed_utilization(samples, devices, metric),
+                ".-",
+                color=line_color,
+                linewidth=1.5,
+                markersize=3,
+                label=d["arm"],
+            )
+        ax.set(
+            xlim=(0, extent),
+            ylim=(0, 100 * len(devices) * 1.05),
+            title=f"{heading} | {len(devices)} NPUs | maximum {100 * len(devices)}%",
+            ylabel="Sum of device percentages (%)",
+            xlabel="Seconds since each run's training loop started",
+        )
+        ax.legend()
+        ax.grid(alpha=0.2)
+    save(
+        fig,
+        "utilization/total",
+        "Same-snapshot sum across all allocated training and inference NPUs, not an average: 80% + 60% = 140%.\n"
+        "Runs align at loop start; samples are not resampled or extended after completion. Missing readings remain gaps.\n"
+        "Approximately 2-second samples. HBM sums per-device occupancy percentages, not capacity-weighted usage; AI Core activity is not FLOPS.",
     )
     fig, axs = plt.subplots(
         2 * len(instances),
@@ -1032,7 +1321,7 @@ def main():
     summary = dict(
         settings=settings,
         questions=questions,
-        answers=questions * 6,
+        answers=questions * answers_per_question,
         batches=n,
         loop_seconds={d["arm"]: d["end"] for d in data},
         reduction_percent=100 * (1 - data[1]["end"] / data[0]["end"]),

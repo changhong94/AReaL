@@ -6,6 +6,7 @@ import datetime as dt
 import fcntl
 import hashlib
 import json
+import os
 import shlex
 import shutil
 import signal
@@ -100,33 +101,60 @@ def nonnegative(value):
 
 def npu_count(value):
     count = positive(value)
-    if count < 2 or count % 2:
-        raise argparse.ArgumentTypeError("NPU count must be even and at least 2")
+    if count < 2:
+        raise argparse.ArgumentTypeError("NPU count must be at least 2")
     return count
 
 
-def allocation_counts(count):
-    """Define equal training/dedicated-inference pools for both comparison arms."""
-    return {
-        "total": count,
-        "training": count // 2,
-        "dedicated_inference": count // 2,
-        "shared_inference_max": count,
-    }
+def allocation_ratio(value):
+    try:
+        inference, training = map(int, value.split(":"))
+        if inference < 1 or training < 1:
+            raise ValueError
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "Use positive inference:training integers, e.g. 2:1"
+        ) from exc
+    return value
 
 
-def validate_topology(count, inference_tp=1):
-    if count not in (2, 4, 8):
-        raise ValueError("Supported total NPU counts are 2, 4, and 8")
-    if inference_tp < 1 or (count // 2) % inference_tp:
+def allocation_counts(count, ratio="1:1"):
+    """Split physical devices exactly without rounding either group."""
+    inference, training = map(int, allocation_ratio(ratio).split(":"))
+    if count * training % (inference + training):
         raise ValueError(
-            "Inference TP must divide the half-size inference device group"
+            "NPU count cannot represent the requested inference:training ratio exactly"
+        )
+    train = count * training // (inference + training)
+    return dict(
+        total=count,
+        training=train,
+        dedicated_inference=count - train,
+        shared_inference_max=count,
+    )
+
+
+def validate_topology(count, inference_tp=1, ratio="1:1"):
+    if count < 2:
+        raise ValueError("At least two NPUs are required")
+    allocation = allocation_counts(count, ratio)
+    if inference_tp < 1 or any(
+        allocation[key] % inference_tp for key in ("training", "dedicated_inference")
+    ):
+        raise ValueError(
+            "Inference TP must divide both training and dedicated inference groups"
         )
 
 
 def arguments():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--rl", choices=["math", "code"], default="math")
+    p.add_argument(
+        "--code-reward-scheduling",
+        choices=["answer", "question"],
+        default="answer",
+        help="experimental R029 shared-arm scoring policy; fixed arm remains answer",
+    )
     p.add_argument(
         "--concurrency",
         type=positive,
@@ -136,10 +164,34 @@ def arguments():
     p.add_argument("--engine", choices=["fsdp", "megatron"], default="fsdp")
     p.add_argument("--batches", type=positive, default=6)
     p.add_argument(
+        "--batch-size",
+        type=positive,
+        default=32,
+        help="questions per training batch (default: 32); independent of concurrency",
+    )
+    p.add_argument(
+        "--answers",
+        type=positive,
+        default=8,
+        help="sampled answers per question (default: 8)",
+    )
+    p.add_argument(
+        "--adaptive-concurrency",
+        choices=["off", "capacity"],
+        default="capacity",
+        help="R025 shared-only soft question admission; default capacity (off disables)",
+    )
+    p.add_argument(
+        "--inference-mode",
+        choices=["graph", "eager"],
+        default="graph",
+        help="vLLM execution mode (default: graph); training execution is unchanged",
+    )
+    p.add_argument(
         "--running-rebalance",
         choices=["off", "shadow", "budget", "active", "kv"],
-        default="off",
-        help="R001 policy for the shared arm only (experimental)",
+        default="kv",
+        help="R001 policy for the shared arm only (default: kv; requires equal-TP replicas)",
     )
     p.add_argument(
         "--max-head-offpolicyness",
@@ -151,13 +203,19 @@ def arguments():
         "--npu-count",
         type=npu_count,
         default=2,
-        help="total NPUs, split equally between training and dedicated inference; supports 2, 4, or 8",
+        help="total NPUs; divided according to --inference-training-ratio",
+    )
+    p.add_argument(
+        "--inference-training-ratio",
+        type=allocation_ratio,
+        default="1:1",
+        help="dedicated inference:training device ratio (default: 1:1)",
     )
     p.add_argument(
         "--inference-tp",
         type=positive,
         default=1,
-        help="devices per vLLM instance; must divide half the NPU count",
+        help="devices per vLLM instance; must divide each device group",
     )
     p.add_argument(
         "--profile",
@@ -253,9 +311,32 @@ def environment(shared):
             "AREAL_TRAIN_PRIORITY_INFERENCE",
             "AREAL_PRESSURE_MEMORY",
             "AREAL_DYNAMIC_KV",
+            "AREAL_PROFIT_AWARE_RETURN",
+            "AREAL_RESIDENT_BUDGET",
         ]
     }
     env.update(
+        AREAL_IDLE_FULL_VERIFY=os.getenv("AREAL_IDLE_FULL_VERIFY", "1"),
+        AREAL_IDLE_HELPER_VALIDATE=os.getenv("AREAL_IDLE_HELPER_VALIDATE", "0"),
+        AREAL_IDLE_HELPER_LEAN=os.getenv("AREAL_IDLE_HELPER_LEAN", "0"),
+        AREAL_IDLE_COMPARE_HELPER=os.getenv("AREAL_IDLE_COMPARE_HELPER", "0"),
+        AREAL_IDLE_ASYNC_TAIL=os.getenv("AREAL_IDLE_ASYNC_TAIL", "1"),
+        AREAL_IDLE_HELPER=os.getenv("AREAL_IDLE_HELPER", "0"),
+        AREAL_IDLE_MID_BATCH=os.getenv("AREAL_IDLE_MID_BATCH", "0"),
+        AREAL_RETAIN_DRAM=os.getenv("AREAL_RETAIN_DRAM", "0"),
+        AREAL_IDLE_CHUNK_ANSWERS=os.getenv("AREAL_IDLE_CHUNK_ANSWERS", "32"),
+        AREAL_IDLE_SWITCH_BUDGET=os.getenv("AREAL_IDLE_SWITCH_BUDGET", "1"),
+        AREAL_IDLE_ENTRY_VALIDATE_WORLDS=os.getenv(
+            "AREAL_IDLE_ENTRY_VALIDATE_WORLDS", ""
+        ),
+        AREAL_IDLE_SWITCH_COST_SECONDS=os.getenv("AREAL_IDLE_SWITCH_COST_SECONDS", "6"),
+        AREAL_IDLE_SWITCH_SPEEDUP=os.getenv("AREAL_IDLE_SWITCH_SPEEDUP", "1.5"),
+        AREAL_IDLE_SWITCH_MARGIN_SECONDS=os.getenv(
+            "AREAL_IDLE_SWITCH_MARGIN_SECONDS", "0"
+        ),
+        AREAL_IDLE_TRAINING="1"
+        if shared and os.getenv("AREAL_IDLE_TRAINING") == "1"
+        else "0",
         AREAL_SHARED_DRAIN_SECONDS="0",
         AREAL_NPU_SHARE_PAUSE_KEEP="0",
         AREAL_ASCEND_KERNEL_WARMUP="1",
@@ -285,7 +366,9 @@ def docker_args(profile, settings, workspace, arm=None):
         args += [
             "--privileged",
             "--shm-size",
-            "16g",
+            "64g"
+            if arm == "latest" and os.getenv("AREAL_IDLE_TRAINING") == "1"
+            else "16g",
             "--name",
             settings["container_prefix"] + "-" + arm,
         ]
@@ -301,6 +384,9 @@ def docker_args(profile, settings, workspace, arm=None):
     for split in ["train", "test"]:
         mounts.append((Path(data[split]), "/input/" + split + ".parquet", "ro"))
     env = environment(arm == "latest")
+    env["AREAL_ADAPTIVE_CONCURRENCY"] = (
+        settings.get("adaptive_concurrency", "off") if arm == "latest" else "off"
+    )
     env["AREAL_RUNNING_REBALANCE"] = (
         settings.get("running_rebalance", "off") if arm == "latest" else "off"
     )
@@ -326,6 +412,11 @@ def docker_args(profile, settings, workspace, arm=None):
             (Path(c["config_dir"]), c["container_config_dir"], "ro"),
         ]
         env.update(
+            AREAL_CODE_REWARD_SCHEDULING=(
+                settings.get("code_reward_scheduling", "answer")
+                if arm == "latest"
+                else "answer"
+            ),
             PYTHONPATH="/tool:/repo:/e2b-v250:/deps",
             KUASAR_CONFIG=c["container_config_dir"] + "/access.json",
             SSL_CERT_FILE=c["container_config_dir"] + "/ca.crt",
@@ -360,11 +451,8 @@ def main():
         finally:
             progress.close()
         return
-    validate_topology(opts.npu_count, opts.inference_tp)
-    if opts.running_rebalance == "kv" and (
-        opts.npu_count != 2 or opts.inference_tp != 1
-    ):
-        raise ValueError("Experimental KV handoff requires two NPUs and TP=1")
+    validate_topology(opts.npu_count, opts.inference_tp, opts.inference_training_ratio)
+    allocation = allocation_counts(opts.npu_count, opts.inference_training_ratio)
     repo = Path(profile["repo"]).resolve()
     root = (opts.workspace_root or Path(profile["workspace_root"])).resolve()
     if root == repo or repo in root.parents:
@@ -402,14 +490,21 @@ def main():
     print(f"WORKSPACE={workspace}", flush=True)
     settings = dict(
         rl=opts.rl,
+        code_reward_scheduling=opts.code_reward_scheduling,
+        code_reward_scheduling_by_arm={
+            "fixed": "answer",
+            "latest": opts.code_reward_scheduling,
+        },
         engine=opts.engine,
         concurrency=opts.concurrency,
         max_head_offpolicyness=opts.max_head_offpolicyness,
         batches=opts.batches,
         running_rebalance=opts.running_rebalance,
-        batch_size=16,
-        answers=6,
-        questions=16 * opts.batches,
+        adaptive_concurrency=opts.adaptive_concurrency,
+        inference_mode=opts.inference_mode,
+        batch_size=opts.batch_size,
+        answers=opts.answers,
+        questions=opts.batch_size * opts.batches,
         seed=1,
         max_new_tokens=1024,
         timezone=profile.get("timezone", "UTC"),
@@ -422,8 +517,9 @@ def main():
     settings.update(
         npu_count=opts.npu_count,
         inference_tp=opts.inference_tp,
-        allocation=allocation_counts(opts.npu_count),
-        inference_replicas=opts.npu_count // 2 // opts.inference_tp,
+        allocation=allocation,
+        inference_training_ratio=opts.inference_training_ratio,
+        inference_replicas=allocation["dedicated_inference"] // opts.inference_tp,
     )
     write_json(workspace / "settings.json", settings)
     state = dict(phase="preparing", completed=[], workspace=str(workspace))
@@ -440,14 +536,14 @@ def main():
 
     progress = Progress(profile.get("timezone", "UTC"))
     progress.message(
-        f"NPU topology: devices={selected}; training={opts.npu_count // 2}; dedicated vLLM instances={opts.npu_count // 2 // opts.inference_tp}; TP={opts.inference_tp}"
+        f"NPU topology: devices={selected}; training={allocation['training']}; dedicated vLLM instances={allocation['dedicated_inference'] // opts.inference_tp}; TP={opts.inference_tp}"
     )
     if opts.inference_tp > 1:
         progress.message(
             "TP shared instances use per-device budgets and all-member mapping acknowledgements"
         )
     progress.set(
-        f"Preparing {opts.rl} / {opts.engine}: fixed + shared, {opts.batches} batches each, concurrency {opts.concurrency}"
+        f"Preparing {opts.rl} / {opts.engine} / inference={opts.inference_mode}: fixed + shared, {opts.batches} batches each, {opts.batch_size} questions/batch, {opts.answers} answers/question, concurrency {opts.concurrency}"
     )
     signal.signal(signal.SIGINT, interrupted)
     signal.signal(signal.SIGTERM, interrupted)

@@ -1,0 +1,194 @@
+{
+  "date": "2026-10-20",
+  "model": "Qwen2.5-1.5B-Instruct",
+  "hardware": "Ascend 910B2",
+  "graph_mode": "FULL",
+  "prefill_lengths": [
+    31,
+    127,
+    129,
+    513,
+    2049,
+    4097,
+    9000
+  ],
+  "probes": {
+    "areal-prefill-tp1": {
+      "migration_tokens_equal": true,
+      "migration_logprob_error": 0.0,
+      "import_outcome": "import_applied",
+      "prefill": [
+        {
+          "prompt_tokens": 31,
+          "tokens_equal": true,
+          "logprob_max_error": 0.0
+        },
+        {
+          "prompt_tokens": 127,
+          "tokens_equal": true,
+          "logprob_max_error": 0.0
+        },
+        {
+          "prompt_tokens": 129,
+          "tokens_equal": true,
+          "logprob_max_error": 0.0
+        },
+        {
+          "prompt_tokens": 513,
+          "tokens_equal": true,
+          "logprob_max_error": 0.0
+        },
+        {
+          "prompt_tokens": 2049,
+          "tokens_equal": true,
+          "logprob_max_error": 0.0
+        },
+        {
+          "prompt_tokens": 4097,
+          "tokens_equal": true,
+          "logprob_max_error": 0.0
+        },
+        {
+          "prompt_tokens": 9000,
+          "tokens_equal": true,
+          "logprob_max_error": 0.0
+        }
+      ],
+      "retained_tokens_equal": true,
+      "retained_logprob_error": 0.0,
+      "retained_rank_backup_bytes": [
+        117440512
+      ],
+      "evidence": "/root/areal-development/graph-compat-20261020/areal-prefill-tp1/result.json"
+    },
+    "areal-prefill-tp2": {
+      "migration_tokens_equal": true,
+      "migration_logprob_error": 0.0,
+      "import_outcome": "import_applied",
+      "prefill": [
+        {
+          "prompt_tokens": 31,
+          "tokens_equal": true,
+          "logprob_max_error": 0.0
+        },
+        {
+          "prompt_tokens": 127,
+          "tokens_equal": true,
+          "logprob_max_error": 0.0
+        },
+        {
+          "prompt_tokens": 129,
+          "tokens_equal": true,
+          "logprob_max_error": 0.0
+        },
+        {
+          "prompt_tokens": 513,
+          "tokens_equal": true,
+          "logprob_max_error": 0.0
+        },
+        {
+          "prompt_tokens": 2049,
+          "tokens_equal": true,
+          "logprob_max_error": 0.0
+        },
+        {
+          "prompt_tokens": 4097,
+          "tokens_equal": true,
+          "logprob_max_error": 0.0
+        },
+        {
+          "prompt_tokens": 9000,
+          "tokens_equal": true,
+          "logprob_max_error": 0.0
+        }
+      ],
+      "retained_tokens_equal": true,
+      "retained_logprob_error": 0.0,
+      "retained_rank_backup_bytes": [
+        117440512,
+        0
+      ],
+      "evidence": "/root/areal-development/graph-compat-20261020/areal-prefill-tp2/result.json"
+    }
+  },
+  "native_comparison": [
+    {
+      "prompt_tokens": 31,
+      "adapter_tokens_equal": true,
+      "adapter_logprob_error": 0.0,
+      "native_graph_eager_error": 0.09116137027740479
+    },
+    {
+      "prompt_tokens": 127,
+      "adapter_tokens_equal": true,
+      "adapter_logprob_error": 0.0,
+      "native_graph_eager_error": 0.04918879270553589
+    },
+    {
+      "prompt_tokens": 129,
+      "adapter_tokens_equal": true,
+      "adapter_logprob_error": 0.0,
+      "native_graph_eager_error": 0.045610010623931885
+    },
+    {
+      "prompt_tokens": 513,
+      "adapter_tokens_equal": true,
+      "adapter_logprob_error": 0.0,
+      "native_graph_eager_error": 0.06300878524780273
+    },
+    {
+      "prompt_tokens": 2049,
+      "adapter_tokens_equal": true,
+      "adapter_logprob_error": 0.0,
+      "native_graph_eager_error": 0.0
+    },
+    {
+      "prompt_tokens": 4097,
+      "adapter_tokens_equal": true,
+      "adapter_logprob_error": 0.0,
+      "native_graph_eager_error": 0.0
+    },
+    {
+      "prompt_tokens": 9000,
+      "adapter_tokens_equal": true,
+      "adapter_logprob_error": 0.0,
+      "native_graph_eager_error": 0.07812917232513428
+    }
+  ],
+  "integration": {
+    "fsdp": {
+      "fixed": {
+        "train_loop_seconds": 56.09874439239502,
+        "prefill_full": 2,
+        "decode_full": 2,
+        "eager_fallback_markers": 0
+      },
+      "latest": {
+        "train_loop_seconds": 58.835057497024536,
+        "prefill_full": 6,
+        "decode_full": 6,
+        "eager_fallback_markers": 0
+      }
+    },
+    "megatron": {
+      "fixed": {
+        "train_loop_seconds": 44.24905848503113,
+        "prefill_full": 8,
+        "decode_full": 8,
+        "eager_fallback_markers": 0,
+        "storage_errors": []
+      },
+      "latest": {
+        "train_loop_seconds": 45.78088879585266,
+        "prefill_full": 24,
+        "decode_full": 24,
+        "eager_fallback_markers": 0,
+        "storage_errors": []
+      }
+    }
+  },
+  "integration_workspaces": {
+    "fsdp": "/root/areal-development/graph-compat-20261020/prefill-rl/20261020-171011-0700_math_fsdp_c16_b3_a1faeb",
+    "megatron": "/root/areal-development/graph-compat-20261020/prefill-rl/20261020-172707-0700_math_megatron_c16_b3_25dd2a"
+  }
+}

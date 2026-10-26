@@ -56,23 +56,41 @@ def run(opts, profile):
             str(opts.profile),
             "--rl",
             opts.rl,
+            "--code-reward-scheduling",
+            getattr(opts, "code_reward_scheduling", "answer"),
             "--engine",
             opts.engine,
             "--concurrency",
             str(opts.concurrency),
             "--batches",
             str(opts.batches),
+            "--batch-size",
+            str(opts.batch_size),
+            "--answers",
+            str(opts.answers),
             "--npu-count",
             str(opts.npu_count),
+            "--inference-training-ratio",
+            opts.inference_training_ratio,
             "--inference-tp",
             str(opts.inference_tp),
+            "--inference-mode",
+            opts.inference_mode,
+            "--adaptive-concurrency",
+            opts.adaptive_concurrency,
             "--running-rebalance",
             opts.running_rebalance,
             "--max-head-offpolicyness",
             str(opts.max_head_offpolicyness),
         ]
-        if opts.workspace_root:
-            cmd += ["--workspace-root", str(opts.workspace_root)]
+        development_root = opts.workspace_root or profile.get(
+            "development_workspace_root",
+            str(
+                Path(profile["workspace_root"]).expanduser().parent
+                / "areal-development"
+            ),
+        )
+        cmd += ["--workspace-root", str(development_root)]
         prepared = subprocess.run(cmd, text=True, capture_output=True, timeout=1800)
         if prepared.returncode:
             raise RuntimeError(prepared.stdout + prepared.stderr)
@@ -160,6 +178,7 @@ def run(opts, profile):
                 shutil.copy2(workspace / name, pair / name)
             pair_settings = dict(
                 settings,
+                adaptive_concurrency=opts.shared_concurrency_modes[repetition - 1],
                 container_prefix=settings["container_prefix"] + f"-r{repetition}",
             )
             bench.write_json(pair / "settings.json", pair_settings)

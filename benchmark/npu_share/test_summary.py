@@ -15,9 +15,11 @@ from render import (
 class SummaryTests(unittest.TestCase):
     def fixture(self):
         return dict(
-            settings=dict(rl="math", answers=6, max_head_offpolicyness=3),
-            questions=96,
-            answers=576,
+            settings=dict(
+                rl="math", batch_size=32, answers=8, max_head_offpolicyness=3
+            ),
+            questions=192,
+            answers=1536,
             loop_seconds=dict(fixed=120.0, latest=100.0),
             reduction_percent=100 * (1 - 100 / 120),
             token_audit=dict(fixed=dict(reported=139706), latest=dict(reported=137748)),
@@ -104,6 +106,14 @@ class ReadinessIntervalTests(unittest.TestCase):
 
 
 class PhaseTranslationTests(unittest.TestCase):
+    def test_workload_title_uses_configured_answer_count(self):
+        for answers in [4, 6, 8, 16]:
+            text = f"FSDP | math RL | 192 questions x {answers} answers | concurrency 16 | 6 batches"
+            translated = translate_phase_text(text)
+            self.assertIn(f"每题{answers}个回答", translated)
+            self.assertIn("并发16题", translated)
+            self.assertIn("6个批次", translated)
+
     def test_translation_preserves_signed_times_and_localizes_labels(self):
         self.assertEqual(
             translate_phase_text("R3, 15.63s, saved -2.15s"),

@@ -39,6 +39,9 @@ class ReuseWorkerExtension(VLLMWorkerExtension):
             group = getattr(self, "_areal_kv_group", None)
             if group is not None:
                 groups.append(group)
+            groups.extend(
+                peer["group"] for peer in getattr(self, "_areal_kv_groups", {}).values()
+            )
             for group in dict.fromkeys(groups):
                 dist.destroy_process_group(group)
             self.weight_update_groups = {}
@@ -52,8 +55,12 @@ class ReuseWorkerExtension(VLLMWorkerExtension):
                     delattr(self, name)
             if hasattr(self, "_areal_kv_group"):
                 del self._areal_kv_group
+            self._areal_kv_groups = {}
             self._areal_kv_staging = {}
             runner._areal_kv_import_pins = {}
+            memory = getattr(runner, "_adaptive_memory", None)
+            if memory is not None:
+                memory.mark_dirty(("weights",))
             result = self._benchmark_initial.restore(runner.model)
             random.seed(payload["seed"])
             np.random.seed(payload["seed"])

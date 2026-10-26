@@ -68,7 +68,8 @@ def main():
         config.total_train_epochs == 1
         and config.total_train_steps == SETTINGS["batches"]
     )
-    assert config.gconfig.n_samples == 6
+    assert config.gconfig.n_samples == SETTINGS["answers"]
+    assert config.train_dataset.batch_size == SETTINGS["batch_size"]
     event(
         "settings",
         batch_drain=os.getenv("AREAL_BATCH_DRAIN", "0"),
@@ -76,7 +77,7 @@ def main():
         drain_metrics=os.getenv("AREAL_DRAIN_METRICS", "0"),
         shared_drain_seconds=float(os.getenv("AREAL_SHARED_DRAIN_SECONDS", "0")),
         training_priority_inference=os.getenv("AREAL_TRAIN_PRIORITY_INFERENCE") == "1",
-        n_samples=6,
+        n_samples=config.gconfig.n_samples,
         total_batches=SETTINGS["batches"],
         npu_share=config.npu_share,
         concurrency=config.rollout.max_concurrent_rollouts,

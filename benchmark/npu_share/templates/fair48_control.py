@@ -30,7 +30,11 @@ def configure_workload(trainer):
     dispatcher.submit_task_input = MethodType(submit, dispatcher)
 
     def active_submit_and_wait(self, input_generator, batch_size, dynamic_bs=False):
-        assert batch_size == 16 and not dynamic_bs
+        if dynamic_bs or batch_size != SETTINGS["batch_size"]:
+            raise ValueError(
+                "Exact-workload control requires the configured static batch size "
+                f"{SETTINGS['batch_size']}, got {batch_size} (dynamic={dynamic_bs})"
+            )
         results = []
         deadline = time.monotonic() + min(SETTINGS["timeout"], 3600)
         while len(results) < batch_size:

@@ -17,11 +17,24 @@ def main():
         choices=["conservative", "aggressive", "exploratory"],
         default="exploratory",
     )
+    parser.add_argument(
+        "--shared-concurrency-modes",
+        help="Comma-separated R025 modes, one per repetition: off,capacity",
+    )
     special, remaining = parser.parse_known_args()
     sys.argv = [sys.argv[0]] + remaining
     opts = run_bench.arguments()
     opts.repetitions = special.repetitions
     opts.kv_policy = special.kv_policy
+    opts.shared_concurrency_modes = (
+        special.shared_concurrency_modes.split(",")
+        if special.shared_concurrency_modes
+        else [opts.adaptive_concurrency] * opts.repetitions
+    )
+    if len(opts.shared_concurrency_modes) != opts.repetitions or any(
+        mode not in ("off", "capacity") for mode in opts.shared_concurrency_modes
+    ):
+        raise ValueError("Provide one off/capacity mode per repetition")
     if opts.render_only:
         raise ValueError("Use the original benchmark renderer for existing workspaces")
     if opts.npu_count != 2 or opts.inference_tp != 1:

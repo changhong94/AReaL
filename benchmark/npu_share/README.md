@@ -20,15 +20,19 @@ python3 benchmark/npu_share/run_bench.py --rl math --batches 100
 | `--inference-tp`           | `1`                      | Devices per vLLM instance; must divide half the NPU count                                              |
 | `--npu-count`              | `2`                      | Even total NPU count; supports 2, 4, or 8                                                              |
 | `--max-head-offpolicyness` | `2`                      | Rollout head off-policy limit, identical in both arms; nonnegative integer; 0 disables stale lookahead |
+| `--batch-size`             | `32`                     | Distinct questions per training batch                                                                  |
+| `--answers`                | `8`                      | Sampled answers per question                                                                           |
 | `--batches`                | `6`                      | Completed training batches in one epoch, in each arm                                                   |
 | `--workspace-root`         | Profile setting          | Output root, which must be outside the source repository                                               |
 | `--timeout`                | `max(3600, batches*600)` | Seconds allowed for each arm                                                                           |
 | `--prepare-only`           | Off                      | Prepare data/configuration without NPU use or sandbox creation                                         |
 | `--render-only PATH`       | None                     | Regenerate charts from a completed workspace; no NPU use                                               |
 
-Batch size remains **16 questions**, with **six answers per question**. Concurrency does
-not change batch size. Six batches require 96 distinct questions; 100 batches require
-1,600. The runner selects eligible rows from the full local datasets, validates them
+Default batch size is **32 questions**, with **eight answers per question**. Concurrency
+does not change batch size. Six default batches require 192 distinct questions and 1,536
+answers; 100 batches require 3,200 questions. Use `--batch-size 16 --answers 6` to
+reproduce the earlier workload, or `--batch-size 64 --answers 16` for 1,024 answers per
+batch. The runner selects eligible rows from the full local datasets, validates them
 with the actual tokenizer/dataset loader, and refuses insufficient data instead of
 silently repeating questions. The initial model, seed, dataset, logging and native
 scheduler limit are matched between arms. Generated answers and batch membership can
@@ -37,9 +41,10 @@ still differ.
 The native `max_num_seqs` limit is `max(64, 4*concurrency)` per vLLM instance. The
 controller queue size is at least 32, including for concurrency 1. Code reward execution
 has a separate aggregate limit of four sandbox operations across all rollout processes;
-this does not reduce six answers to four. Code RL requires the configured Kuasar service
-to be available and passes create/execute/delete preflight before acquiring NPU
-resources. Infrastructure failures abort the run instead of becoming zero rewards.
+this does not change the requested answers per question. Code RL requires the configured
+Kuasar service to be available and passes create/execute/delete preflight before
+acquiring NPU resources. Infrastructure failures abort the run instead of becoming zero
+rewards.
 
 ## Output
 
@@ -260,10 +265,14 @@ uses persistent paths directly and does not depend on those symlinks.
 ## Experimental running-request rebalancing (R001)
 
 `--running-rebalance off|shadow|budget|active|kv` controls only the shared arm and
-defaults to `off`. The fixed arm always disables it. `shadow` records causal forecasts
-without moving running requests. `active` may abort one eligible running request and
-resume its accumulated prefix on a compatible shared replica. This rebuilds KV through
-prefill; it does not transfer KV buffers.
+defaults to `kv` in both the formal and reusable development runners. The fixed arm
+always disables it. KV handoff supports multiple equal-width TP inference replicas with
+PP=1. Directed channels connect every fixed donor to every borrowed/shared target. TP=4
+still needs hardware validation. The reusable development runner remains restricted to
+its existing two-device topology; use the formal runner for larger topologies. `shadow`
+records causal forecasts without moving running requests. `active` may abort one
+eligible running request and resume its accumulated prefix on a compatible shared
+replica. This rebuilds KV through prefill; it does not transfer KV buffers.
 
 ```bash
 python3 benchmark/npu_share/run_bench.py --batches 3 --running-rebalance shadow
@@ -325,12 +334,26 @@ correctness or end-to-end RL speedup.
 
 ## Experimental live KV handoff
 
-`--running-rebalance kv` enables the two-device, TP=1 live KV adapter for the shared
-arm. The fixed arm remains unchanged. This mode requires the validated vLLM 0.26 Ascend
-dynamic-KV layout and matching model geometry and weight version. It supports one
-continuation per request, without repetition/presence/frequency penalties, per-request
-seeded RNG, stop strings, or prompt logprobs. Unsupported states fail closed; this is
-not a general TP migration implementation.
+`--running-rebalance kv` enables live KV handoff between multiple equal-TP replicas for
+the shared arm. The fixed arm remains unchanged. This mode requires the validated vLLM
+0.26 Ascend dynamic-KV layout and matching model geometry and weight version. It
+supports one continuation per request, without repetition/presence/frequency penalties,
+per-request seeded RNG, stop strings, or prompt logprobs. Unsupported states fail
+closed; this is not a general resharding implementation or arbitrary bidirectional
+migration. Each TP shard uses its own corresponding-rank HCCL channel. All ranks must
+pass staging preflight and acknowledge import before the request resumes. Aggregate byte
+counts include all shards; reported replica stalls use the slowest rank.
+
+For four TP=1 replicas, add `--npu-count 4 --inference-tp 1`; for four TP=2 replicas,
+add `--npu-count 8 --inference-tp 2`.
+
+Each directed pair owns separate channels and geometry. Recovery sweeps process pairs
+serially and refresh snapshots after each transaction. Training waits for the entire
+sweep. Exploration limits remain controller-wide (five requests per probe, two probe
+attempts, and a two-second accumulated transaction cutoff); positive-gain moves use a
+separate per-pair limit. Pair ordering is deterministic and greedy, not a global
+optimum. Channel initialization scales with fixed replicas times borrowed replicas times
+TP.
 
 ```bash
 python3 benchmark/npu_share/run_bench.py --rl math --engine fsdp \
@@ -411,3 +434,112 @@ weight digests and worker identity, and starts a fresh trainer per arm. Results 
 explicitly development-only. Use `run_bench.py` with independent engine startup for
 final confirmation; its execution flow does not reuse vLLM. See the
 [accepted policy record](../../docs/research/npu-sharing/experiments/2026-10-19-r001-accepted-policy.md).
+
+## Experimental capacity-adaptive concurrency (R025)
+
+`--adaptive-concurrency capacity` enables shared-only question admission scaling in
+proportion to ready compatible inference replicas relative to the fixed replica count.
+There is no fixed multiplier cap; the configured replica topology bounds admission. TP
+ranks are not counted as independent replicas. The default is `capacity`; use
+`--adaptive-concurrency off` to disable it. The fixed arm remains unchanged. Off-policy
+and engine hard limits remain unchanged. This first policy is capacity-driven, not
+throughput feedback. See the R025 research record for limitations. Trace events are
+named `adaptive_concurrency`.
+
+For exploratory repeated runs with reused engines:
+
+```bash
+python3 benchmark/npu_share/run_reuse_dev_bench.py --batches 6 --concurrency 16 \
+  --repetitions 4 --shared-concurrency-modes off,capacity,off,capacity
+```
+
+Each repetition runs fixed then shared. Per-repetition settings record the selected
+policy; reused-engine runs must not be presented as formal independent-start results.
+
+### Development output location
+
+Reusable-engine development runs default to `areal-development` beside the formal
+benchmark workspace root. Set `development_workspace_root` in the profile or pass
+`--workspace-root` to override it. Formal `run_bench.py` output remains unchanged.
+
+### Unequal inference and training device groups
+
+`--inference-training-ratio I:T` sets the dedicated inference:training NPU ratio
+(default `1:1`). `--npu-count` is the total physical device count. Both groups must
+contain an integer number of devices and be divisible by `--inference-tp`. The fixed arm
+uses T devices for training and I for inference. The shared arm can additionally borrow
+the T training devices for inference. Training remains one distributed model. R025
+scales relative to the dedicated inference replicas.
+
+```bash
+python3 benchmark/npu_share/run_bench.py --npu-count 3 --inference-training-ratio 2:1
+python3 benchmark/npu_share/run_bench.py --npu-count 4 --inference-training-ratio 3:1
+python3 benchmark/npu_share/run_bench.py --npu-count 6 --inference-training-ratio 2:1 --inference-tp 2 --engine megatron
+python3 benchmark/npu_share/run_bench.py --npu-count 8 --inference-training-ratio 3:1 --inference-tp 2 --engine megatron
+```
+
+Reusable-engine development sessions remain limited to two devices with TP=1. Unequal
+topologies require hardware validation before claiming performance gains.
+
+## Inference execution mode
+
+`--inference-mode graph` is the benchmark default and selects vLLM Ascend `FULL`,
+covering prefill/mixed batches and decode; training execution is unchanged. Capture
+buckets include the scheduler token limit (2048 by default), rather than only small
+decode batches. The worker logs `AREAL_GRAPH_PREFILL_MIXED` and `AREAL_GRAPH_DECODE`
+with the actual dispatch mode once per phase/mode. Any eager fallback is therefore
+visible as `mode=NONE`. Use `--inference-mode eager` for the original execution path.
+Both fixed and shared arms receive the same mode, persisted as `inference_mode` in
+settings.
+
+Coverage defaults to graph for the existing workload/topology/ratio/long cases.
+`--suite execution` selects C01/C02 graph and G01/G02 eager controls.
+`coverage_bench.sh --inference-mode eager` overrides all selected cases.
+
+Shared graph support is scoped to the existing Qwen2 BF16 full-attention, uni/mp
+equal-TP replicas. Sparse KV keeps stable virtual addresses; graph pools remain resident
+outside reclaimable storage. Captured weight/buffer storage must not change during
+weight publication. Unsupported graph modes or storage replacement fail explicitly
+instead of silently replaying stale addresses.
+
+See [Ascend graph support and validation](GRAPH_SUPPORT.md) for execution scope, memory
+invariants, and correctness evidence.
+
+R027 profit-aware inference return and verified resident-cache budgeting are enabled by
+default for the shared arm (`AREAL_PROFIT_AWARE_RETURN=1`, `AREAL_RESIDENT_BUDGET=1`).
+The fixed arm explicitly disables both. Coverage cases inherit these defaults. Cache
+credit retains existing safety and topology checks; default-pool credit is limited to
+single-rank FSDP.
+
+Request timelines are capped independently for each fixed/shared arm: at most three
+pages of 512 logical requests. Runs with more than 1,536 requests show the first,
+centered and last 512 in question-group/start-time order; shorter runs retain every
+request. Page titles show the selected range. Answer labels remain stable if a page
+boundary splits a question group. Migrated requests may appear on multiple instance
+panels but count once toward the limit. Raw logs, summaries and other chart families
+still use the complete run.
+
+The utilization family also includes `total.png`: fixed and shared curves on the same
+axes, with separate panels for summed AI Core and HBM utilization. Values sum all
+allocated training/inference devices from each monitoring snapshot (80% + 60% = 140%),
+so N devices can reach N × 100%. Each run starts at elapsed time zero; sampling points
+are not resampled, and lines stop at their last valid sample. Missing device readings
+are gaps, not zeros. HBM is a sum of per-device percentages, not a capacity-weighted
+aggregate.
+
+### Code rollout admission and reward waiting
+
+The single-turn code workflow releases a question's generation slot only after all
+answers in that question have completed generation. Sandbox scoring then continues
+independently with its existing bounded executor and global slot limit. A question is
+not accepted into a training batch until every answer's reward is available.
+Reward-waiting questions remain counted against the off-policy budget; total unfinished
+workflows also remain bounded by the pending-rollout limit. Other workflows retain
+completion-based admission unless they explicitly report terminal generation completion.
+Multi-turn workflows must not report this event after an intermediate model turn.
+
+Dispatch selects the eligible worker with the fewest active generation tasks, rotating
+ties. Reward-waiting tasks do not inflate this load. A withdrawn shared worker remains
+ineligible regardless of its apparent idle capacity. Progress callbacks are idempotent;
+a failed progress notification conservatively retains its slot until final completion.
+Cancellation and repeated finalization do not leak or double-release admission counts.

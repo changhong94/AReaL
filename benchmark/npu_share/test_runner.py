@@ -13,6 +13,87 @@ import run_bench as run
 
 
 class RunnerTests(unittest.TestCase):
+    def test_code_reward_policy_is_opt_in(self):
+        with patch.object(sys, "argv", ["run_bench.py"]):
+            self.assertEqual(run.arguments().code_reward_scheduling, "answer")
+        with patch.object(
+            sys,
+            "argv",
+            ["run_bench.py", "--rl", "code", "--code-reward-scheduling", "question"],
+        ):
+            self.assertEqual(run.arguments().code_reward_scheduling, "question")
+
+    def test_r027_defaults_only_enabled_for_shared_arm(self):
+        for name in ("AREAL_PROFIT_AWARE_RETURN", "AREAL_RESIDENT_BUDGET"):
+            self.assertEqual(run.environment(True)[name], "1")
+            self.assertEqual(run.environment(False)[name], "0")
+
+    def test_coverage_workload_values_and_explicit_defaults(self):
+        import shlex
+        import subprocess
+
+        with tempfile.TemporaryDirectory() as directory:
+            profile = Path(directory) / "profile.json"
+            profile.write_text(
+                json.dumps({"workspace_root": directory, "timezone": "UTC"})
+            )
+            output = subprocess.check_output(
+                [
+                    "bash",
+                    str(Path(__file__).with_name("coverage_bench.sh")),
+                    "--suite",
+                    "all",
+                    "--mode",
+                    "plan",
+                    "--profile",
+                    str(profile),
+                ],
+                text=True,
+            )
+        commands = [
+            shlex.split(line)
+            for line in output.splitlines()
+            if line.startswith("python3 ")
+        ]
+        self.assertEqual(len(commands), 28)
+
+        def value(cmd, flag):
+            return cmd[cmd.index(flag) + 1]
+
+        self.assertEqual(
+            {value(cmd, "--batch-size") for cmd in commands}, {"16", "32", "64"}
+        )
+        self.assertEqual(
+            {value(cmd, "--answers") for cmd in commands}, {"4", "8", "16"}
+        )
+        self.assertEqual(
+            sum(value(cmd, "--inference-mode") == "eager" for cmd in commands), 2
+        )
+
+    def test_workload_defaults_override_and_validation(self):
+        with patch.object(sys, "argv", ["run_bench.py"]):
+            opts = run.arguments()
+            self.assertEqual((opts.batch_size, opts.answers), (32, 8))
+        with patch.object(
+            sys, "argv", ["run_bench.py", "--batch-size", "64", "--answers", "16"]
+        ):
+            opts = run.arguments()
+            self.assertEqual((opts.batch_size, opts.answers), (64, 16))
+        for option in ["--batch-size", "--answers"]:
+            for value in ["0", "-1", "bad"]:
+                with (
+                    self.subTest(option=option, value=value),
+                    patch.object(sys, "argv", ["run_bench.py", option, value]),
+                ):
+                    with self.assertRaises(SystemExit):
+                        run.arguments()
+
+    def test_inference_mode_default_and_override(self):
+        with patch.object(sys, "argv", ["run_bench.py"]):
+            self.assertEqual(run.arguments().inference_mode, "graph")
+        with patch.object(sys, "argv", ["run_bench.py", "--inference-mode", "eager"]):
+            self.assertEqual(run.arguments().inference_mode, "eager")
+
     def exercise(self, stop_fails=False):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
@@ -38,13 +119,19 @@ class RunnerTests(unittest.TestCase):
             opts = SimpleNamespace(
                 profile=path,
                 rl="math",
+                code_reward_scheduling="answer",
                 engine="fsdp",
                 concurrency=1,
                 max_head_offpolicyness=3,
                 running_rebalance="shadow",
+                adaptive_concurrency="off",
+                inference_mode="graph",
                 batches=100,
+                batch_size=64,
+                answers=16,
                 npu_count=2,
                 inference_tp=1,
+                inference_training_ratio="1:1",
                 workspace_root=None,
                 timeout=1,
                 prepare_only=False,
@@ -108,7 +195,10 @@ class RunnerTests(unittest.TestCase):
             workspace = next((base / "runs").iterdir())
             state = json.loads((workspace / "state.json").read_text())
             settings = json.loads((workspace / "settings.json").read_text())
-            self.assertEqual(settings["questions"], 1600)
+            self.assertEqual(settings["inference_mode"], "graph")
+            self.assertEqual(settings["questions"], 6400)
+            self.assertEqual(settings["batch_size"], 64)
+            self.assertEqual(settings["answers"], 16)
             self.assertEqual(settings["concurrency"], 1)
             self.assertEqual(settings["max_head_offpolicyness"], 3)
             self.assertEqual(settings["running_rebalance"], "shadow")
@@ -153,7 +243,7 @@ class RunnerTests(unittest.TestCase):
             self.assertIn("1/6", messages[-1])
 
     def test_npu_count_requires_equal_nonempty_groups(self):
-        for value in ["0", "1", "3", "-2"]:
+        for value in ["0", "1", "-2"]:
             with self.assertRaises(argparse.ArgumentTypeError):
                 run.npu_count(value)
         self.assertEqual(run.npu_count("4"), 4)
@@ -175,13 +265,42 @@ class RunnerTests(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         run.validate_topology(count, tp)
 
+    def test_unequal_topology(self):
+        for count, ratio, tp, train, inference in [
+            (3, "2:1", 1, 1, 2),
+            (4, "3:1", 1, 1, 3),
+            (6, "2:1", 2, 2, 4),
+            (8, "3:1", 2, 2, 6),
+        ]:
+            run.validate_topology(count, tp, ratio)
+            allocation = run.allocation_counts(count, ratio)
+            self.assertEqual(
+                (allocation["training"], allocation["dedicated_inference"]),
+                (train, inference),
+            )
+        for count, ratio, tp in [(4, "2:1", 1), (3, "2:1", 2), (8, "3:1", 4)]:
+            with self.assertRaises(ValueError):
+                run.validate_topology(count, tp, ratio)
+
     def test_running_policy_argument(self):
         with patch.object(sys, "argv", ["run_bench.py"]):
-            self.assertEqual(run.arguments().running_rebalance, "off")
+            self.assertEqual(run.arguments().running_rebalance, "kv")
         with patch.object(
             sys, "argv", ["run_bench.py", "--running-rebalance", "active"]
         ):
             self.assertEqual(run.arguments().running_rebalance, "active")
+
+    def test_running_policy_can_be_disabled(self):
+        with patch.object(sys, "argv", ["run_bench.py", "--running-rebalance", "off"]):
+            self.assertEqual(run.arguments().running_rebalance, "off")
+
+    def test_adaptive_concurrency_defaults_to_capacity(self):
+        with patch.object(sys, "argv", ["run_bench.py"]):
+            self.assertEqual(run.arguments().adaptive_concurrency, "capacity")
+        with patch.object(
+            sys, "argv", ["run_bench.py", "--adaptive-concurrency", "off"]
+        ):
+            self.assertEqual(run.arguments().adaptive_concurrency, "off")
 
     def test_offpolicy_argument(self):
         with patch.object(sys, "argv", ["run_bench.py"]):
