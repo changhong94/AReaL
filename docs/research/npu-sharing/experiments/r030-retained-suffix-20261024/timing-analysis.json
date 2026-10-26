@@ -1,0 +1,149 @@
+{
+  "workspace": "/root/areal-development/idle-retained-suffix-20261024/comparison/20261024-164250-0700_code_fsdp_c16_b6_2b61e5/repetitions/01",
+  "arms": {
+    "fixed": {
+      "loop_seconds": 463.3734087944031,
+      "initialization_seconds": 180.1717665195465,
+      "scopes": {
+        "train.rollout": 63.958858,
+        "train.recompute_logp": 71.078148,
+        "train.compute_advantage": 14.420433000000001,
+        "train.ppo_update": 293.104941,
+        "train.save": 11.843843999999999,
+        "train.checkpoint": 0.000467,
+        "train.update_weights": 4.437052,
+        "train.eval": 0.001023,
+        "train.clear_batches": 0.15054700000000001,
+        "train.log_stats": 3.4927840000000003
+      },
+      "ppo_batches": [
+        {
+          "batch": 1,
+          "seconds": 48.934959
+        },
+        {
+          "batch": 2,
+          "seconds": 51.219341
+        },
+        {
+          "batch": 3,
+          "seconds": 48.501402
+        },
+        {
+          "batch": 4,
+          "seconds": 47.255047
+        },
+        {
+          "batch": 5,
+          "seconds": 49.054514
+        },
+        {
+          "batch": 6,
+          "seconds": 48.139678
+        }
+      ],
+      "mid_batch_switches": [],
+      "switch_seconds": 0,
+      "ppo_excluding_nested_switch_seconds": 293.104941,
+      "upload_retries": 0,
+      "gradient_diagnostic_events": 0
+    },
+    "latest": {
+      "loop_seconds": 487.9583351612091,
+      "initialization_seconds": 308.29694175720215,
+      "scopes": {
+        "train.rollout": 59.956303000000005,
+        "train.idle_state_single_to_multi": 17.084659,
+        "train.idle_switch_in": 32.837407,
+        "train.recompute_logp": 72.419189,
+        "train.compute_advantage": 13.59993,
+        "train.ppo_update": 260.546777,
+        "train.idle_state_multi_to_single": 28.367193,
+        "train.idle_switch_out": 35.224038,
+        "train.save": 12.505505,
+        "train.checkpoint": 0.00106,
+        "train.update_weights": 5.027674,
+        "train.shared_memory_switch": 0.859019,
+        "train.background_publication": 20.066893,
+        "train.eval": 0.013526000000000002,
+        "train.clear_batches": 0.588083,
+        "train.log_stats": 0.574735,
+        "train.wait_previous_tail": 18.49981
+      },
+      "ppo_batches": [
+        {
+          "batch": 1,
+          "seconds": 32.033396
+        },
+        {
+          "batch": 2,
+          "seconds": 50.321287
+        },
+        {
+          "batch": 3,
+          "seconds": 48.784994
+        },
+        {
+          "batch": 4,
+          "seconds": 48.102318
+        },
+        {
+          "batch": 5,
+          "seconds": 48.523474
+        },
+        {
+          "batch": 6,
+          "seconds": 32.781308
+        }
+      ],
+      "mid_batch_switches": [
+        {
+          "event": "idle_training_mid_batch_selected",
+          "time": 1792886979.1772726,
+          "pid": 1,
+          "batch": 2,
+          "consumed": 66,
+          "remaining": 190,
+          "consumed_microbatches": 26,
+          "switch_seconds": 7.398209685459733
+        },
+        {
+          "event": "idle_training_mid_batch_selected",
+          "time": 1792887054.3759122,
+          "pid": 1,
+          "batch": 3,
+          "consumed": 70,
+          "remaining": 186,
+          "consumed_microbatches": 26,
+          "switch_seconds": 6.775964127853513
+        },
+        {
+          "event": "idle_training_mid_batch_selected",
+          "time": 1792887129.7285519,
+          "pid": 1,
+          "batch": 4,
+          "consumed": 69,
+          "remaining": 187,
+          "consumed_microbatches": 26,
+          "switch_seconds": 6.8368975184857845
+        },
+        {
+          "event": "idle_training_mid_batch_selected",
+          "time": 1792887203.9921393,
+          "pid": 1,
+          "batch": 5,
+          "consumed": 67,
+          "remaining": 189,
+          "consumed_microbatches": 26,
+          "switch_seconds": 6.795712819322944
+        }
+      ],
+      "switch_seconds": 68.06218354217708,
+      "ppo_excluding_nested_switch_seconds": 232.73999284887805,
+      "upload_retries": 0,
+      "gradient_diagnostic_events": 0
+    }
+  },
+  "saved_seconds": -24.58492636680603,
+  "reduction_percent": -5.305640310860881
+}

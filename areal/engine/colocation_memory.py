@@ -154,12 +154,29 @@ class TaggedMemory:
     never safe to execute until restored. Failed transitions are terminal.
     """
 
-    def __init__(self, backend, tags):
+    def __init__(self, backend, tags, retained_tags=()):
         self.backend = backend
         self.states = dict.fromkeys(tags, "mapped")
         self.broken = False
         self._missing = {}
         backend.residency = self
+        self.retained = None
+        if retained_tags and os.getenv("AREAL_RETAIN_DRAM", "0") == "1":
+            from areal.engine.retained_backing import RetainedBacking
+
+            self.retained = RetainedBacking(self, retained_tags)
+
+    def mark_dirty(self, tags):
+        if self.retained is not None:
+            self.retained.dirty(tags)
+
+    def start_retained_backup(self):
+        if self.retained is not None:
+            self.retained.start()
+
+    def wait_retained_backup(self):
+        if self.retained is not None:
+            self.retained.wait()
 
     def inventory(self):
         data = self.backend.inventory()
@@ -199,7 +216,11 @@ class TaggedMemory:
             "bytes": sizes,
             "resident_bytes": resident,
             "restore_bytes": sum(a.handle[1] for a, _ in self._missing.values()),
-            "cpu_backup_bytes": backup_bytes,
+            "cpu_backup_bytes": backup_bytes
+            + (self.retained.host_bytes() if self.retained else 0),
+            "retained_mapped_backup_bytes": self.retained.host_bytes()
+            if self.retained
+            else 0,
             "free_bytes": free,
             "total_bytes": total,
             "supports_partial_reclaim": True,
@@ -210,14 +231,29 @@ class TaggedMemory:
 
         from areal.utils import request_trace
 
+        self.wait_retained_backup()
         if not allocations:
             return self.snapshot()
         started = time.perf_counter()
         self.backend.synchronize()
         self.broken = True
+        copied_bytes = reused_bytes = verified_bytes = 0
+        if not mapped and not preserve and self.retained:
+            self.retained.dirty({a.tag for a in allocations})
         if not mapped and preserve:
             for a in allocations:
-                a.cpu_backup_tensor = self.backend.backup(a)
+                backup = self.retained.get(a) if self.retained else None
+                if backup is None:
+                    backup = self.backend.backup(a)
+                    copied_bytes += a.handle[1]
+                else:
+                    reused_bytes += a.handle[1]
+                    if os.getenv("AREAL_IDLE_FULL_VERIFY", "1") == "1":
+                        self.backend.verify_backup(a, backup)
+                        verified_bytes += a.handle[1]
+                a.cpu_backup_tensor = backup
+                if self.retained:
+                    self.retained.remember(a, backup)
         for a in allocations:
             address = a.handle[2]
             if mapped:
@@ -230,6 +266,8 @@ class TaggedMemory:
         for a in allocations:
             address = a.handle[2]
             if mapped:
+                if self.retained:
+                    self.retained.remember(a, a.cpu_backup_tensor)
                 a.cpu_backup_tensor = None
                 del self._missing[address]
             else:
@@ -240,6 +278,9 @@ class TaggedMemory:
             bytes=sum(a.handle[1] for a in allocations),
             allocations=len(allocations),
             preserve=preserve,
+            copied_bytes=copied_bytes,
+            reused_backup_bytes=reused_bytes,
+            verified_backup_bytes=verified_bytes,
             tags=sorted({a.tag for a in allocations}),
             seconds=time.perf_counter() - started,
         )
@@ -315,6 +356,40 @@ class ParkedWorkspace:
     def check(self):
         if self.broken:
             raise RuntimeError("Workspace transition previously failed")
+
+    def reusable_bytes(self):
+        """Credit only fully inactive, mapped segments in this private pool.
+
+        Read-only allocator evidence: no synchronization, cache clearing or
+        global reserved-minus-allocated estimate. In-flight frees are excluded.
+        """
+        self.check()
+        segments = {s["address"]: s for s in self.backend.segments()}
+        missing = getattr(getattr(self.backend, "residency", None), "_missing", {})
+        reusable = 0
+        stream = self.backend.torch.npu.current_stream().npu_stream
+        for a in self.backend.inventory().values():
+            address = a.handle[2]
+            if (
+                a.tag != self.tag
+                or address in missing
+                or any(a is old for old in self.parked)
+                or a.cpu_backup_tensor is not None
+            ):
+                continue
+            s = segments.get(address)
+            if (
+                s is not None
+                and s.get("stream") == stream
+                and s["total_size"] == a.handle[1]
+                and s["active_size"] == 0
+                and s["allocated_size"] == 0
+                and s["blocks"]
+                and all(b["state"] == "inactive" for b in s["blocks"])
+                and sum(b["size"] for b in s["blocks"]) == s["total_size"]
+            ):
+                reusable += a.handle[1]
+        return reusable
 
     def park(self, target_free_bytes=None):
         import time
@@ -398,6 +473,31 @@ class ParkedWorkspace:
         )
 
 
+def reusable_default_segments(segments, stream, device):
+    """Count exact inactive default-pool storage reusable by actor forward work.
+
+    Unknown ownership, another stream, pending frees, split/live segments and
+    private pools receive no credit. Never infer reuse from global allocator
+    reserved-minus-allocated counters.
+    """
+    total = 0
+    for segment in segments:
+        blocks = segment.get("blocks", [])
+        if (
+            tuple(segment.get("segment_pool_id", ())) == (0, 0)
+            and segment.get("is_expandable") is False
+            and segment.get("device") == device
+            and segment.get("stream") == stream
+            and segment.get("active_size") == 0
+            and segment.get("allocated_size") == 0
+            and blocks
+            and all(b.get("state") == "inactive" for b in blocks)
+            and sum(b["size"] for b in blocks) == segment["total_size"]
+        ):
+            total += segment["total_size"]
+    return total
+
+
 class AscendPoolBackend:
     """Thin adapter around the installed vLLM-Ascend CaMem primitives."""
 
@@ -455,8 +555,17 @@ class AscendPoolBackend:
     def segments(self):
         return self.torch.npu.memory._snapshot()["segments"]
 
+    def reusable_forward_bytes(self):
+        return reusable_default_segments(
+            self.segments(),
+            self.torch.npu.current_stream().npu_stream,
+            self.torch.npu.current_device(),
+        )
+
     def clear_cache(self):
         residency = getattr(self, "residency", None)
+        if residency is not None:
+            residency.wait_retained_backup()
         if residency is not None and (residency.broken or residency._missing):
             raise RuntimeError("Cannot evict CPU-backed allocations; restore first")
         if self.workspace is not None:
@@ -478,6 +587,11 @@ class AscendPoolBackend:
         )
         self._copy(tensor.data_ptr(), allocation.handle[2], size, 2)
         return tensor
+
+    def verify_backup(self, allocation, backup):
+        actual = self.backup(allocation)
+        if not self.torch.equal(actual, backup):
+            raise RuntimeError("Retained DRAM backup differs from mapped allocation")
 
     def restore(self, allocation):
         self._copy(

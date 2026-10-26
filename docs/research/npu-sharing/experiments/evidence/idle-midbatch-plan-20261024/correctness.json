@@ -1,0 +1,321 @@
+{
+  "frozen": [
+    {
+      "event": "idle_gradient_replay_verified",
+      "time": 1792870916.8142376,
+      "pid": 256,
+      "rank": 0,
+      "token": "frozen-batch-2",
+      "relative_l2": 0.013120952098534668,
+      "max_absolute_error": 0.0004491284489631653
+    },
+    {
+      "event": "idle_gradient_replay_verified",
+      "time": 1792870916.8143425,
+      "pid": 257,
+      "rank": 1,
+      "token": "frozen-batch-2",
+      "relative_l2": 0.013120952098534668,
+      "max_absolute_error": 0.00035556405782699585
+    }
+  ],
+  "integrated": [
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1792873769.8805366,
+      "pid": 609,
+      "rank": 0,
+      "verify_d2h_seconds": 1.236085718497634,
+      "equality_seconds": 3.452540608122945,
+      "hash_seconds": 14.15607456304133,
+      "full_verification": true,
+      "verified_bytes": 9262287688,
+      "shard_sha256": "d488918e0d032c10c853e3e929b54df41fd8f331fddbaac649a0078f782fef0c",
+      "version": 0,
+      "scheduler_epoch": 0
+    },
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1792873771.4423523,
+      "pid": 613,
+      "rank": 1,
+      "verify_d2h_seconds": 1.0181041024625301,
+      "equality_seconds": 3.723810637369752,
+      "hash_seconds": 15.68107383698225,
+      "full_verification": true,
+      "verified_bytes": 9262287688,
+      "shard_sha256": "24057990c77ff1cc6a2d7c09d91fb911e91fb08bbead3a58091ee33adf2c1442",
+      "version": 0,
+      "scheduler_epoch": 0
+    },
+    {
+      "event": "idle_training_state_transferred",
+      "time": 1792873771.476385,
+      "pid": 1,
+      "direction": "single_to_multi",
+      "before": {
+        "optimizer_step_max": 0.0,
+        "optimizer_step_min": 0.0,
+        "sampled_state_sha256": "0c653f8d81836973a3c442ea833279836b22992004ee66d848dd6d09805ca68a",
+        "scheduler_epoch": 0,
+        "version": 0,
+        "world_size": 1
+      },
+      "after": {
+        "optimizer_step_max": 0.0,
+        "optimizer_step_min": 0.0,
+        "sampled_state_sha256": "0c653f8d81836973a3c442ea833279836b22992004ee66d848dd6d09805ca68a",
+        "scheduler_epoch": 0,
+        "version": 0,
+        "world_size": 2
+      }
+    },
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1792873862.6596286,
+      "pid": 530,
+      "rank": 0,
+      "verify_d2h_seconds": 2.5087126716971397,
+      "equality_seconds": 6.986336709931493,
+      "hash_seconds": 29.398206502199173,
+      "full_verification": true,
+      "verified_bytes": 18524573512,
+      "shard_sha256": "3130600df7567106b0db064b85cc43fb0807c76dee69bf6eb9f43b171011c8ae",
+      "version": 0,
+      "scheduler_epoch": 1
+    },
+    {
+      "event": "idle_training_state_transferred",
+      "time": 1792873862.6835048,
+      "pid": 1,
+      "direction": "multi_to_single",
+      "before": {
+        "optimizer_step_max": 1.0,
+        "optimizer_step_min": 1.0,
+        "sampled_state_sha256": "824826cdf9042b6a1048ff18ddbccab9fbcd143ea323bee0c7c117d889ed53cc",
+        "scheduler_epoch": 1,
+        "version": 0,
+        "world_size": 2
+      },
+      "after": {
+        "optimizer_step_max": 1.0,
+        "optimizer_step_min": 1.0,
+        "sampled_state_sha256": "824826cdf9042b6a1048ff18ddbccab9fbcd143ea323bee0c7c117d889ed53cc",
+        "scheduler_epoch": 1,
+        "version": 0,
+        "world_size": 1
+      }
+    },
+    {
+      "event": "idle_backward_plan",
+      "time": 1792873888.9220455,
+      "pid": 1,
+      "batch": 2,
+      "groups": 32,
+      "answers": 256,
+      "microbatches": 89,
+      "segments": 8,
+      "preserved_packing": true
+    },
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1792873946.1632407,
+      "pid": 613,
+      "rank": 1,
+      "verify_d2h_seconds": 1.1318152714520693,
+      "equality_seconds": 4.127922985702753,
+      "hash_seconds": 16.962874019518495,
+      "full_verification": true,
+      "verified_bytes": 9262287688,
+      "shard_sha256": "2e1039bc31377b1add32a5024298be2c3f5a83b41eee96f4f2a82edd99bf952d",
+      "version": 1,
+      "scheduler_epoch": 1
+    },
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1792873946.558418,
+      "pid": 609,
+      "rank": 0,
+      "verify_d2h_seconds": 0.984482865780592,
+      "equality_seconds": 4.414437105879188,
+      "hash_seconds": 17.208989737555385,
+      "full_verification": true,
+      "verified_bytes": 9262287688,
+      "shard_sha256": "24c16505381abd82a13f427bd7eb5ac2947a52c84eb5660651f0a93c24010e17",
+      "version": 1,
+      "scheduler_epoch": 1
+    },
+    {
+      "event": "idle_training_state_transferred",
+      "time": 1792873946.584684,
+      "pid": 1,
+      "direction": "single_to_multi",
+      "before": {
+        "optimizer_step_max": 1.0,
+        "optimizer_step_min": 1.0,
+        "sampled_state_sha256": "824826cdf9042b6a1048ff18ddbccab9fbcd143ea323bee0c7c117d889ed53cc",
+        "scheduler_epoch": 1,
+        "version": 1,
+        "world_size": 1
+      },
+      "after": {
+        "optimizer_step_max": 1.0,
+        "optimizer_step_min": 1.0,
+        "sampled_state_sha256": "824826cdf9042b6a1048ff18ddbccab9fbcd143ea323bee0c7c117d889ed53cc",
+        "scheduler_epoch": 1,
+        "version": 1,
+        "world_size": 2
+      }
+    },
+    {
+      "event": "idle_training_mid_batch_selected",
+      "time": 1792873946.5849276,
+      "pid": 1,
+      "batch": 2,
+      "consumed": 32,
+      "remaining": 224,
+      "consumed_microbatches": 14,
+      "switch_seconds": 48.66369662433863
+    },
+    {
+      "event": "idle_gradient_replay_verified",
+      "time": 1792874064.2366965,
+      "pid": 609,
+      "rank": 0,
+      "token": "areal-idle-aeaa9f38d3f1416f95f884b9711f9422-batch-2",
+      "relative_l2": 0.01203344895622062,
+      "max_absolute_error": 0.0006199644412845373
+    },
+    {
+      "event": "idle_gradient_replay_verified",
+      "time": 1792874064.2369998,
+      "pid": 613,
+      "rank": 1,
+      "token": "areal-idle-aeaa9f38d3f1416f95f884b9711f9422-batch-2",
+      "relative_l2": 0.01203344895622062,
+      "max_absolute_error": 0.0014162836596369743
+    },
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1792874111.8571234,
+      "pid": 530,
+      "rank": 0,
+      "verify_d2h_seconds": 1.7315025813877583,
+      "equality_seconds": 8.0095504950732,
+      "hash_seconds": 30.808727603405714,
+      "full_verification": true,
+      "verified_bytes": 18524573512,
+      "shard_sha256": "e8b1df86b2a272ebdf9890390c5b038082c54e51cf0c56bf19c53c0ab596af84",
+      "version": 1,
+      "scheduler_epoch": 2
+    },
+    {
+      "event": "idle_training_state_transferred",
+      "time": 1792874111.8811278,
+      "pid": 1,
+      "direction": "multi_to_single",
+      "before": {
+        "optimizer_step_max": 2.0,
+        "optimizer_step_min": 2.0,
+        "sampled_state_sha256": "0d689a01a4df61424c0358123144148f6aea1362ce9482ace6fc6278fabc1b94",
+        "scheduler_epoch": 2,
+        "version": 1,
+        "world_size": 2
+      },
+      "after": {
+        "optimizer_step_max": 2.0,
+        "optimizer_step_min": 2.0,
+        "sampled_state_sha256": "0d689a01a4df61424c0358123144148f6aea1362ce9482ace6fc6278fabc1b94",
+        "scheduler_epoch": 2,
+        "version": 1,
+        "world_size": 1
+      }
+    },
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1792874136.4505224,
+      "pid": 613,
+      "rank": 1,
+      "verify_d2h_seconds": 1.058941563591361,
+      "equality_seconds": 4.399141315370798,
+      "hash_seconds": 13.81131586804986,
+      "full_verification": true,
+      "verified_bytes": 9262287688,
+      "shard_sha256": "c12453c6254fbe0d91364dbc628be858545f94eb3ca8c9d26368a36e03ee89e5",
+      "version": 2,
+      "scheduler_epoch": 2
+    },
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1792874141.979257,
+      "pid": 609,
+      "rank": 0,
+      "verify_d2h_seconds": 1.2146197650581598,
+      "equality_seconds": 4.151688380166888,
+      "hash_seconds": 19.413304582238197,
+      "full_verification": true,
+      "verified_bytes": 9262287688,
+      "shard_sha256": "9a624acd96ae8fb87c160d31018db6e6e91aac25f14332394c58abfd95b7f918",
+      "version": 2,
+      "scheduler_epoch": 2
+    },
+    {
+      "event": "idle_training_state_transferred",
+      "time": 1792874142.014527,
+      "pid": 1,
+      "direction": "single_to_multi",
+      "before": {
+        "optimizer_step_max": 2.0,
+        "optimizer_step_min": 2.0,
+        "sampled_state_sha256": "0d689a01a4df61424c0358123144148f6aea1362ce9482ace6fc6278fabc1b94",
+        "scheduler_epoch": 2,
+        "version": 2,
+        "world_size": 1
+      },
+      "after": {
+        "optimizer_step_max": 2.0,
+        "optimizer_step_min": 2.0,
+        "sampled_state_sha256": "0d689a01a4df61424c0358123144148f6aea1362ce9482ace6fc6278fabc1b94",
+        "scheduler_epoch": 2,
+        "version": 2,
+        "world_size": 2
+      }
+    },
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1792874237.5241363,
+      "pid": 530,
+      "rank": 0,
+      "verify_d2h_seconds": 1.6010017059743404,
+      "equality_seconds": 7.975880054756999,
+      "hash_seconds": 33.458956541493535,
+      "full_verification": true,
+      "verified_bytes": 18524573512,
+      "shard_sha256": "dcc5e77cf1491ebddd3d8a5b8a65600bff3f3a6b7ed6f7673bd888990cb709be",
+      "version": 2,
+      "scheduler_epoch": 3
+    },
+    {
+      "event": "idle_training_state_transferred",
+      "time": 1792874237.548242,
+      "pid": 1,
+      "direction": "multi_to_single",
+      "before": {
+        "optimizer_step_max": 3.0,
+        "optimizer_step_min": 3.0,
+        "sampled_state_sha256": "29e0cb8ca135fcf005c34067c3d60899a6f83e5242c8750cc249bf844c4dcdc6",
+        "scheduler_epoch": 3,
+        "version": 2,
+        "world_size": 2
+      },
+      "after": {
+        "optimizer_step_max": 3.0,
+        "optimizer_step_min": 3.0,
+        "sampled_state_sha256": "29e0cb8ca135fcf005c34067c3d60899a6f83e5242c8750cc249bf844c4dcdc6",
+        "scheduler_epoch": 3,
+        "version": 2,
+        "world_size": 1
+      }
+    }
+  ]
+}

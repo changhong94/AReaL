@@ -397,6 +397,7 @@ class FSDPEngine(TrainEngine):
             self._adaptive_memory = TaggedMemory(
                 self._adaptive_backend,
                 ["actor_weights", "actor_optimizer", "actor_workspace"],
+                retained_tags=("actor_weights", "actor_optimizer"),
             )
             with self._adaptive_backend.allocation_scope("actor_weights"):
                 self._initialize_impl(addr, ft_spec, *args, **kwargs)
@@ -682,8 +683,29 @@ class FSDPEngine(TrainEngine):
             dynamic_bs=dynamic_bs,
         )
 
+    def _idle_publication_read_only(self, meta: WeightUpdateMeta) -> bool:
+        """Allow only resident DP1 full-model publication to overlap idle export."""
+        return (
+            getattr(self, "_idle_dram", None) is not None
+            and self.world_size == 1
+            and not self.is_offload
+            and not self.config.use_lora
+            and meta.type == "xccl"
+            and meta.npu_share_fixed
+        )
+
     def update_weights(self, meta: WeightUpdateMeta):
-        self.wait_shared_snapshot()
+        overlap_idle = self._idle_publication_read_only(meta)
+        if overlap_idle:
+            status = self._idle_dram.poll()
+            request_trace.emit(
+                "idle_publication_overlap",
+                rank=self.rank,
+                generation=status["generation"],
+                copy_pending=not status["done"],
+                version=meta.version,
+            )
+        self.wait_shared_snapshot(wait_idle=not overlap_idle)
         self._check_rollout_engine_connected()
         context = self._offload_aware_context()
         if meta.colocate_mode and meta.colocate_stage == 1 and meta.type == "disk":
@@ -699,12 +721,32 @@ class FSDPEngine(TrainEngine):
             else:
                 raise ValueError(f"Unknown weight update type {meta.type}")
 
-    def wait_shared_snapshot(self, version: int | None = None):
+    def wait_shared_snapshot(
+        self,
+        version: int | None = None,
+        *,
+        wait_idle: bool = True,
+        save_trace: bool = False,
+    ):
+        def wait_part(name, callback):
+            if save_trace:
+                from areal.engine.async_hf_save import save_timing
+
+                with save_timing(name, rank=self.rank):
+                    return callback()
+            return callback()
+
+        dram = getattr(self, "_idle_dram", None)
+        if dram is not None and wait_idle:
+            wait_part("fence_dram", dram.wait)
+        memory = getattr(self, "_adaptive_memory", None)
+        if memory is not None and wait_idle:
+            wait_part("fence_retained_backup", memory.wait_retained_backup)
         # Both background jobs borrow persistent actor storage. Every existing
         # snapshot lifecycle boundary also protects optimizer preparation.
         prewarm = getattr(self, "_optimizer_prewarm", None)
         if prewarm is not None:
-            prewarm.wait()
+            wait_part("fence_optimizer_prewarm", prewarm.wait)
         job = getattr(self, "_shared_snapshot", None)
         if job is None:
             if version is not None and dist.get_rank() != 0:
@@ -714,7 +756,7 @@ class FSDPEngine(TrainEngine):
             return
         if version is not None and job.version != version:
             raise RuntimeError("Shared snapshot version mismatch")
-        job.wait()
+        wait_part("fence_shared_snapshot", job.wait)
 
     def set_version(self, version: int):
         self._version = version
@@ -735,9 +777,115 @@ class FSDPEngine(TrainEngine):
             if meta.with_optim and meta.weight_format == "hf":
                 self._save_optimizer_state(meta.path)
 
+    def save_async(self, meta: SaveLoadMeta, assets=None):
+        """Stage one immutable HF model generation and serialize it on CPU."""
+        if meta.weight_format != "hf" or meta.with_optim or self.config.use_lora:
+            raise ValueError(
+                "Async FSDP saving supports full HF models without optimizer state"
+            )
+        from areal.engine.async_hf_save import (
+            AsyncHfSave,
+            dram_model_state,
+            independent_cpu_state,
+            save_timing,
+        )
+        from areal.utils import request_trace
+
+        with save_timing("previous_writer", rank=self.rank):
+            self.wait_async_save()
+        with save_timing("snapshot_fence", rank=self.rank):
+            self.wait_shared_snapshot(save_trace=True)
+        started = time.monotonic()
+        dram = getattr(self, "_idle_dram", None)
+        use_dram = dram is not None and dram.generation > 0
+        if use_dram:
+            local_error = None
+            try:
+                with save_timing("dram_ready", rank=self.rank):
+                    snapshot = dram.wait()
+                if snapshot["scheduler"]["last_epoch"] != self.lr_scheduler.last_epoch:
+                    raise RuntimeError("Cannot save a stale DRAM generation")
+            except Exception as exc:
+                local_error = f"rank {self.rank}: {type(exc).__name__}: {exc}"
+            errors = [None] * dist.get_world_size(self.cpu_group)
+            with save_timing("dram_error_collective", rank=self.rank):
+                dist.all_gather_object(errors, local_error, group=self.cpu_group)
+            if any(errors):
+                raise RuntimeError(f"Async DRAM staging failed: {errors}")
+            state = {}
+        else:
+            with self._offload_aware_context():
+                state = get_model_state_dict(
+                    self.model,
+                    options=StateDictOptions(full_state_dict=True, cpu_offload=True),
+                )
+        error = [None]
+        if self.rank == 0:
+            try:
+                if use_dram:
+                    with save_timing("dram_model_mapping", rank=self.rank):
+                        state = dram_model_state(self)
+                with save_timing("independent_cpu_copy", rank=self.rank):
+                    state = independent_cpu_state(state, self._compute_dtype())
+                writer = getattr(self, "_async_hf_save", None)
+                if writer is None:
+                    writer = self._async_hf_save = AsyncHfSave()
+                writer.submit(
+                    meta.path,
+                    state,
+                    self.model_config,
+                    getattr(self.model, "generation_config", None),
+                    meta.tokenizer,
+                    meta.processor,
+                    metadata={
+                        "scheduler_epoch": self.lr_scheduler.last_epoch,
+                        "actor_version_at_capture": self.get_version(),
+                        "from_dram": use_dram,
+                    },
+                    verify=os.getenv("AREAL_IDLE_FULL_VERIFY", "0") == "1",
+                    assets=assets,
+                )
+                request_trace.emit(
+                    "hf_save_staged",
+                    path=meta.path,
+                    seconds=time.monotonic() - started,
+                    from_dram=use_dram,
+                )
+            except Exception as exc:
+                error[0] = f"{type(exc).__name__}: {exc}"
+        with save_timing("staging_error_broadcast", rank=self.rank):
+            dist.broadcast_object_list(
+                error, src=dist.get_global_rank(self.cpu_group, 0), group=self.cpu_group
+            )
+        if error[0] is not None:
+            raise RuntimeError(f"Async HF staging failed: {error[0]}")
+
+    def wait_async_save(self, finalize=False):
+        """Propagate background I/O failure to every training rank."""
+        error = [None]
+        if self.rank == 0:
+            try:
+                writer = getattr(self, "_async_hf_save", None)
+                if writer is not None:
+                    if finalize:
+                        writer.close()
+                        self._async_hf_save = None
+                    else:
+                        writer.wait()
+            except Exception as exc:
+                error[0] = f"{type(exc).__name__}: {exc}"
+        dist.broadcast_object_list(
+            error, src=dist.get_global_rank(self.cpu_group, 0), group=self.cpu_group
+        )
+        if error[0] is not None:
+            raise RuntimeError(f"Async HF write failed: {error[0]}")
+
     def load(self, meta: SaveLoadMeta):
         self.wait_shared_snapshot()
         with self._offload_aware_context():
+            memory = getattr(self, "_adaptive_memory", None)
+            if memory is not None:
+                memory.mark_dirty(("actor_weights", "actor_optimizer"))
             if meta.weight_format == "hf":
                 self._load_model_from_hf(meta.path)
             elif meta.weight_format == "dcp":
@@ -790,6 +938,9 @@ class FSDPEngine(TrainEngine):
 
     def optimizer_step(self):
         self.wait_shared_snapshot()
+        memory = getattr(self, "_adaptive_memory", None)
+        if memory is not None:
+            memory.mark_dirty(("actor_weights", "actor_optimizer"))
         assert self.optimizer is not None
         assert self.optimizer_config is not None
         assert self.lr_scheduler is not None
@@ -895,23 +1046,49 @@ class FSDPEngine(TrainEngine):
         input_: list[dict[str, Any]] | dict[str, Any],
         loss_fn: Callable[..., torch.Tensor],
         loss_weight_fn: Callable[[dict[str, Any]], torch.Tensor],
+        accumulation: dict | None = None,
     ) -> dict[str, float]:
         self._ensure_ready()
-        self.optimizer_zero_grad()
+        if accumulation is None or accumulation["first"]:
+            self.optimizer_zero_grad()
+        if accumulation is not None and self.config.fsdp.per_layer_optim_step:
+            raise ValueError(
+                "Resumable accumulation cannot use per-layer optimizer steps"
+            )
 
         input_batched, _ = self._normalize_batch_input(input_)
 
         # Step 1: Prepare micro-batches
-        mb_list = self._prepare_mb_list(input_batched).to(self.device)
+        if accumulation is not None and accumulation.get("plan_path"):
+            from areal.engine.idle_plan import load_plan, select_microbatches
+
+            plan_meta, plan = load_plan(
+                self, accumulation["plan_path"], accumulation["token"]
+            )
+            if plan_meta["denominator"] != accumulation["denominator"]:
+                raise RuntimeError("Preserved-plan denominator mismatch")
+            mb_list = select_microbatches(
+                plan,
+                accumulation["start_mb"],
+                accumulation["stop_mb"],
+                self.rank,
+                self.world_size,
+            ).to(self.device)
+        else:
+            mb_list = self._prepare_mb_list(input_batched).to(self.device)
 
         # Step 2: Compute total loss weight
-        total_loss_weight = compute_total_loss_weight(
-            mb_list, loss_weight_fn, self.dp_group
+        total_loss_weight = (
+            compute_total_loss_weight(mb_list, loss_weight_fn, self.dp_group)
+            if accumulation is None
+            else torch.tensor(
+                accumulation["denominator"], dtype=torch.float32, device=self.device
+            )
         )
 
         # Step 3: Forward-backward using process_output_fn callback
         def process_output(
-            logits: torch.Tensor, ctx_dict: dict[str, Any]
+            logits: torch.Tensor, ctx_dict: dict[str, Any], loss_multiplier=None
         ) -> torch.Tensor:
             ctx = FSDPTrainContext(**ctx_dict)
             return self._compute_logprobs_and_loss(
@@ -920,12 +1097,73 @@ class FSDPEngine(TrainEngine):
                 loss_fn,
                 loss_weight_fn,
                 total_loss_weight,
-                loss_multiplier=self.parallel_helper.dp_size,
+                loss_multiplier=(
+                    self.parallel_helper.dp_size
+                    if loss_multiplier is None
+                    else loss_multiplier
+                ),
             )
 
         self.forward_backward_batch(mb_list, process_output, forward_only=False)
+        if accumulation is not None and os.getenv("AREAL_IDLE_FULL_VERIFY", "1") == "1":
+            import copy
+            import functools
+
+            if accumulation["first"]:
+                self._idle_recorded_segments = []
+            self._idle_recorded_segments.append(copy.deepcopy(mb_list).to("cpu"))
+
+            def replay_segments(chunks, multiplier):
+                for chunk in chunks:
+                    self.forward_backward_batch(
+                        copy.deepcopy(chunk).to(self.device),
+                        functools.partial(process_output, loss_multiplier=multiplier),
+                        forward_only=False,
+                    )
+
+            self._idle_replay_segments = replay_segments
 
         # Step 4: Optimizer step
+        if accumulation is not None and not accumulation["last"]:
+            return {"num_micro_batches": len(mb_list.mbs)}
+        if accumulation is not None and accumulation.get("prefix_path"):
+            if os.getenv("AREAL_IDLE_FULL_VERIFY", "1") == "1":
+                from areal.engine.idle_gradients import replay_segments
+
+                replay_segments(
+                    self,
+                    self._idle_replay_segments,
+                    accumulation["token"],
+                    accumulation["prefix_path"],
+                )
+            import time
+
+            from areal.engine.idle_gradients import add_prefix_gradients
+
+            import_started = time.monotonic()
+            add_prefix_gradients(
+                self, accumulation["prefix_path"], accumulation["token"]
+            )
+            self._idle_import_seconds = time.monotonic() - import_started
+        if accumulation is not None and os.getenv("AREAL_IDLE_FULL_VERIFY", "1") == "1":
+            from areal.engine.idle_gradients import verify_accumulated_gradients
+
+            if accumulation.get("plan_path"):
+                reference = select_microbatches(
+                    plan, 0, len(plan.mbs), self.rank, self.world_size
+                ).to(self.device)
+            else:
+                reference = self._prepare_mb_list(self._idle_reference_input).to(
+                    self.device
+                )
+            verify_accumulated_gradients(
+                self,
+                lambda: self.forward_backward_batch(
+                    reference, process_output, forward_only=False
+                ),
+                accumulation["token"],
+            )
+            self._idle_reference_input = None
         stats = self.optimizer_step()
         stats["num_micro_batches"] = len(mb_list.mbs)
         return stats
@@ -1085,9 +1323,10 @@ class FSDPEngine(TrainEngine):
         if action == "park_cache":
             if workspace is None:
                 raise RuntimeError("Workspace parking is not enabled")
-            # Release ordinary caches while all private pool mappings are valid.
-            # Retained MemPool ownership keeps its segments out of empty_cache.
-            self._adaptive_backend.clear_cache()
+            # A direct entry may release an already parked actor. Never restore
+            # it just to clear caches, and never evict CPU-backed mappings.
+            if not memory._missing and not workspace.parked:
+                self._adaptive_backend.clear_cache()
             workspace.park()
         if action == "finish_train":
             if self.is_offload:
@@ -1130,8 +1369,15 @@ class FSDPEngine(TrainEngine):
             self.is_offload = True
         status = memory.snapshot()
         if workspace is not None:
+            status["reusable_workspace_bytes"] = workspace.reusable_bytes()
             status["workspace_parked_bytes"] = workspace.restore_bytes
             status["restore_bytes"] += workspace.restore_bytes
+        if os.getenv("AREAL_RESIDENT_BUDGET", "1") == "1":
+            status["reusable_forward_bytes"] = (
+                self._adaptive_backend.reusable_forward_bytes()
+                if dist.get_world_size() == 1
+                else 0
+            )
         params = list(self.model.parameters())
 
         def local(p):
@@ -1192,6 +1438,10 @@ class FSDPEngine(TrainEngine):
         Ref: https://github.com/THUDM/slime/blob/main/slime/backends/fsdp_utils/actor.py
         """
 
+        if getattr(self, "_idle_stage_future", None) is not None:
+            from areal.engine.idle_handoff import wait_stage
+
+            wait_stage(self)
         if getattr(self, "_adaptive_memory", None) is not None:
             self.colocation_memory("restore")
             return
@@ -1928,7 +2178,9 @@ class FSDPEngine(TrainEngine):
                     raise ValueError(
                         "Fused snapshots require a full-model DP actor and fixed receivers"
                     )
-                self.wait_shared_snapshot()
+                self.wait_shared_snapshot(
+                    wait_idle=not self._idle_publication_read_only(meta)
+                )
                 parameters = []
                 with torch.no_grad():
                     for name, param in param_iterator:
@@ -2079,22 +2331,25 @@ class FSDPEngine(TrainEngine):
         # FSDP2 checkpoint saving
         # Get full state dict with FSDP2
         options = StateDictOptions(full_state_dict=True, cpu_offload=True)
-        state_dict = get_model_state_dict(self.model, options=options)
+        with trace_scope("fsdp_engine.save_cpu_state"):
+            state_dict = get_model_state_dict(self.model, options=options)
 
         # Cast weights to compute dtype before HF export. When
         # optimizer_dtype=float32 (default for fp32 master weights), the
         # underlying storage is fp32, but downstream consumers
         # (rollout engines, HF users) expect compute dtype (bfloat16).
         if dist.get_rank() == 0:
-            state_dict = {
-                k: self._cast_to_compute_dtype(v) if v.is_floating_point() else v
-                for k, v in state_dict.items()
-            }
+            with trace_scope("fsdp_engine.save_cast"):
+                state_dict = {
+                    k: self._cast_to_compute_dtype(v) if v.is_floating_point() else v
+                    for k, v in state_dict.items()
+                }
 
         # save huggingface model on rank 0
         if dist.get_rank() == 0:
             os.makedirs(path, exist_ok=True)
-            self.model.save_pretrained(path, state_dict=state_dict)
+            with trace_scope("fsdp_engine.save_serialize"):
+                self.model.save_pretrained(path, state_dict=state_dict)
             self.model_config.save_pretrained(path)
             if tokenizer is not None and not self.config.use_lora:
                 tokenizer.save_pretrained(path)
@@ -2115,6 +2370,240 @@ class FSDPEngine(TrainEngine):
             self.cpu_offload,
             tie_word_embeddings=self.model_config.tie_word_embeddings,
         )
+
+    def idle_helper_import_seconds(self):
+        return getattr(self, "_idle_import_seconds", 0.0)
+
+    def idle_helper_stage(self, path, version, generation):
+        from areal.engine.idle_helper import stage_model
+
+        return stage_model(self, path, version, generation)
+
+    def idle_prepare_plan(self, data, path, token):
+        from areal.engine.idle_plan import prepare_plan
+
+        return prepare_plan(self, data, path, token)
+
+    def idle_loss_weight(self, data):
+        """Compute the immutable global denominator before segmented backward."""
+        batch, _ = self._normalize_batch_input(data)
+        if os.getenv("AREAL_IDLE_FULL_VERIFY", "1") == "1":
+            self._idle_reference_input = batch
+        count = batch["loss_mask"].count_nonzero().to(self.device)
+        dist.all_reduce(count, group=self.dp_group)
+        return int(count.item())
+
+    def idle_export_gradients(self, path, token):
+        from areal.engine.idle_gradients import export_prefix_gradients
+
+        return export_prefix_gradients(self, path, token)
+
+    def idle_handoff(self, action: str, path: str | None = None) -> dict:
+        from areal.engine.idle_handoff import handoff
+
+        return handoff(self, action, path)
+
+    def idle_publication_snapshot(self, path: str, version: int):
+        """Publish model weights from the complete immutable DRAM generation."""
+        from areal.engine.weight_snapshot import write_snapshot
+
+        snapshot = self._idle_dram.wait()
+        dist.barrier(group=self.cpu_group)
+        if snapshot["scheduler"]["last_epoch"] != self.lr_scheduler.last_epoch:
+            raise RuntimeError("Cannot publish a stale optimizer generation")
+        if self.is_vision_model or self.config.use_lora:
+            raise ValueError("Idle DRAM publication supports full text models only")
+        error = [None]
+        if self.rank == 0:
+            try:
+                from areal.engine.idle_state import model_snapshot_parameters
+
+                parameters = model_snapshot_parameters(
+                    self._idle_dram.data, self._idle_dram.layout
+                )
+                dtype = self._compute_dtype()
+                write_snapshot(
+                    path,
+                    version,
+                    parameters,
+                    dtype,
+                    lambda value: value.to(dtype)
+                    if value.is_floating_point()
+                    else value,
+                )
+            except Exception as exc:
+                error[0] = f"{type(exc).__name__}: {exc}"
+        dist.broadcast_object_list(
+            error, src=dist.get_global_rank(self.cpu_group, 0), group=self.cpu_group
+        )
+        if error[0] is not None:
+            raise RuntimeError(f"DRAM model publication failed: {error[0]}")
+        return {"version": version, "snapshot_generation": snapshot["generation"]}
+
+    def idle_training_state(self, action: str, path: str | None = None) -> dict:
+        """Prepare or hand off a complete actor state between prebuilt DP worlds."""
+        from pathlib import Path
+
+        from areal.engine.colocation_memory import initialize_adam_states
+
+        if action == "dram_progress":
+            # Metadata only: a parked primary must never be restored merely to
+            # inspect it before selecting a different training world.
+            return {
+                "version": self.get_version(),
+                "scheduler_epoch": self.lr_scheduler.last_epoch,
+                "snapshot_generation": self._idle_dram.generation,
+                "is_offload": self.is_offload,
+            }
+        if action == "dram_poll":
+            # This RPC must not join the export; polling happens on the controller.
+            return self._idle_dram.poll()
+        self.wait_shared_snapshot()
+        if action.startswith("dram_"):
+            from areal.engine.idle_state import DramState
+
+            if action == "dram_prepare":
+                self._idle_dram = DramState(self, path)
+                return {"bytes": self._idle_dram.layout["bytes"]}
+            if action == "dram_start":
+                return self._idle_dram.start()
+            if action == "dram_wait":
+                return self._idle_dram.wait()
+            if action == "dram_clear_stage":
+                if self._idle_dram.pending_import is not None:
+                    raise RuntimeError("Cannot clear unverified staged state")
+                self._idle_stage_future = None
+                return {}
+            if action == "dram_stage_wait":
+                from areal.engine.idle_handoff import wait_stage
+
+                return wait_stage(self)
+            if action.startswith("dram_stage_async:"):
+                from areal.engine.idle_handoff import stage_async
+
+                return stage_async(self, path, *map(int, action.split(":")[1:]))
+            if action == "dram_cancel_stage":
+                from areal.engine.idle_handoff import wait_stage
+
+                wait_stage(self)
+                self._idle_stage_future = None
+                if not self.is_offload:
+                    raise RuntimeError(
+                        "Only a parked standby may discard staged metadata"
+                    )
+                self._idle_dram.pending_import = None
+                return {}
+            if action.startswith("dram_relabel:"):
+                if not self.is_offload or self._idle_dram.pending_import is None:
+                    raise RuntimeError(
+                        "Relabel requires a staged, parked training engine"
+                    )
+                version = int(action.split(":")[1])
+                data, layout, _ = self._idle_dram.pending_import
+                self._idle_dram.pending_import = (data, layout, version)
+                self.set_version(version)
+                return {"version": version}
+            if action.startswith("dram_stage:"):
+                result = self._idle_dram.stage(path, int(action.split(":")[1]))
+                from areal.utils import request_trace
+
+                request_trace.emit("idle_dram_backup_staged", rank=self.rank, **result)
+                return result
+            if action == "dram_verify_own":
+                # The source engine's backing is already current. Compare its
+                # restored values against the same immutable authoritative mmap.
+                self._idle_dram.pending_import = (
+                    self._idle_dram.data,
+                    self._idle_dram.layout,
+                    self.get_version(),
+                )
+                action = "dram_verify"
+            if action == "dram_verify":
+                full = os.getenv("AREAL_IDLE_FULL_VERIFY", "1") == "1"
+                result = self._idle_dram.verify(full=full)
+                from areal.utils import request_trace
+
+                request_trace.emit(
+                    "idle_dram_import_verified", rank=self.rank, **result
+                )
+                return result
+            raise ValueError("Unsupported DRAM state operation")
+        if getattr(self, "_optimizer_prewarm", None) is not None:
+            self._optimizer_prewarm.wait()
+            self._optimizer_prewarm = None
+        scope = (
+            self._adaptive_backend.allocation_scope("actor_optimizer")
+            if getattr(self, "_adaptive_memory", None) is not None
+            else nullcontext()
+        )
+        if action in ("prepare", "load"):
+            memory = getattr(self, "_adaptive_memory", None)
+            if memory is not None:
+                memory.mark_dirty(("actor_weights", "actor_optimizer"))
+        if action == "prepare":
+            with scope:
+                self.optimizer.state.update(initialize_adam_states(self.optimizer))
+        elif action == "save":
+            if path is None:
+                raise ValueError("State handoff requires a checkpoint path")
+            self._save_to_dcp(path, with_optim=True)
+            if self.rank == 0:
+                torch.save(
+                    {
+                        "scheduler": self.lr_scheduler.state_dict(),
+                        "version": self.get_version(),
+                    },
+                    Path(path) / "progress.pt",
+                )
+            dist.barrier(group=self.cpu_group)
+        elif action == "load":
+            if path is None:
+                raise ValueError("State handoff requires a checkpoint path")
+            # Replacement moments must remain in the managed optimizer pool.
+            with scope:
+                self._load_from_dcp(path, with_optim=True)
+            progress = torch.load(
+                Path(path) / "progress.pt", map_location="cpu", weights_only=False
+            )
+            self.lr_scheduler.load_state_dict(progress["scheduler"])
+            self.set_version(progress["version"])
+        elif action != "inspect":
+            raise ValueError(f"Unknown idle-training state action: {action}")
+        current_platform.synchronize()
+        import hashlib
+
+        fingerprint = hashlib.sha256()
+        sampled = 0
+        for name, parameter in self.model.named_parameters():
+            if "layers.0.self_attn.q_proj.weight" not in name:
+                continue
+            values = {"weight": parameter, **self.optimizer.state.get(parameter, {})}
+            for key in sorted(values):
+                value = values[key]
+                if not isinstance(value, torch.Tensor):
+                    continue
+                full = value.full_tensor() if hasattr(value, "full_tensor") else value
+                sample = full.detach().reshape(-1)[:4096].cpu().contiguous()
+                fingerprint.update((name + "/" + key + str(sample.dtype)).encode())
+                fingerprint.update(sample.view(torch.uint8).numpy().tobytes())
+                sampled += sample.numel()
+        if not sampled:
+            raise RuntimeError(
+                "Idle training state verification requires a Qwen-style q_proj"
+            )
+        steps = [
+            float(state["step"].item())
+            for state in self.optimizer.state.values()
+            if "step" in state
+        ]
+        return {
+            "world_size": self.world_size,
+            "version": self.get_version(),
+            "scheduler_epoch": self.lr_scheduler.last_epoch,
+            "sampled_state_sha256": fingerprint.hexdigest(),
+            "optimizer_step_min": min(steps, default=0),
+            "optimizer_step_max": max(steps, default=0),
+        }
 
     def _save_to_dcp(
         self,

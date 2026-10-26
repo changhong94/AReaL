@@ -262,3 +262,28 @@ def test_rebalance_submission_does_not_wait_for_publication(monkeypatch):
     pending.result.assert_not_called()
     module.RolloutController._schedule_queue_rebalance(obj, 4)
     assert executor.submit.call_count == 1
+
+
+def test_retained_selected_abort_keeps_other_paused_requests_until_finalize():
+    running = request("running", status="running", num_computed_tokens=8)
+    preempted = request("preempted", status="preempted", num_computed_tokens=0)
+    s = scheduler(preempted)
+    s.running = [running]
+    s.requests["running"] = running
+
+    def finish(ids, status):
+        removed = [s.requests.pop(rid) for rid in ids if rid in s.requests]
+        s.running = [r for r in s.running if r.request_id not in ids]
+        s.waiting = [r for r in s.waiting if r.request_id not in ids]
+        return removed
+
+    s.finish_requests = finish
+    core = SimpleNamespace(scheduler=s, _send_abort_outputs=Mock())
+    assert queue_operation(
+        core, "abort_retained_selected", ["running"], "waiting", "aborted"
+    )["aborted"] == ["running"]
+    assert list(s.requests) == ["preempted"]
+    assert queue_operation(core, "abort_retained", [], "waiting", "aborted")[
+        "aborted"
+    ] == ["preempted"]
+    assert not s.requests

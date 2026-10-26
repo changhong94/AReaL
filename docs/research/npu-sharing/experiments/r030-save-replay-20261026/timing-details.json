@@ -1,0 +1,660 @@
+{
+  "matched-0-optimized": [
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042259.780888,
+      "pid": 432,
+      "stage": "worker_deserialize",
+      "seconds": 0.03705699183046818,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042259.7830515,
+      "pid": 432,
+      "stage": "previous_writer",
+      "seconds": 0.0018331632018089294,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042259.783384,
+      "pid": 432,
+      "stage": "snapshot_fence",
+      "seconds": 0.00013466551899909973,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042259.7836356,
+      "pid": 432,
+      "stage": "dram_ready",
+      "seconds": 0.00011730194091796875,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042259.7857845,
+      "pid": 432,
+      "stage": "dram_error_collective",
+      "seconds": 0.001998424530029297,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042261.618118,
+      "pid": 432,
+      "stage": "staging_error_broadcast",
+      "seconds": 1.8321221601217985,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042259.6566017,
+      "pid": 431,
+      "stage": "worker_deserialize",
+      "seconds": 0.03753856383264065,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042259.7826033,
+      "pid": 431,
+      "stage": "previous_writer",
+      "seconds": 0.1255788765847683,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042259.782976,
+      "pid": 431,
+      "stage": "snapshot_fence",
+      "seconds": 0.00013248436152935028,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042259.783225,
+      "pid": 431,
+      "stage": "dram_ready",
+      "seconds": 0.00011670403182506561,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042259.785902,
+      "pid": 431,
+      "stage": "dram_error_collective",
+      "seconds": 0.0025299470871686935,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042259.7971625,
+      "pid": 431,
+      "stage": "dram_model_mapping",
+      "seconds": 0.01105918362736702,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042261.5754178,
+      "pid": 431,
+      "stage": "independent_cpu_copy",
+      "seconds": 1.7780178505927324,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042261.576741,
+      "pid": 431,
+      "stage": "metadata_copy",
+      "seconds": 0.00044973939657211304,
+      "path": "/replay/outputs/matched-0-optimized"
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042261.5775387,
+      "pid": 431,
+      "stage": "writer_submit",
+      "seconds": 0.0006346274167299271,
+      "path": "/replay/outputs/matched-0-optimized"
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042261.6185913,
+      "pid": 431,
+      "stage": "staging_error_broadcast",
+      "seconds": 0.04061222821474075,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042263.733786,
+      "pid": 431,
+      "stage": "write_auxiliary_assets",
+      "seconds": 0.06477215327322483,
+      "path": "/replay/outputs/matched-0-optimized"
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042259.1624107,
+      "pid": 294,
+      "stage": "saver_mode",
+      "seconds": 0.00033575110137462616
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042259.3565092,
+      "pid": 294,
+      "stage": "capture_assets",
+      "seconds": 0.19388215616345406
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042259.5660894,
+      "pid": 294,
+      "stage": "controller_serialize",
+      "seconds": 0.20920339785516262,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042259.6943147,
+      "pid": 294,
+      "stage": "controller_serialize",
+      "seconds": 0.09213543683290482,
+      "rank": 1
+    }
+  ],
+  "matched-1-baseline": [
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042266.9795883,
+      "pid": 432,
+      "stage": "worker_deserialize",
+      "seconds": 2.073909593746066,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042266.9811032,
+      "pid": 432,
+      "stage": "previous_writer",
+      "seconds": 0.001146901398897171,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042266.9814146,
+      "pid": 432,
+      "stage": "snapshot_fence",
+      "seconds": 0.00012522563338279724,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042266.981656,
+      "pid": 432,
+      "stage": "dram_ready",
+      "seconds": 0.00011114217340946198,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042266.9828238,
+      "pid": 432,
+      "stage": "dram_error_collective",
+      "seconds": 0.0010273270308971405,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042270.051,
+      "pid": 432,
+      "stage": "staging_error_broadcast",
+      "seconds": 3.067978596314788,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042266.3628488,
+      "pid": 431,
+      "stage": "worker_deserialize",
+      "seconds": 2.018650511279702,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042266.9808843,
+      "pid": 431,
+      "stage": "previous_writer",
+      "seconds": 0.6176770720630884,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042266.9812455,
+      "pid": 431,
+      "stage": "snapshot_fence",
+      "seconds": 0.00012775138020515442,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042266.9814806,
+      "pid": 431,
+      "stage": "dram_ready",
+      "seconds": 0.00010908395051956177,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042266.982844,
+      "pid": 431,
+      "stage": "dram_error_collective",
+      "seconds": 0.0012261345982551575,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042266.9939766,
+      "pid": 431,
+      "stage": "dram_model_mapping",
+      "seconds": 0.010942449793219566,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042268.5708852,
+      "pid": 431,
+      "stage": "independent_cpu_copy",
+      "seconds": 1.5766413062810898,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042270.0046391,
+      "pid": 431,
+      "stage": "metadata_copy",
+      "seconds": 1.4327040240168571,
+      "path": "/replay/outputs/matched-1-baseline"
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042270.0056884,
+      "pid": 431,
+      "stage": "writer_submit",
+      "seconds": 0.0006958078593015671,
+      "path": "/replay/outputs/matched-1-baseline"
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042270.0507584,
+      "pid": 431,
+      "stage": "staging_error_broadcast",
+      "seconds": 0.020642977207899094,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042272.2764785,
+      "pid": 431,
+      "stage": "write_auxiliary_assets",
+      "seconds": 0.00038651004433631897,
+      "path": "/replay/outputs/matched-1-baseline"
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042263.7917795,
+      "pid": 294,
+      "stage": "saver_mode",
+      "seconds": 0.00022429600358009338
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042264.337591,
+      "pid": 294,
+      "stage": "controller_serialize",
+      "seconds": 0.5456032585352659,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042264.8988967,
+      "pid": 294,
+      "stage": "controller_serialize",
+      "seconds": 0.5579718388617039,
+      "rank": 1
+    }
+  ],
+  "matched-2-baseline": [
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042275.1423378,
+      "pid": 432,
+      "stage": "worker_deserialize",
+      "seconds": 1.6834663767367601,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042275.143924,
+      "pid": 432,
+      "stage": "previous_writer",
+      "seconds": 0.0011117905378341675,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042275.1442318,
+      "pid": 432,
+      "stage": "snapshot_fence",
+      "seconds": 0.0001257713884115219,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042275.1444654,
+      "pid": 432,
+      "stage": "dram_ready",
+      "seconds": 0.00010932236909866333,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042275.1457467,
+      "pid": 432,
+      "stage": "dram_error_collective",
+      "seconds": 0.001136280596256256,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042278.1857007,
+      "pid": 432,
+      "stage": "staging_error_broadcast",
+      "seconds": 3.0397596303373575,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042274.5666728,
+      "pid": 431,
+      "stage": "worker_deserialize",
+      "seconds": 1.6607417110353708,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042275.1437001,
+      "pid": 431,
+      "stage": "previous_writer",
+      "seconds": 0.5765429902821779,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042275.1440623,
+      "pid": 431,
+      "stage": "snapshot_fence",
+      "seconds": 0.00013031437993049622,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042275.1442974,
+      "pid": 431,
+      "stage": "dram_ready",
+      "seconds": 0.0001089535653591156,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042275.1457803,
+      "pid": 431,
+      "stage": "dram_error_collective",
+      "seconds": 0.001342717558145523,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042275.1570387,
+      "pid": 431,
+      "stage": "dram_model_mapping",
+      "seconds": 0.011064743623137474,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042276.6998174,
+      "pid": 431,
+      "stage": "independent_cpu_copy",
+      "seconds": 1.5425209868699312,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042278.1376405,
+      "pid": 431,
+      "stage": "metadata_copy",
+      "seconds": 1.4368463587015867,
+      "path": "/replay/outputs/matched-2-baseline"
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042278.1389406,
+      "pid": 431,
+      "stage": "writer_submit",
+      "seconds": 0.0008284319192171097,
+      "path": "/replay/outputs/matched-2-baseline"
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042278.185463,
+      "pid": 431,
+      "stage": "staging_error_broadcast",
+      "seconds": 0.021411370486021042,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042280.4180639,
+      "pid": 431,
+      "stage": "write_auxiliary_assets",
+      "seconds": 0.00039745308458805084,
+      "path": "/replay/outputs/matched-2-baseline"
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042272.3579845,
+      "pid": 294,
+      "stage": "saver_mode",
+      "seconds": 0.00024972856044769287
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042272.8999054,
+      "pid": 294,
+      "stage": "controller_serialize",
+      "seconds": 0.5417126528918743,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042273.453276,
+      "pid": 294,
+      "stage": "controller_serialize",
+      "seconds": 0.5496781393885612,
+      "rank": 1
+    }
+  ],
+  "matched-3-optimized": [
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042281.073476,
+      "pid": 432,
+      "stage": "worker_deserialize",
+      "seconds": 0.12339663878083229,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042281.074948,
+      "pid": 432,
+      "stage": "previous_writer",
+      "seconds": 0.001035436987876892,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042281.075258,
+      "pid": 432,
+      "stage": "snapshot_fence",
+      "seconds": 0.00012486428022384644,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042281.0754914,
+      "pid": 432,
+      "stage": "dram_ready",
+      "seconds": 0.00010892190039157867,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042281.07673,
+      "pid": 432,
+      "stage": "dram_error_collective",
+      "seconds": 0.0011037010699510574,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042282.631228,
+      "pid": 432,
+      "stage": "staging_error_broadcast",
+      "seconds": 1.5542736202478409,
+      "rank": 1
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042280.952445,
+      "pid": 431,
+      "stage": "worker_deserialize",
+      "seconds": 0.12704936787486076,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042281.0747418,
+      "pid": 431,
+      "stage": "previous_writer",
+      "seconds": 0.12196860462427139,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042281.0751073,
+      "pid": 431,
+      "stage": "snapshot_fence",
+      "seconds": 0.00013515539467334747,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042281.0753472,
+      "pid": 431,
+      "stage": "dram_ready",
+      "seconds": 0.00011107325553894043,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042281.0768464,
+      "pid": 431,
+      "stage": "dram_error_collective",
+      "seconds": 0.0013508088886737823,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042281.088659,
+      "pid": 431,
+      "stage": "dram_model_mapping",
+      "seconds": 0.011618290096521378,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042282.5895987,
+      "pid": 431,
+      "stage": "independent_cpu_copy",
+      "seconds": 1.5006850752979517,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042282.5908957,
+      "pid": 431,
+      "stage": "metadata_copy",
+      "seconds": 0.00039914995431900024,
+      "path": "/replay/outputs/matched-3-optimized"
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042282.5915961,
+      "pid": 431,
+      "stage": "writer_submit",
+      "seconds": 0.0005608163774013519,
+      "path": "/replay/outputs/matched-3-optimized"
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042282.6310022,
+      "pid": 431,
+      "stage": "staging_error_broadcast",
+      "seconds": 0.020540403202176094,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042284.7562861,
+      "pid": 431,
+      "stage": "write_auxiliary_assets",
+      "seconds": 0.06368494220077991,
+      "path": "/replay/outputs/matched-3-optimized"
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042280.493077,
+      "pid": 294,
+      "stage": "saver_mode",
+      "seconds": 0.00029544904828071594
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042280.6877744,
+      "pid": 294,
+      "stage": "capture_assets",
+      "seconds": 0.19448828510940075
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042280.7810888,
+      "pid": 294,
+      "stage": "controller_serialize",
+      "seconds": 0.09297768771648407,
+      "rank": 0
+    },
+    {
+      "event": "hf_save_detail_end",
+      "time": 1793042280.9071305,
+      "pid": 294,
+      "stage": "controller_serialize",
+      "seconds": 0.09939173609018326,
+      "rank": 1
+    }
+  ]
+}

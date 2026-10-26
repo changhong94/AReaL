@@ -1,0 +1,20 @@
+{
+  "pytest_command": "/usr/local/python3.11.10/bin/python3 -m pytest benchmark/npu_share/test_question_rewards.py benchmark/npu_share/test_runner.py -q",
+  "container": "areal-commit-check02",
+  "passed": 25,
+  "failed": 0,
+  "ruff": "passed",
+  "scheduler_sha256": "53a4c0452d8bfbe92750a52288ae133ea9c717e2e243a5b2ba64cd5479522b54",
+  "coverage": [
+    "partial generation",
+    "cross-question overlap",
+    "four-slot multiprocess aggregate",
+    "pending cancellation",
+    "running cancellation drain",
+    "error propagation",
+    "dead owner cleanup",
+    "dispatcher failure cleanup",
+    "cancellation during claim",
+    "fixed-arm policy unchanged"
+  ]
+}

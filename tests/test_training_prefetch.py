@@ -14,7 +14,9 @@ from areal.trainer.training_prefetch import TrainingRestorePrefetch
 
 @pytest.fixture
 def trainer():
-    return background_trainer.__wrapped__()
+    obj = background_trainer.__wrapped__()
+    obj._idle_training = None
+    return obj
 
 
 def test_target_matches_existing_withdraw_window():
@@ -33,7 +35,7 @@ def test_restore_finishes_before_answers_are_ready(trainer, monkeypatch, tmp_pat
     window, restored = Event(), Event()
     trainer.rollout.training_prefetch_target.return_value = 15
     trainer.rollout.training_prefetch_ready.side_effect = lambda target: window.is_set()
-    trainer._memory_policy.train.side_effect = restored.set
+    trainer._memory_policy.train.side_effect = lambda **kwargs: restored.set()
 
     def answers(*args, **kwargs):
         window.set()
@@ -45,7 +47,7 @@ def test_restore_finishes_before_answers_are_ready(trainer, monkeypatch, tmp_pat
     trainer.actor.prepare_batch.side_effect = answers
     trainer.train(workflow="test")
     trainer.rollout.borrow_for_training.assert_called_once()
-    trainer._memory_policy.train.assert_called_once()
+    trainer._memory_policy.train.assert_called_once_with(resident=True)
     trainer.actor.ppo_update.assert_called_once()
     assert trainer._train_prefetch is None
 

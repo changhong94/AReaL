@@ -474,3 +474,67 @@ async def test_transport_only_retries_explicit_fenced_rejection(monkeypatch, fai
         assert result.output_tokens == [4] and result.output_versions == [2]
         assert acquire.await_count == 2
         assert all(not c.kwargs["uncertain"] for c in release.await_args_list)
+
+
+def test_retained_kv_waits_for_busy_target_and_pins_version():
+    pool = RequestLeasePool(["shared", "fixed"], 1, task_affinity=False)
+    source = pool.acquire("a", "a")
+    other = pool.acquire("b", "b")
+    assert source["rank"] == 0 and other["rank"] == 1
+    pool.running_moved.add("a")
+    pool.close(0)
+    assert pool.force_prefix_evacuation(0, [1]) == [source]
+    pool.pin_retained_kv(source, 1)
+    with pytest.raises(RuntimeError, match="pins replica epoch"):
+        pool.open(1, 1)
+    assert pool.acquire("a2", "a") is None
+    pool.release("a", source["lease_id"])
+    assert pool.acquire("a2", "a") is None
+    pool.release("b", other["lease_id"])
+    resumed = pool.acquire("a2", "a")
+    assert resumed["rank"] == 1 and resumed["version"] == 0
+    assert resumed["running_handoff"] and pool.retained_kv_pins
+    with pytest.raises(RuntimeError, match="pins replica epoch"):
+        pool.open(1, 1)
+    pool.complete_retained_kv(source)
+    assert not pool.retained_kv_pins
+
+
+def test_retained_prefix_allows_changed_version_without_stale_kv_pin():
+    pool = RequestLeasePool(["shared", "fixed"], 2)
+    source = pool.acquire("a", "a", "g", 6)
+    pool.close(0)
+    pool.open(1, 2)
+    pool.force_prefix_evacuation(0, [1])
+    with pytest.raises(RuntimeError, match="changed"):
+        pool.pin_retained_kv(source, 1)
+    pool.release("a", source["lease_id"])
+    resumed = pool.acquire("a2", "a", "g", 6)
+    assert resumed["version"] == 2 and not resumed["running_handoff"]
+
+
+def test_retained_kv_fallback_unpins_destination_without_releasing_source():
+    pool = RequestLeasePool(["shared", "fixed"], 2)
+    source = pool.acquire("a", "a")
+    pool.close(0)
+    pool.force_prefix_evacuation(0, [1])
+    pool.pin_retained_kv(source, 1)
+    pool.cancel_retained_kv(source, [1])
+    assert pool.active["a"] == source
+    assert not pool.retained_kv_pins and not pool.running_versions
+    pool.open(1, 3)
+
+
+def test_retained_import_can_enter_closing_target_until_native_ack():
+    pool = RequestLeasePool(["shared", "fixed"], 1, task_affinity=False)
+    source = pool.acquire("a", "a")
+    pool.close(0)
+    pool.force_prefix_evacuation(0, [1])
+    pool.pin_retained_kv(source, 1)
+    pool.closing.add(1)
+    pool.release("a", source["lease_id"])
+    assert pool.acquire("ordinary", "ordinary") is None
+    assert pool.acquire("a2", "a")["rank"] == 1
+    assert pool.retained_kv_pins
+    pool.complete_retained_kv(source)
+    assert not pool.retained_kv_pins

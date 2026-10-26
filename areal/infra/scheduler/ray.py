@@ -121,7 +121,7 @@ class RayBackendWorkerProcessManager:
             from areal.engine.vllm_remote import VLLMBackend
 
             cmd = vLLMConfig.build_cmd_from_args(server_args)
-            env = VLLMBackend.build_server_env(base_env)
+            env = VLLMBackend.build_server_env(base_env, server_args)
         else:
             raise RuntimeError(f"Unsupported multi-node inference backend: {backend}")
 

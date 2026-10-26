@@ -1,0 +1,367 @@
+{
+  "workspace": "/tmp/huawei/areal-development/idle-helper-choice-20261026/comparison/20261026-055132-0700_code_fsdp_c16_b6_e56ee1/repetitions/01",
+  "loop_seconds": {
+    "fixed": 463.25586438179016,
+    "latest": 435.6367919445038
+  },
+  "reduction_percent": 5.961947718491101,
+  "tokens": {
+    "fixed": 356852,
+    "latest": 365276
+  },
+  "initialization_seconds": {
+    "fixed": 179.63163948059082,
+    "latest": 391.3280305862427
+  },
+  "events": [
+    {
+      "event": "idle_training_selected",
+      "time": 1793020687.6287315,
+      "pid": 1,
+      "batch": 1,
+      "world_size": 2,
+      "reason": "idle_cold_start",
+      "preparation_seconds": 1.939380967989564,
+      "direct_from_inference": true
+    },
+    {
+      "event": "idle_training_dram_publication",
+      "time": 1793020743.0938008,
+      "pid": 1,
+      "version": 1,
+      "seconds": 7.168760094791651,
+      "publisher_world_size": 2,
+      "primary_hbm_restored": false
+    },
+    {
+      "event": "idle_training_selected",
+      "time": 1793020746.7419803,
+      "pid": 1,
+      "batch": 2,
+      "world_size": 1,
+      "reason": "runnable_inference",
+      "preparation_seconds": 1.7916346210986376,
+      "direct_from_inference": true
+    },
+    {
+      "event": "idle_execution_choice",
+      "time": 1793020775.0665886,
+      "pid": 1,
+      "batch": 2,
+      "consumed_microbatches": 14,
+      "expansion_net_seconds": 2.7268562933019567,
+      "helper_net_seconds": 21.315771394653055,
+      "preferred": "helper"
+    },
+    {
+      "event": "idle_helper_end",
+      "time": 1793020804.6621757,
+      "pid": 1,
+      "batch": 2,
+      "token": "areal-idle-49a7326a5e81458eb94badc6e5872258-batch-2",
+      "seconds": 29.595011780038476,
+      "prepared_seconds": 2.196421978995204,
+      "export_seconds": 3.6736118476837873,
+      "import_seconds": 1.030281588435173,
+      "release_seconds": 0.8707493953406811,
+      "completion_seconds": 2.7040165290236473
+    },
+    {
+      "event": "idle_training_selected",
+      "time": 1793020809.1444426,
+      "pid": 1,
+      "batch": 3,
+      "world_size": 1,
+      "reason": "runnable_inference",
+      "preparation_seconds": 0.17573468200862408,
+      "direct_from_inference": true
+    },
+    {
+      "event": "idle_execution_choice",
+      "time": 1793020831.412318,
+      "pid": 1,
+      "batch": 3,
+      "consumed_microbatches": 12,
+      "expansion_net_seconds": 0.9156258175473937,
+      "helper_net_seconds": 16.124832646423258,
+      "preferred": "helper"
+    },
+    {
+      "event": "idle_helper_end",
+      "time": 1793020870.0604155,
+      "pid": 1,
+      "batch": 3,
+      "token": "areal-idle-49a7326a5e81458eb94badc6e5872258-batch-3",
+      "seconds": 24.38960005901754,
+      "prepared_seconds": 2.332773247733712,
+      "export_seconds": 3.60448862798512,
+      "import_seconds": 1.2887738309800625,
+      "release_seconds": 0.9433685038238764,
+      "completion_seconds": 2.3488295823335648
+    },
+    {
+      "event": "idle_training_selected",
+      "time": 1793020874.07809,
+      "pid": 1,
+      "batch": 4,
+      "world_size": 1,
+      "reason": "runnable_inference",
+      "preparation_seconds": 0.6645698435604572,
+      "direct_from_inference": true
+    },
+    {
+      "event": "idle_execution_choice",
+      "time": 1793020897.9973934,
+      "pid": 1,
+      "batch": 4,
+      "consumed_microbatches": 14,
+      "expansion_net_seconds": 0.9185887850640846,
+      "helper_net_seconds": 15.273846997026936,
+      "preferred": "helper"
+    },
+    {
+      "event": "idle_helper_end",
+      "time": 1793020936.6351752,
+      "pid": 1,
+      "batch": 4,
+      "token": "areal-idle-49a7326a5e81458eb94badc6e5872258-batch-4",
+      "seconds": 24.46782999485731,
+      "prepared_seconds": 1.9930623900145292,
+      "export_seconds": 3.8986988365650177,
+      "import_seconds": 1.0131100937724113,
+      "release_seconds": 0.9719262067228556,
+      "completion_seconds": 2.6499186791479588
+    },
+    {
+      "event": "idle_training_selected",
+      "time": 1793020940.486627,
+      "pid": 1,
+      "batch": 5,
+      "world_size": 1,
+      "reason": "runnable_inference",
+      "preparation_seconds": 0.47774067893624306,
+      "direct_from_inference": true
+    },
+    {
+      "event": "idle_execution_choice",
+      "time": 1793020965.4432917,
+      "pid": 1,
+      "batch": 5,
+      "consumed_microbatches": 14,
+      "expansion_net_seconds": 0.1457036264185234,
+      "helper_net_seconds": 15.49137298746287,
+      "preferred": "helper"
+    },
+    {
+      "event": "idle_helper_end",
+      "time": 1793020999.739069,
+      "pid": 1,
+      "batch": 5,
+      "token": "areal-idle-49a7326a5e81458eb94badc6e5872258-batch-5",
+      "seconds": 26.406100321561098,
+      "prepared_seconds": 1.8436814956367016,
+      "export_seconds": 4.3727728091180325,
+      "import_seconds": 1.0223909877240658,
+      "release_seconds": 0.9884295240044594,
+      "completion_seconds": 2.021208820864558
+    },
+    {
+      "event": "idle_training_selected",
+      "time": 1793021007.3728747,
+      "pid": 1,
+      "batch": 6,
+      "world_size": 2,
+      "reason": "idle_cold_start",
+      "preparation_seconds": 4.247824991121888,
+      "direct_from_inference": true
+    }
+  ],
+  "stages": {
+    "fixed": {
+      "train.rollout": [
+        68.23212,
+        0.006993,
+        0.01195,
+        0.007719,
+        0.000345,
+        0.000322
+      ],
+      "train.recompute_logp": [
+        11.708476,
+        12.439407,
+        11.631925,
+        11.803399,
+        12.094173,
+        11.616559
+      ],
+      "train.compute_advantage": [
+        2.338403,
+        2.064637,
+        1.920426,
+        2.042305,
+        2.272259,
+        2.114024
+      ],
+      "train.ppo_update": [
+        47.647412,
+        49.939522,
+        48.450891,
+        48.15899,
+        49.637191,
+        47.709437
+      ],
+      "train.save": [
+        0.000136,
+        0.00017,
+        8.6e-05,
+        9e-05,
+        7.4e-05,
+        10.746394
+      ],
+      "train.checkpoint": [
+        7.8e-05,
+        9.9e-05,
+        5.1e-05,
+        7.5e-05,
+        4.7e-05,
+        0.000104
+      ],
+      "train.update_weights": [
+        1.470527,
+        0.540035,
+        0.529245,
+        0.540956,
+        0.546148,
+        0.782472
+      ],
+      "train.eval": [
+        0.000153,
+        0.000179,
+        0.000163,
+        0.000166,
+        0.000164,
+        0.000173
+      ],
+      "train.clear_batches": [
+        0.02454,
+        0.024079,
+        0.023387,
+        0.024334,
+        0.026072,
+        0.024417
+      ],
+      "train.log_stats": [
+        0.629257,
+        0.634829,
+        0.622769,
+        0.617239,
+        0.644652,
+        0.051895
+      ]
+    },
+    "latest": {
+      "train.rollout": [
+        58.452851,
+        0.009845,
+        0.05474,
+        0.014455,
+        0.001396,
+        0.001602
+      ],
+      "train.idle_entry_multi": [
+        1.939204,
+        4.247758
+      ],
+      "train.recompute_logp": [
+        11.494101,
+        14.698084,
+        11.781276,
+        11.79793,
+        13.318357,
+        10.008402
+      ],
+      "train.compute_advantage": [
+        2.276935,
+        2.328032,
+        2.097611,
+        2.103044,
+        2.194217,
+        2.057942
+      ],
+      "train.ppo_update": [
+        34.431489,
+        41.699782,
+        48.107628,
+        49.660676,
+        44.758486,
+        31.468683
+      ],
+      "train.save": [
+        0.000156,
+        0.000197,
+        0.000249,
+        0.000224,
+        0.00021,
+        12.869595
+      ],
+      "train.checkpoint": [
+        9.9e-05,
+        0.000123,
+        0.00014,
+        0.000138,
+        0.00022,
+        7.6e-05
+      ],
+      "train.update_weights": [
+        8.83518,
+        1.925511,
+        1.436035,
+        1.521021,
+        1.532978,
+        0.588972
+      ],
+      "train.eval": [
+        0.00018,
+        0.000155,
+        0.000152,
+        0.000151,
+        0.000154,
+        0.00018
+      ],
+      "train.clear_batches": [
+        0.057028,
+        0.619548,
+        0.061876,
+        0.062697,
+        0.060609,
+        0.058049
+      ],
+      "train.log_stats": [
+        0.098374,
+        0.067885,
+        0.065764,
+        0.066264,
+        0.063963,
+        0.058881
+      ],
+      "train.idle_entry_single": [
+        1.791585,
+        0.175694,
+        0.66451,
+        0.477696
+      ],
+      "train.background_publication": [
+        0.393659,
+        0.489625,
+        0.497782,
+        0.499839
+      ],
+      "train.wait_previous_tail": [
+        1.065871,
+        0.64451,
+        0.666131,
+        0.65755
+      ]
+    }
+  }
+}

@@ -1,6 +1,6 @@
 [
   {
-    "workspace": "/root/areal-benchmarks/20261016-121318-0700_math_fsdp_c16_b6_1c8315",
+    "workspace": "/root/areal-development/20261016-121318-0700_math_fsdp_c16_b6_1c8315",
     "arm": "latest",
     "settings": {
       "rl": "math",
@@ -38,7 +38,7 @@
       "phase": "complete",
       "current": "latest",
       "scope": "shared_only_followup",
-      "workspace": "/root/areal-benchmarks/20261016-121318-0700_math_fsdp_c16_b6_1c8315",
+      "workspace": "/root/areal-development/20261016-121318-0700_math_fsdp_c16_b6_1c8315",
       "concurrency": 16,
       "mode": "kv",
       "execute": 1,
@@ -150,7 +150,7 @@
     }
   },
   {
-    "workspace": "/root/areal-benchmarks/20261016-122322-0700_math_fsdp_c16_b6_759cff",
+    "workspace": "/root/areal-development/20261016-122322-0700_math_fsdp_c16_b6_759cff",
     "arm": "latest",
     "settings": {
       "rl": "math",
@@ -188,7 +188,7 @@
       "phase": "complete",
       "current": "latest",
       "scope": "shared_only_followup",
-      "workspace": "/root/areal-benchmarks/20261016-122322-0700_math_fsdp_c16_b6_759cff",
+      "workspace": "/root/areal-development/20261016-122322-0700_math_fsdp_c16_b6_759cff",
       "concurrency": 16,
       "mode": "kv",
       "execute": 0,
@@ -294,7 +294,7 @@
     }
   },
   {
-    "workspace": "/root/areal-benchmarks/20261016-123331-0700_math_fsdp_c32_b6_cc4636",
+    "workspace": "/root/areal-development/20261016-123331-0700_math_fsdp_c32_b6_cc4636",
     "arm": "latest",
     "settings": {
       "rl": "math",
@@ -332,7 +332,7 @@
       "phase": "complete",
       "current": "latest",
       "scope": "shared_only_followup",
-      "workspace": "/root/areal-benchmarks/20261016-123331-0700_math_fsdp_c32_b6_cc4636",
+      "workspace": "/root/areal-development/20261016-123331-0700_math_fsdp_c32_b6_cc4636",
       "concurrency": 32,
       "mode": "kv",
       "execute": 0,
@@ -464,7 +464,7 @@
     }
   },
   {
-    "workspace": "/root/areal-benchmarks/20261016-124327-0700_math_fsdp_c32_b6_99f89d",
+    "workspace": "/root/areal-development/20261016-124327-0700_math_fsdp_c32_b6_99f89d",
     "arm": "latest",
     "settings": {
       "rl": "math",
@@ -502,7 +502,7 @@
       "phase": "complete",
       "current": "latest",
       "scope": "shared_only_followup",
-      "workspace": "/root/areal-benchmarks/20261016-124327-0700_math_fsdp_c32_b6_99f89d",
+      "workspace": "/root/areal-development/20261016-124327-0700_math_fsdp_c32_b6_99f89d",
       "concurrency": 32,
       "mode": "kv",
       "execute": 1,

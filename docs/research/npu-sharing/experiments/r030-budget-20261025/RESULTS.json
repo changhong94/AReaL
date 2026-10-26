@@ -1,0 +1,17 @@
+{
+  "status": "comparison_failed",
+  "workspace": "/root/areal-development/idle-budget-20261025/comparison/20261025-134318-0700_code_fsdp_c16_b6_62b2db/repetitions/01",
+  "fixed_completed_batches": 3,
+  "shared_started": false,
+  "fixed_completed_answers": 1057,
+  "fixed_completed_answer_tokens": 252341,
+  "token_scope": "Partial fixed arm only; excludes unfinished/cancelled answer tokens",
+  "failure": "Sandbox upload returned sandbox not found on six attempts; task 99, session 817",
+  "correctness_imports": 9,
+  "correctness_transfers": 6,
+  "gradient_relative_l2": 0.013485283826687759,
+  "npu_budget_acceptance_exercised": true,
+  "npu_budget_rejection_exercised": false,
+  "unit_tests_passed": 25,
+  "busy_running": true
+}

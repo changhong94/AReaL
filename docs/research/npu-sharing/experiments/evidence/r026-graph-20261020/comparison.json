@@ -1,0 +1,62 @@
+[
+  {
+    "case": "historical_tail_group",
+    "eager_tp1_s": 16.668315265327692,
+    "eager_tp2_s": 19.537085227668285,
+    "graph_tp1_s": 4.405996635556221,
+    "graph_tp2_s": 3.7357559371739626,
+    "graph_tp2_savings_pct": 15.21201112532502,
+    "graph_tp1_savings_vs_eager_pct": 73.56663486728452,
+    "graph_tp2_savings_vs_eager_pct": 80.8786423683948
+  },
+  {
+    "case": "historical_last_single",
+    "eager_tp1_s": 15.465766896493733,
+    "eager_tp2_s": 18.12974640727043,
+    "graph_tp1_s": 3.8474482903257012,
+    "graph_tp2_s": 2.748230930417776,
+    "graph_tp2_savings_pct": 28.570035955307727,
+    "graph_tp1_savings_vs_eager_pct": 75.12280951811086,
+    "graph_tp2_savings_vs_eager_pct": 84.84131620663113
+  },
+  {
+    "case": "fixed512_c1",
+    "eager_tp1_s": 28.61498884111643,
+    "eager_tp2_s": 33.73969635181129,
+    "graph_tp1_s": 7.139843185432255,
+    "graph_tp2_s": 5.312846943736076,
+    "graph_tp2_savings_pct": 25.588744657920248,
+    "graph_tp1_savings_vs_eager_pct": 75.04859000618191,
+    "graph_tp2_savings_vs_eager_pct": 84.25342395397443
+  },
+  {
+    "case": "fixed512_c4",
+    "eager_tp1_s": 31.15155483968556,
+    "eager_tp2_s": 35.2534154932946,
+    "graph_tp1_s": 7.404528436250985,
+    "graph_tp2_s": 5.510530233383179,
+    "graph_tp2_savings_pct": 25.578917268994427,
+    "graph_tp1_savings_vs_eager_pct": 76.23062966084126,
+    "graph_tp2_savings_vs_eager_pct": 84.36880467814157
+  },
+  {
+    "case": "fixed512_c16",
+    "eager_tp1_s": 31.29523331299424,
+    "eager_tp2_s": 36.094904247671366,
+    "graph_tp1_s": 8.332342863082886,
+    "graph_tp2_s": 6.4377838503569365,
+    "graph_tp2_savings_pct": 22.737410640168743,
+    "graph_tp1_savings_vs_eager_pct": 73.37504156064824,
+    "graph_tp2_savings_vs_eager_pct": 82.16428611035236
+  },
+  {
+    "case": "fixed512_c32",
+    "eager_tp1_s": 31.993795873597264,
+    "eager_tp2_s": 36.574039755389094,
+    "graph_tp1_s": 9.165384747087955,
+    "graph_tp2_s": 7.697055723518133,
+    "graph_tp2_savings_pct": 16.020375184318837,
+    "graph_tp1_savings_vs_eager_pct": 71.35261854111019,
+    "graph_tp2_savings_vs_eager_pct": 78.95486586935208
+  }
+]

@@ -1,0 +1,251 @@
+{
+  "import_result": {
+    "outcome": "import_applied",
+    "import_s": 0.03342729061841965,
+    "computed": 91,
+    "request_id": "generate-tokens-kv-probe-8f314ee8"
+  },
+  "tokens_equal": true,
+  "logprob_max_error": 0.0,
+  "prefix_tokens": 34,
+  "export": {
+    "tp_size": 2,
+    "tensors": 56,
+    "block_bytes": 32768,
+    "block_tokens": 128,
+    "layout": [
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      },
+      {
+        "dtype": "torch.int8",
+        "shape": []
+      }
+    ],
+    "bytes": 3670016,
+    "pack_s": 0.008206117898225784,
+    "worker_s": 0.008912628516554832,
+    "computed": 91,
+    "key": "5949456f3a9ba2e2935f6a866484a3a206834a723540b60d4e150c90f429fba3",
+    "blocks": 1,
+    "tokens": 92
+  },
+  "total_tokens": 256
+}

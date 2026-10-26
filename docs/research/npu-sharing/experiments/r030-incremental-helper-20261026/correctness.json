@@ -1,0 +1,142 @@
+[
+  {
+    "event": "idle_dram_import_verified",
+    "time": 1793009195.5482197,
+    "pid": 610,
+    "rank": 0,
+    "verify_d2h_seconds": 0.9024659227579832,
+    "equality_seconds": 4.54603541828692,
+    "hash_seconds": 14.201162796467543,
+    "full_verification": true,
+    "verified_bytes": 9262287688,
+    "shard_sha256": "d488918e0d032c10c853e3e929b54df41fd8f331fddbaac649a0078f782fef0c",
+    "version": 0,
+    "scheduler_epoch": 0
+  },
+  {
+    "event": "idle_dram_import_verified",
+    "time": 1793009203.7614133,
+    "pid": 615,
+    "rank": 1,
+    "verify_d2h_seconds": 0.7782836239784956,
+    "equality_seconds": 4.239930689334869,
+    "hash_seconds": 13.201952869072556,
+    "full_verification": true,
+    "verified_bytes": 9262287688,
+    "shard_sha256": "24057990c77ff1cc6a2d7c09d91fb911e91fb08bbead3a58091ee33adf2c1442",
+    "version": 0,
+    "scheduler_epoch": 0
+  },
+  {
+    "event": "idle_training_selected",
+    "time": 1793009203.7759717,
+    "pid": 1,
+    "batch": 1,
+    "world_size": 2,
+    "reason": "correctness_sequence",
+    "preparation_seconds": 36.56807239539921,
+    "direct_from_inference": true
+  },
+  {
+    "event": "idle_dram_import_verified",
+    "time": 1793009305.2971845,
+    "pid": 531,
+    "rank": 0,
+    "verify_d2h_seconds": 1.5618636757135391,
+    "equality_seconds": 7.863218681886792,
+    "hash_seconds": 26.654545670375228,
+    "full_verification": true,
+    "verified_bytes": 18524573512,
+    "shard_sha256": "3d1c1837df990fd83ae80e7024ff21d5b916829ce872a46450cab5de54574c96",
+    "version": 1,
+    "scheduler_epoch": 1
+  },
+  {
+    "event": "idle_training_selected",
+    "time": 1793009305.3078015,
+    "pid": 1,
+    "batch": 2,
+    "world_size": 1,
+    "reason": "correctness_sequence",
+    "preparation_seconds": 38.05398321337998,
+    "direct_from_inference": true
+  },
+  {
+    "event": "idle_helper_begin",
+    "time": 1793009338.055675,
+    "pid": 1,
+    "batch": 2,
+    "token": "areal-idle-659322c4d1b843ef8807a5fc5277d423-batch-2",
+    "helper_start": 14,
+    "helper_stop": 52,
+    "primary_start": 52,
+    "primary_stop": 90,
+    "denominator": 63237
+  },
+  {
+    "event": "idle_helper_model_staged",
+    "time": 1793009338.993997,
+    "pid": 811,
+    "generation": 2,
+    "version": 1,
+    "bytes": 6174857728
+  },
+  {
+    "event": "idle_gradient_replay_verified",
+    "time": 1793009524.3376172,
+    "pid": 531,
+    "rank": 0,
+    "token": "areal-idle-659322c4d1b843ef8807a5fc5277d423-batch-2",
+    "relative_l2": 0.011975704652410235,
+    "max_absolute_error": 0.0005272133275866508
+  },
+  {
+    "event": "idle_helper_end",
+    "time": 1793009525.0209339,
+    "pid": 1,
+    "batch": 2,
+    "token": "areal-idle-659322c4d1b843ef8807a5fc5277d423-batch-2",
+    "seconds": 194.6752510201186,
+    "prepared_seconds": 10.720391403883696,
+    "export_seconds": 29.887478025630116,
+    "completion_seconds": 117.37251237779856
+  },
+  {
+    "event": "idle_dram_import_verified",
+    "time": 1793009554.0272927,
+    "pid": 610,
+    "rank": 0,
+    "verify_d2h_seconds": 1.1206285767257214,
+    "equality_seconds": 4.5640312023460865,
+    "hash_seconds": 16.460661998018622,
+    "full_verification": true,
+    "verified_bytes": 9262287688,
+    "shard_sha256": "2bee98058be6e184946c54894a2c0e455c7d66264f961b28761d418b1730a028",
+    "version": 2,
+    "scheduler_epoch": 2
+  },
+  {
+    "event": "idle_dram_import_verified",
+    "time": 1793009561.6717312,
+    "pid": 615,
+    "rank": 1,
+    "verify_d2h_seconds": 0.7977467775344849,
+    "equality_seconds": 3.7040330842137337,
+    "hash_seconds": 15.97421183437109,
+    "full_verification": true,
+    "verified_bytes": 9262287688,
+    "shard_sha256": "49c655ee169e8b68e923a2139cdd9430faa3b1eb2e28be4cb2228a9e4faa1729",
+    "version": 2,
+    "scheduler_epoch": 2
+  },
+  {
+    "event": "idle_training_selected",
+    "time": 1793009561.6927137,
+    "pid": 1,
+    "batch": 3,
+    "world_size": 2,
+    "reason": "correctness_sequence",
+    "preparation_seconds": 31.509715044870973,
+    "direct_from_inference": true
+  }
+]

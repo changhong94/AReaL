@@ -324,7 +324,9 @@ class AsyncTaskRunner(Generic[T]):
 
         try:
             while not self.exiting.is_set():
-                if self.paused.is_set():
+                # Pause fences admission, not completion delivery. In-flight
+                # reward-only tasks must still reach a waiting batch consumer.
+                if self.paused.is_set() and not running_tasks:
                     await asyncio.sleep(self.poll_sleep_time)
                     continue
 

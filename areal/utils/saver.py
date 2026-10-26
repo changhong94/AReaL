@@ -31,6 +31,7 @@ class Saver:
         )
         self._async_mode = AsyncMode(config.mode)
         self._managers: dict[str, AsyncCheckpointManager] = {}
+        self._fsdp_async_engines = {}
 
     @staticmethod
     def get_save_root(
@@ -99,17 +100,21 @@ class Saver:
     def is_async(self) -> bool:
         if self._async_mode in (AsyncMode.ASYNC, AsyncMode.AUTO):
             # True if any manager is configured for async saves.
-            return any(mgr.is_async for mgr in self._managers.values())
+            return bool(self._fsdp_async_engines) or any(
+                mgr.is_async for mgr in self._managers.values()
+            )
         return False
 
     def _should_use_async(self, engine: TrainEngine | TrainController) -> bool:
         """Decide whether to use async save for this engine."""
+        if self._async_mode == AsyncMode.ASYNC and self._supports_fsdp_async(engine):
+            return True
         from areal.experimental.engine.archon_engine import ArchonEngine
 
         if self._async_mode == AsyncMode.ASYNC:
             if not isinstance(engine, ArchonEngine):
                 logger.warning(
-                    "Async checkpoint only supports ArchonEngine, "
+                    "Async HF save supports Archon and full-model FSDP, "
                     "got %s; falling back to sync",
                     type(engine).__name__,
                 )
@@ -118,6 +123,15 @@ class Saver:
         if self._async_mode == AsyncMode.AUTO:
             return isinstance(engine, ArchonEngine)
         return False
+
+    @staticmethod
+    def _supports_fsdp_async(engine):
+        from areal.engine.fsdp_engine import FSDPEngine
+
+        is_fsdp = isinstance(engine, FSDPEngine) or (
+            isinstance(engine, TrainController) and engine.train_alloc.backend == "fsdp"
+        )
+        return is_fsdp and not engine.config.use_lora
 
     def save(
         self,
@@ -144,7 +158,11 @@ class Saver:
             name,
         )
 
-        if self._should_use_async(engine):
+        from areal.engine.async_hf_save import save_timing
+
+        with save_timing("saver_mode"):
+            use_async = self._should_use_async(engine)
+        if use_async:
             self._async_save(engine, path, name, tokenizer, processor)
         else:
             meta = SaveLoadMeta(
@@ -165,7 +183,19 @@ class Saver:
         tokenizer: PreTrainedTokenizerFast | None,
         processor: AutoProcessor | None,
     ):
-        """Archon async save."""
+        """Stage an immutable model and dispatch engine-specific asynchronous I/O."""
+        if self._supports_fsdp_async(engine):
+            engine.save_async(
+                SaveLoadMeta(
+                    path=path,
+                    weight_format="hf",
+                    with_optim=False,
+                    tokenizer=tokenizer,
+                    processor=processor,
+                )
+            )
+            self._fsdp_async_engines[id(engine)] = engine
+            return
         from areal.experimental.engine.archon_engine import ArchonEngine
 
         assert isinstance(engine, ArchonEngine)
@@ -189,3 +219,6 @@ class Saver:
         for mgr in self._managers.values():
             mgr.finalize()
         self._managers.clear()
+        for engine in self._fsdp_async_engines.values():
+            engine.wait_async_save(finalize=True)
+        self._fsdp_async_engines.clear()

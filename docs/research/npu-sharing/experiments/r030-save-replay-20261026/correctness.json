@@ -1,0 +1,22 @@
+[
+  {
+    "label": "matched-0-optimized",
+    "exact_tensors": 339,
+    "tokenizer_vocab_special_tokens_chat_template_and_examples": true
+  },
+  {
+    "label": "matched-1-baseline",
+    "exact_tensors": 339,
+    "tokenizer_vocab_special_tokens_chat_template_and_examples": true
+  },
+  {
+    "label": "matched-2-baseline",
+    "exact_tensors": 339,
+    "tokenizer_vocab_special_tokens_chat_template_and_examples": true
+  },
+  {
+    "label": "matched-3-optimized",
+    "exact_tensors": 339,
+    "tokenizer_vocab_special_tokens_chat_template_and_examples": true
+  }
+]

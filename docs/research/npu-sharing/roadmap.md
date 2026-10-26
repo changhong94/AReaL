@@ -2,6 +2,11 @@ English | [中文](roadmap.zh.md)
 
 # Evolution and candidate paper structure
 
+The current paper organization is [three core mechanisms](core-mechanisms.md): M1
+resource/memory sharing, M2 readiness-aware scheduling, and M3 asymmetric publication.
+Historical stages below are not separate contribution claims; retain negative evidence
+and tooling as supporting material.
+
 ## Recovered evolution
 
 | Phase                             | Research IDs                 | Decision or lesson                                                                                                             |
@@ -15,20 +20,16 @@ English | [中文](roadmap.zh.md)
 | Recover idle shared capacity      | R005, R020, R001             | Queued stealing found no candidates; TP2 tail replay was slower; running-request rebalancing is still a hypothesis.            |
 | Generalization and evidence       | R021, R022, R023             | Megatron, multi-NPU topology, per-rank budgets and reproducible instrumentation expand applicability, not automatically speed. |
 
-## Possible paper contributions (novelty not yet established)
+## Paper structure: three core mechanisms
 
-1. **A state and version protocol for training-priority NPU sharing.** Combine
-   conditional residency, per-rank budgets and explicit request/weight fences.
-1. **An independently published inference pool.** Release dedicated inference early
-   while snapshot/recovery runs in the background; quantify the residual critical path.
-1. **Batch-critical cost-based scheduling.** Optimize `max(data_ready, card_ready)` with
-   causally frozen online estimates, then investigate running-request rebalancing.
-1. **Evidence and counterexamples.** Controlled allocation diagnosis, negative TP2 and
-   sibling results, and disclosure of tracing/workload differences support credibility.
+Use [the three-mechanism overview](core-mechanisms.md): M1 training-priority resource
+and memory sharing, M2 request scheduling for training readiness, and M3 asymmetric
+asynchronous weight publication. Treat warmup, backend extensions and tools as
+supporting work. Preserve failed and non-beneficial alternatives as limitations,
+ablations and discussion evidence.
 
-These are candidate groupings, not four proven novel contributions. Slabs, virtual
-memory, asynchronous RL, prefetch, survival estimation and warmup have prior art. Record
-FineServe attribution and CaMem/Ascend runtime origins before drafting novelty.
+These are three candidate mechanisms, not three proven novel contributions with isolated
+speedups. Record related work and FineServe/CaMem/Ascend attribution.
 
 ## Missing work before strong claims
 
@@ -43,3 +44,17 @@ FineServe attribution and CaMem/Ascend runtime origins before drafting novelty.
 - Exact attribution for historical runs without complete source/image provenance.
 
 No new NPU experiment or production scheduler change was made for this review.
+
+## Proposed multi-node extension (R028)
+
+[Research plan](optimizations/R028-multinode-training-inference-sharing.md): two-node
+fixed baseline, node-local sharing with distributed training, cross-node request
+migration, then cross-node inference TP. Current npu_share remains local-only; no
+multi-node benefit is claimed.
+
+## Reward scheduling (R029)
+
+[Question-completion-first scoring](optimizations/R029-training-ready-reward-scheduling.md):
+optional prototype; replay identical generated answers first, then repeat full-loop
+comparisons. Preserve the negative decoupled-loop result and external sandbox contention
+caveat.

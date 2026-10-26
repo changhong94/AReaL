@@ -17,12 +17,18 @@ class BorrowedRolloutPool:
         batch_size: int,
         preserve_requests: bool = False,
         replicas_per_group: int = 1,
+        fixed_replicas: int | None = None,
     ):
         if batch_size < 1:
             raise ValueError("Borrowed rollout requires a positive batch size")
         if replicas_per_group < 1:
             raise ValueError("Replica groups must be nonempty")
         self.replicas_per_group = replicas_per_group
+        self.fixed_replicas = (
+            replicas_per_group if fixed_replicas is None else fixed_replicas
+        )
+        if self.fixed_replicas < 1:
+            raise ValueError("Fixed replica group must be nonempty")
         self.batch_size = batch_size
         self.preserve_requests = preserve_requests
         self.consumed = 0
@@ -47,19 +53,21 @@ class BorrowedRolloutPool:
         if self.state == "inference" and accepted >= threshold:
             self.state = "draining"
 
-    def choose(self, accepted: int) -> tuple[int, bool]:
+    def choose(
+        self, accepted: int, loads: dict[int, int] | None = None
+    ) -> tuple[int, bool]:
         with self._lock:
             old_state = self.state
             self._withdraw_if_ready(accepted)
-            if self.state != "inference":
-                rank = (
-                    self.replicas_per_group + self._next_rank % self.replicas_per_group
-                )
-                self._next_rank += 1
-                return rank, self.state != old_state
-            rank = self._next_rank % (2 * self.replicas_per_group)
+            start = 0 if self.state == "inference" else self.replicas_per_group
+            ranks = list(range(start, self.replicas_per_group + self.fixed_replicas))
+            rotated = (
+                ranks[self._next_rank % len(ranks) :]
+                + ranks[: self._next_rank % len(ranks)]
+            )
+            rank = min(rotated, key=lambda r: (loads or {}).get(r, 0))
             self._next_rank += 1
-            return rank, False
+            return rank, self.state != old_state
 
     def batch_ready(self, count: int) -> None:
         with self._lock:

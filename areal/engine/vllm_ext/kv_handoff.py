@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Experimental TP=1 request-local KV staging and native scheduler import.
+"""Experimental equal-TP request-local KV staging and native scheduler import.
 
 Transport tickets never authorize execution. Source abort and the normal routed
 continuation remain the sole ownership handoff. Unsupported requests fail closed.
 """
 
 import hashlib
+import json
 import os
 import time
 from functools import wraps
@@ -35,7 +36,56 @@ def validate_sampling(params):
         raise ValueError("KV handoff requires unseeded, penalty-free token generation")
 
 
+def aggregate_worker_results(results):
+    """A replica acknowledges an operation only after every TP shard replies."""
+    if not results:
+        raise RuntimeError("Missing KV worker acknowledgements")
+    width = results[0].get("tp_size", 1)
+    if len(results) != width or sorted(r.get("tp_rank", 0) for r in results) != list(
+        range(width)
+    ):
+        raise RuntimeError("Incomplete or duplicate TP shard acknowledgements")
+    if any("rejected" in result for result in results):
+        return dict(rejected="TP member rejected staging preflight")
+    geometry_keys = (
+        "tp_size",
+        "tensors",
+        "block_bytes",
+        "block_tokens",
+        "layout",
+        "model_layout",
+    )
+    if any(any(r.get(k) != results[0].get(k) for k in geometry_keys) for r in results):
+        raise RuntimeError("Inconsistent TP shard geometry")
+    output = {k: v for k, v in results[0].items() if k != "tp_rank"}
+    if "bytes" in output:
+        if len({r["bytes"] for r in results}) != 1:
+            raise RuntimeError("Unequal TP shard payload sizes")
+        output["bytes"] = sum(r["bytes"] for r in results)
+    for key in ("worker_s", "pack_s", "transfer_s", "import_s"):
+        if key in output:
+            output[key] = max(r[key] for r in results)
+    return output
+
+
+def transfer_group(worker, data):
+    """Select only the initialized directed peer channel for this transaction."""
+    peer = getattr(worker, "_areal_kv_groups", {}).get(data.get("pair_id"))
+    if peer is None or peer["source"] != data["source"]:
+        raise ValueError("Unknown KV peer or mismatched transfer direction")
+    return peer["group"]
+
+
 def worker_operation(worker, action, data):
+    from vllm.distributed import get_tp_group
+
+    width = worker.model_runner.vllm_config.parallel_config.tensor_parallel_size
+    rank = get_tp_group().rank_in_group if width > 1 else 0
+    result = _worker_operation(worker, action, data, rank, width)
+    return dict(result, tp_rank=rank, tp_size=width)
+
+
+def _worker_operation(worker, action, data, tp_rank, tp_size):
     import torch
     import torch.distributed as dist
 
@@ -44,17 +94,43 @@ def worker_operation(worker, action, data):
         getattr(worker, "_areal_kv_staging", {}).pop(data["ticket"], None)
         return {}
     pool = getattr(runner, "_areal_dynamic_kv", None)
-    if not enabled() or pool is None or pool.broken or pool.paused or pool.swapped:
+    retained_source = data.get("retained_source", False)
+    paused_export = retained_source and action in {
+        "pack",
+        "prepare_transfer",
+        "transfer",
+    }
+    if not enabled() or pool is None or pool.broken:
+        raise RuntimeError("KV handoff requires healthy dynamic KV")
+    if paused_export:
+        if not pool.paused or (action != "pack" and not data.get("source")):
+            raise RuntimeError("Retained export requires a paused source")
+    elif pool.paused or pool.swapped:
         raise RuntimeError("KV handoff requires healthy resident dynamic KV")
-    if runner.vllm_config.parallel_config.tensor_parallel_size != 1:
-        raise ValueError("KV handoff currently requires TP=1")
+    if runner.vllm_config.parallel_config.pipeline_parallel_size != 1:
+        raise ValueError("KV handoff does not support pipeline parallelism")
     staging = getattr(worker, "_areal_kv_staging", {})
     worker._areal_kv_staging = staging
     ticket = data.get("ticket")
     geometry = dict(
+        model_layout=hashlib.sha256(
+            json.dumps(
+                dict(
+                    config=runner.vllm_config.model_config.hf_config.to_dict(),
+                    dtype=str(runner.vllm_config.model_config.dtype),
+                    kv_dtype=str(runner.vllm_config.cache_config.cache_dtype),
+                ),
+                sort_keys=True,
+                default=str,
+            ).encode()
+        ).hexdigest(),
+        tp_size=tp_size,
         tensors=len(pool.tensors),
         block_bytes=pool.bytes_per_block,
         block_tokens=runner.vllm_config.cache_config.block_size,
+        layout=[
+            dict(dtype=str(t.dtype), shape=list(t.shape[1:])) for t in pool.tensors
+        ],
     )
     if action == "info":
         return geometry
@@ -63,20 +139,26 @@ def worker_operation(worker, action, data):
 
         from areal.engine.core.distributed import init_custom_process_group
 
-        worker._areal_kv_group = init_custom_process_group(
+        groups = getattr(worker, "_areal_kv_groups", {})
+        worker._areal_kv_groups = groups
+        pair_id = data["pair_id"]
+        if pair_id in groups:
+            raise ValueError("KV peer channel already initialized")
+        group = init_custom_process_group(
             backend="hccl",
             world_size=2,
             rank=data["rank"],
-            init_method=data["init_method"],
-            group_name=data["group_name"],
+            init_method=data["init_methods"][tp_rank],
+            group_name=data["group_name"] + "-tp-" + str(tp_rank),
             timeout=timedelta(seconds=20),
         )
         warm = torch.zeros(1, dtype=torch.float16, device=runner.device)
         options = dist.BroadcastOptions()
         options.rootRank = 0
         options.rootTensor = 0
-        worker._areal_kv_group.broadcast([warm], options).wait()
+        group.broadcast([warm], options).wait()
         torch.npu.synchronize()
+        groups[pair_id] = dict(group=group, source=data["rank"] == 0)
         return geometry
     if action == "discard":
         staging.pop(ticket, None)
@@ -93,19 +175,23 @@ def worker_operation(worker, action, data):
             size > 64 * 1024**2
             or torch.npu.mem_get_info()[0] < 2 * size + pool.reserve_bytes
         ):
-            raise RuntimeError("Insufficient staging headroom")
+            raise MemoryError("Insufficient staging headroom")
         torch.npu.synchronize()
         started = time.perf_counter()
-        indices = torch.tensor(blocks, dtype=torch.int64, device=runner.device)
-        payload = torch.cat(
-            [
-                t.view(torch.uint8)
-                .reshape(pool.num_blocks, pool.bytes_per_block)
-                .index_select(0, indices)
-                .reshape(-1)
-                for t in pool.tensors
-            ]
-        )
+        if paused_export:
+            payload = torch.empty(size, dtype=torch.uint8, device=runner.device)
+            pool.copy_retained_blocks(blocks, payload.data_ptr())
+        else:
+            indices = torch.tensor(blocks, dtype=torch.int64, device=runner.device)
+            payload = torch.cat(
+                [
+                    t.view(torch.uint8)
+                    .reshape(pool.num_blocks, pool.bytes_per_block)
+                    .index_select(0, indices)
+                    .reshape(-1)
+                    for t in pool.tensors
+                ]
+            )
         torch.npu.synchronize()
         staging[ticket] = payload
         return dict(
@@ -114,27 +200,39 @@ def worker_operation(worker, action, data):
             pack_s=time.perf_counter() - started,
             worker_s=time.perf_counter() - operation_started,
         )
-    if action == "transfer":
+    if action in {"prepare_transfer", "transfer"}:
+        group = transfer_group(worker, data)
         operation_started = time.perf_counter()
-        size = data["bytes"]
+        if data["bytes"] % tp_size:
+            raise ValueError("Payload size is not divisible by TP width")
+        size = data["bytes"] // tp_size
         if geometry != data["geometry"] or size <= 0 or size > 64 * 1024**2 or size % 2:
             raise ValueError("Incompatible KV payload geometry")
-        if data["source"]:
-            payload = staging[ticket]
-        else:
-            if (
-                ticket in staging
-                or torch.npu.mem_get_info()[0] < 2 * size + pool.reserve_bytes
-            ):
-                raise RuntimeError("Insufficient target staging headroom")
-            payload = torch.empty(size, dtype=torch.uint8, device=runner.device)
-            staging[ticket] = payload
+        if action == "prepare_transfer":
+            if data["source"]:
+                if ticket not in staging or staging[ticket].numel() != size:
+                    raise RuntimeError("Missing or mismatched source KV shard")
+            else:
+                if (
+                    ticket in staging
+                    or torch.npu.mem_get_info()[0] < 2 * size + pool.reserve_bytes
+                ):
+                    if data.get("retained_transaction") and ticket not in staging:
+                        return dict(rejected="insufficient_target_staging_headroom")
+                    raise RuntimeError("Insufficient target staging headroom")
+                staging[ticket] = torch.empty(
+                    size, dtype=torch.uint8, device=runner.device
+                )
+            return dict(worker_s=time.perf_counter() - operation_started)
+        if ticket not in staging or staging[ticket].numel() != size:
+            raise RuntimeError("KV transfer requires successful all-rank preflight")
+        payload = staging[ticket]
         started = time.perf_counter()
         # Direct group API uses the dedicated group's rank namespace.
         opts = dist.BroadcastOptions()
         opts.rootRank = 0
         opts.rootTensor = 0
-        worker._areal_kv_group.broadcast([payload.view(torch.float16)], opts).wait()
+        group.broadcast([payload.view(torch.float16)], opts).wait()
         torch.npu.synchronize()
         return dict(
             transfer_s=time.perf_counter() - started,
@@ -218,7 +316,12 @@ def install():
             request = scheduler.requests.get(data["request_id"])
             if request is None or request not in scheduler.running:
                 return dict(skipped="request_finished")
-            validate_sampling(request.sampling_params)
+            try:
+                validate_sampling(request.sampling_params)
+            except ValueError:
+                if data.get("retained_source"):
+                    return dict(skipped="unsupported_sampling")
+                raise
             previous = frozen.get(request.request_id)
             if previous is not None and previous != data["ticket"]:
                 raise RuntimeError("Request already frozen by another ticket")
@@ -246,9 +349,16 @@ def install():
             ]
             frozen[request.request_id] = data["ticket"]
             try:
-                result = self.model_executor.collective_rpc(
-                    "areal_kv_handoff", args=("pack", dict(data, blocks=blocks))
-                )[0]
+                result = aggregate_worker_results(
+                    self.model_executor.collective_rpc(
+                        "areal_kv_handoff", args=("pack", dict(data, blocks=blocks))
+                    )
+                )
+            except (ValueError, MemoryError) as exc:
+                frozen.pop(request.request_id, None)
+                if data.get("retained_source"):
+                    return dict(skipped="unsupported_retained_export", reason=str(exc))
+                raise
             except Exception:
                 frozen.pop(request.request_id, None)
                 raise
@@ -271,9 +381,9 @@ def install():
             self._areal_kv_imports = {
                 k: v for k, v in imports.items() if v["ticket"] != data["ticket"]
             }
-        return self.model_executor.collective_rpc(
-            "areal_kv_handoff", args=(action, data)
-        )[0]
+        return aggregate_worker_results(
+            self.model_executor.collective_rpc("areal_kv_handoff", args=(action, data))
+        )
 
     @wraps(original_add)
     def add(self, request, *args, **kwargs):
@@ -317,16 +427,18 @@ def install():
                 else:
                     blocks = manager.get_block_ids(request.request_id)
                     import_started = time.perf_counter()
-                    self.model_executor.collective_rpc(
-                        "areal_kv_handoff",
-                        args=(
-                            "import",
-                            dict(
-                                ticket,
-                                request_id=request.request_id,
-                                blocks=list(blocks[0])[: ticket["blocks"]],
+                    aggregate_worker_results(
+                        self.model_executor.collective_rpc(
+                            "areal_kv_handoff",
+                            args=(
+                                "import",
+                                dict(
+                                    ticket,
+                                    request_id=request.request_id,
+                                    blocks=list(blocks[0])[: ticket["blocks"]],
+                                ),
                             ),
-                        ),
+                        )
                     )
                     import_s = time.perf_counter() - import_started
                     request.num_computed_tokens = ticket["computed"]

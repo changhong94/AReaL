@@ -111,3 +111,50 @@ def test_snapshot_failure_propagates(setup, monkeypatch):
         helper.wait(5)
     with pytest.raises(OSError, match="host storage full"):
         helper.wait(4)
+
+
+def test_snapshot_skip_and_resume_preserves_publication_ownership(setup, monkeypatch):
+    """R027 may skip snapshots without reopening rollout or reusing old readers."""
+    engine, helper, params, meta = setup
+    first = Mock(version=4)
+    second = Mock(version=6)
+    factory = Mock(side_effect=[first, second])
+    monkeypatch.setattr(publication, "IndependentSnapshot", factory)
+    received = []
+
+    def send(meta, bucket):
+        received.extend((meta.version, name) for name, _ in bucket)
+        bucket.clear()
+
+    engine._update_bucket_weights_from_distributed = Mock(side_effect=send)
+    helper.publish_fixed(meta)
+    assert factory.call_count == 1
+    meta.version = 5
+    meta.npu_share_snapshot = False
+    helper.publish_fixed(meta)
+    first.wait.assert_called_once()
+    assert helper.snapshot is None
+    assert factory.call_count == 1
+    with pytest.raises(RuntimeError, match="No shared snapshot"):
+        helper.wait(5)
+    meta.version = 6
+    meta.npu_share_snapshot = True
+    helper.publish_fixed(meta)
+    assert factory.call_count == 2
+    assert helper.snapshot is second
+    assert received == [(version, name) for version in (4, 5, 6) for name, _ in params]
+    engine.rollout_engine.pause_generation.assert_not_called()
+    engine.rollout_engine.continue_generation.assert_not_called()
+
+
+def test_fixed_only_transport_failure_preserves_original_error(setup, monkeypatch):
+    engine, helper, _, meta = setup
+    meta.npu_share_snapshot = False
+    factory = Mock()
+    monkeypatch.setattr(publication, "IndependentSnapshot", factory)
+    engine._update_bucket_weights_from_distributed = Mock(
+        side_effect=RuntimeError("receiver failed")
+    )
+    with pytest.raises(RuntimeError, match="receiver failed"):
+        helper.publish_fixed(meta)
+    factory.assert_not_called()

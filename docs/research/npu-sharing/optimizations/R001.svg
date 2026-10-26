@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="880" viewBox="0 0 1440 880">
-<title>R001: Rebalance running work only when the critical path wins</title>
+<title>R001: Rebalance running work with bounded KV migration</title>
 <desc>Mechanism schematic. Geometry is not measured time or memory size. See linked research note for evidence and limitations.</desc>
 <rect x="0" y="0" width="1440" height="880" rx="0" fill="#f5f7fb" stroke="#f5f7fb" stroke-width="2"/>
 <rect x="0" y="0" width="1440" height="12" rx="0" fill="#14846c" stroke="#14846c" stroke-width="2"/>
 <text x="44" y="59" font-family="Arial, DejaVu Sans, sans-serif" font-size="27" font-weight="700" fill="#14846c">R001</text>
-<text x="156" y="56" font-family="Arial, DejaVu Sans, sans-serif" font-size="18" font-weight="700" fill="#6b4c16">EXPERIMENTAL / BENEFIT NOT YET VALIDATED</text>
-<text x="44" y="114" font-family="Arial, DejaVu Sans, sans-serif" font-size="31" font-weight="700" fill="#172b4d">Rebalance running work only when the critical path wins</text>
+<text x="156" y="56" font-family="Arial, DejaVu Sans, sans-serif" font-size="18" font-weight="700" fill="#6b4c16">IMPLEMENTED / SHARED-SYSTEM BENEFIT VALIDATED</text>
+<text x="44" y="114" font-family="Arial, DejaVu Sans, sans-serif" font-size="31" font-weight="700" fill="#172b4d">Rebalance running work with bounded KV migration</text>
 <text x="44" y="187" font-family="Arial, DejaVu Sans, sans-serif" font-size="18" font-weight="400" fill="#596779">MECHANISM SCHEMATIC  |  Not a measured timeline; box sizes are illustrative</text>
 <text x="44" y="239" font-family="Arial, DejaVu Sans, sans-serif" font-size="18" font-weight="700" fill="#596779">PROBLEM / COMPARISON</text>
 <rect x="44" y="255" width="308" height="119" rx="14" fill="#e9eef5" stroke="#a6b3c4" stroke-width="2"/>
@@ -28,25 +28,26 @@
 <text x="44" y="433" font-family="Arial, DejaVu Sans, sans-serif" font-size="18" font-weight="700" fill="#14846c">MECHANISM / CANDIDATE</text>
 <rect x="44" y="453" width="308" height="125" rx="14" fill="#dff3ed" stroke="#14846c" stroke-width="2"/>
 <text x="61" y="493" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">Estimate remaining</text>
-<text x="61" y="523" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">work</text>
+<text x="61" y="523" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">work and transfer</text>
+<text x="61" y="553" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">cost</text>
 <path d="M354 515 L377 515" stroke="#718096" stroke-width="3" fill="none"/>
 <polygon points="377,515 366.1946347717679,520.2195864093347 366.1946347717679,509.78041359066526" fill="#718096"/>
 <rect x="389" y="453" width="308" height="125" rx="14" fill="#dff3ed" stroke="#14846c" stroke-width="2"/>
-<text x="406" y="493" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">Include pause +</text>
-<text x="406" y="523" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">replay + contention</text>
+<text x="406" y="493" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">Check memory, version</text>
+<text x="406" y="523" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">and ownership</text>
 <path d="M699 515 L722 515" stroke="#718096" stroke-width="3" fill="none"/>
 <polygon points="722,515 711.1946347717678,520.2195864093347 711.1946347717678,509.78041359066526" fill="#718096"/>
 <rect x="734" y="453" width="308" height="125" rx="14" fill="#dff3ed" stroke="#14846c" stroke-width="2"/>
-<text x="751" y="493" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">Check memory, version</text>
-<text x="751" y="523" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">and ownership</text>
+<text x="751" y="493" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">Prefer positive-gain</text>
+<text x="751" y="523" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">moves; bound</text>
+<text x="751" y="553" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">exploration</text>
 <path d="M1044 515 L1067 515" stroke="#718096" stroke-width="3" fill="none"/>
 <polygon points="1067,515 1056.1946347717678,520.2195864093347 1056.1946347717678,509.78041359066526" fill="#718096"/>
 <rect x="1079" y="453" width="308" height="125" rx="14" fill="#dff3ed" stroke="#14846c" stroke-width="2"/>
-<text x="1096" y="493" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">Move only if</text>
-<text x="1096" y="523" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">predicted net gain &gt;</text>
-<text x="1096" y="553" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">margin</text>
+<text x="1096" y="493" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">Import KV and resume</text>
+<text x="1096" y="523" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">on the shared engine</text>
 <rect x="44" y="665" width="1352" height="91" rx="12" fill="#e3eaf8" stroke="#e3eaf8" stroke-width="2"/>
-<text x="62" y="704" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">Optimize batch completion time, not equal token counts.</text>
-<text x="44" y="796" font-family="Arial, DejaVu Sans, sans-serif" font-size="20" font-weight="400" fill="#596779">Optional shadow/active policy; same-version handoff and prefix replay. Live benefit not yet established.</text>
-<text x="44" y="860" font-family="Arial, DejaVu Sans, sans-serif" font-size="16" font-weight="400" fill="#596779">Evidence and scope: linked research note  |  Reviewed 2026-10-15  |  No standalone novelty claim</text>
+<text x="62" y="704" font-family="Arial, DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#172b4d">Accepted policy: at most 5 requests per probe, 2 attempts, 2-second admission budget.</text>
+<text x="44" y="796" font-family="Arial, DejaVu Sans, sans-serif" font-size="20" font-weight="400" fill="#596779">14.72% lower training-loop time vs. fixed allocation; isolated migration benefit pending ablation.</text>
+<text x="44" y="860" font-family="Arial, DejaVu Sans, sans-serif" font-size="16" font-weight="400" fill="#596779">Evidence and scope: linked research note  |  Reviewed 2026-10-19  |  No standalone novelty claim</text>
 </svg>

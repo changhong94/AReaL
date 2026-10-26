@@ -109,7 +109,8 @@ class SparseKVPages:
                     self.backend.unmap(tensor.data_ptr() + index * self.page)
                 self.mapped.remove(index)
             required = len(add) * len(self.tensors) * self.page
-            if self.backend.free_bytes() < required + self.reserve_bytes:
+            # Pure reclamation must remain possible under memory pressure.
+            if add and self.backend.free_bytes() < required + self.reserve_bytes:
                 raise MemoryError(
                     "Dynamic KV physical budget exhausted before execution"
                 )
@@ -179,6 +180,49 @@ class SparseKVPages:
         except BaseException:
             self.broken = True
             raise
+
+    def copy_retained_blocks(self, blocks, destination):
+        """Pack paused request bytes without remapping any evicted physical page.
+
+        The engine utility dispatcher and transition lock serialize this read
+        against reclaim/discard. Destination is a bounded device staging buffer.
+        """
+        if self.broken or not self.paused:
+            raise RuntimeError("Retained export requires an acknowledged healthy pause")
+        if not blocks or not set(blocks).issubset(self.live - {0}):
+            raise ValueError("Retained export contains non-live blocks")
+        sources = []
+        for tensor_index, tensor in enumerate(self.tensors):
+            for block in blocks:
+                page, offset = divmod(block * self.bytes_per_block, self.page)
+                backups = self.swapped.get(page)
+                if backups is not None:
+                    address = backups[tensor_index].data_ptr() + offset
+                    host = True
+                elif page in self.mapped:
+                    address = tensor.data_ptr() + block * self.bytes_per_block
+                    host = False
+                else:
+                    raise RuntimeError("Retained KV page has no physical backing")
+                sources.append((address, host))
+        self.backend.synchronize()
+        for index, (address, host) in enumerate(sources):
+            self.backend.copy_to_device(
+                destination + index * self.bytes_per_block,
+                address,
+                self.bytes_per_block,
+                host=host,
+            )
+        self.backend.synchronize()
+
+    def discard_preserved(self):
+        """Drop retained bytes only after the scheduler acknowledged all aborts."""
+        if self.broken or not self.paused:
+            raise RuntimeError("Retained discard requires a healthy paused pool")
+        self.backend.synchronize()
+        self.swapped.clear()
+        self.reconcile({0}, trim=True)
+        self.paused = False
 
     def resume_preserved(self):
         self.restore_preserved()
@@ -388,6 +432,11 @@ class AscendSparseBackend:
         code = self.lib.dkv_copy(address, backup.data_ptr(), self.page, 1)
         if code:
             raise RuntimeError(f"Dynamic KV host restore failed: {code}")
+
+    def copy_to_device(self, destination, source, size, *, host):
+        code = self.lib.dkv_copy(destination, source, size, 1 if host else 3)
+        if code:
+            raise RuntimeError(f"Dynamic KV export copy failed: {code}")
 
     def unmap(self, address):
         code = self.lib.dkv_unmap(address)

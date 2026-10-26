@@ -1,0 +1,24 @@
+{
+  "baseline": {
+    "foreground": 6.044065217487514,
+    "total": 8.350392993539572,
+    "final_join": 2.3063277760520577
+  },
+  "optimized": {
+    "foreground": 2.297881848178804,
+    "total": 4.454681044444442,
+    "final_join": 2.156799196265638
+  },
+  "foreground_reduction_percent": 61.9811870737222,
+  "total_reduction_percent": 46.653037193687965,
+  "scope": "Two-rank CPU/Gloo replay of the same final HF model state, production save implementation and RPC codecs; pipe transport replaces HTTP and background training jobs are absent. No new RL run.",
+  "source": "/tmp/huawei/areal-benchmarks/20261026-r030-async-tail-comparison/latest/checkpoints/root/npu-share-ab/run/default/epoch0epochstep5globalstep5",
+  "original_trace": {
+    "main_save_seconds": 11.549102,
+    "rank0_rpc_seconds": 4.307969,
+    "rank1_rpc_seconds": 4.315983,
+    "rank0_staging_seconds": 4.271675396710634,
+    "outside_rank0_rpc_seconds": 7.241133,
+    "rank0_nonstaging_seconds": 0.036293603289365706
+  }
+}

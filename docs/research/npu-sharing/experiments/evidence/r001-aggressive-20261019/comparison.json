@@ -1,7 +1,7 @@
 [
   {
     "policy": "conservative",
-    "workspace": "/root/areal-benchmarks/20261019-103047-0700_math_fsdp_c16_b6_6834ed",
+    "workspace": "/root/areal-development/20261019-103047-0700_math_fsdp_c16_b6_6834ed",
     "exit_code": 0,
     "loop_s": 158.05426001548767,
     "answers": 576,
@@ -102,7 +102,7 @@
   },
   {
     "policy": "aggressive",
-    "workspace": "/root/areal-benchmarks/20261019-104121-0700_math_fsdp_c16_b6_400e5d",
+    "workspace": "/root/areal-development/20261019-104121-0700_math_fsdp_c16_b6_400e5d",
     "exit_code": 0,
     "loop_s": 149.90006256103516,
     "answers": 576,

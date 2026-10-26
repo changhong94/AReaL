@@ -80,14 +80,23 @@ class RollingBatchCalibration(BatchCalibration):
     """Freeze at PPO completion; retain up to three complete observation windows."""
 
     def __init__(
-        self, samples: int = 256, *, tail_model=True, dynamic_service=True, replicas=2
+        self,
+        samples: int = 256,
+        *,
+        tail_model=True,
+        dynamic_service=True,
+        replicas=2,
+        borrowed_replicas=None,
     ):
         super().__init__()
-        if replicas < 2 or replicas % 2:
-            raise ValueError("Drain calibration needs equal replica groups")
+        borrowed_replicas = (
+            replicas // 2 if borrowed_replicas is None else borrowed_replicas
+        )
+        if not 0 < borrowed_replicas < replicas:
+            raise ValueError("Drain calibration needs nonempty replica groups")
         self.replicas = replicas
-        self.borrowed = set(range(replicas // 2))
-        self.fixed = tuple(range(replicas // 2, replicas))
+        self.borrowed = set(range(borrowed_replicas))
+        self.fixed = tuple(range(borrowed_replicas, replicas))
         self.decode = [{} for _ in range(replicas)]
         self.first = [None] * replicas
         if samples < 2:

@@ -97,10 +97,8 @@ class SharedMegatronPublication:
     def publish_fixed(self, meta):
         """Publish only to the connected fixed receiver; never pause all rollout."""
         self._validate(meta)
-        if not meta.npu_share_fixed or not meta.npu_share_snapshot:
-            raise ValueError(
-                "Fixed publication requires fixed-receiver snapshot metadata"
-            )
+        if not meta.npu_share_fixed:
+            raise ValueError("Fixed publication requires fixed-receiver metadata")
         limit = int(meta.weight_chunked_mem_mb * 1024 * 1024)
         if limit <= 0:
             raise ValueError("Weight bucket size must be positive")
@@ -110,9 +108,11 @@ class SharedMegatronPublication:
         meta.nccl_master_port = engine.weight_update_master_port
         meta.nccl_group_name = engine.weight_update_group_name
         parameters = self._parameters()
-        self.snapshot = IndependentSnapshot(
-            meta.path, meta.version, parameters, engine.dtype
-        )
+        self.snapshot = None
+        if meta.npu_share_snapshot:
+            self.snapshot = IndependentSnapshot(
+                meta.path, meta.version, parameters, engine.dtype
+            )
         bucket, size = [], 0
         try:
             for name, tensor in parameters:
@@ -125,14 +125,19 @@ class SharedMegatronPublication:
             if bucket:
                 engine._update_bucket_weights_from_distributed(meta, bucket)
         except BaseException as error:
-            self.snapshot.abort(error)
+            if self.snapshot is not None:
+                self.snapshot.abort(error)
             raise
         # Bucket calls join every HCCL handle and receiver ACK. Do not synchronize
         # the entire device here: the CPU snapshot runs on a separate stream.
         request_trace.emit(
             "fixed_hccl_complete",
             version=meta.version,
-            snapshot_mode="megatron_independent_reader",
+            snapshot_mode=(
+                "megatron_independent_reader"
+                if meta.npu_share_snapshot
+                else "megatron_fixed_only"
+            ),
             snapshot_submit_seconds=0.0,
         )
 

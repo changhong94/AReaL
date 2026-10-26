@@ -1,0 +1,120 @@
+{
+  "workspace": "/tmp/huawei/areal-development/idle-async-tail-20261026/correctness/20261026-103731-0700_code_fsdp_c16_b3_cc47c0/repetitions/01/latest",
+  "events": [
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1793037166.2122552,
+      "pid": 609,
+      "rank": 0,
+      "verify_d2h_seconds": 0.7918525822460651,
+      "equality_seconds": 4.504752891138196,
+      "hash_seconds": 12.36461633630097,
+      "full_verification": true,
+      "verified_bytes": 9262287688,
+      "shard_sha256": "d488918e0d032c10c853e3e929b54df41fd8f331fddbaac649a0078f782fef0c",
+      "version": 0,
+      "scheduler_epoch": 0
+    },
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1793037519.21818,
+      "pid": 609,
+      "rank": 0,
+      "verify_d2h_seconds": 0.6471746638417244,
+      "equality_seconds": 4.462963944301009,
+      "hash_seconds": 12.013690527528524,
+      "full_verification": true,
+      "verified_bytes": 9262287688,
+      "shard_sha256": "75ca2b7024521f5409edbed7c1e21c63c6769cda53538ae25d23abd3fd24a085",
+      "version": 2,
+      "scheduler_epoch": 2
+    },
+    {
+      "event": "hf_save_staged",
+      "time": 1793037586.6429121,
+      "pid": 609,
+      "path": "/run-output/checkpoints/root/npu-share-ab/run/default/epoch0epochstep2globalstep2",
+      "seconds": 5.333098579198122,
+      "from_dram": true
+    },
+    {
+      "event": "hf_save_write_begin",
+      "time": 1793037586.6435835,
+      "pid": 609,
+      "path": "/run-output/checkpoints/root/npu-share-ab/run/default/epoch0epochstep2globalstep2",
+      "scheduler_epoch": 3,
+      "actor_version_at_capture": 2,
+      "from_dram": true
+    },
+    {
+      "event": "hf_save_verified",
+      "time": 1793037590.2438982,
+      "pid": 609,
+      "tensors": 339,
+      "scheduler_epoch": 3,
+      "actor_version_at_capture": 2,
+      "from_dram": true
+    },
+    {
+      "event": "hf_save_write_end",
+      "time": 1793037590.2446513,
+      "pid": 609,
+      "path": "/run-output/checkpoints/root/npu-share-ab/run/default/epoch0epochstep2globalstep2",
+      "seconds": 3.6018338594585657,
+      "scheduler_epoch": 3,
+      "actor_version_at_capture": 2,
+      "from_dram": true
+    },
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1793037177.3009956,
+      "pid": 614,
+      "rank": 1,
+      "verify_d2h_seconds": 0.7976327165961266,
+      "equality_seconds": 4.4061932656914,
+      "hash_seconds": 12.533202514052391,
+      "full_verification": true,
+      "verified_bytes": 9262287688,
+      "shard_sha256": "24057990c77ff1cc6a2d7c09d91fb911e91fb08bbead3a58091ee33adf2c1442",
+      "version": 0,
+      "scheduler_epoch": 0
+    },
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1793037530.62681,
+      "pid": 614,
+      "rank": 1,
+      "verify_d2h_seconds": 0.7814686056226492,
+      "equality_seconds": 4.290694575756788,
+      "hash_seconds": 11.71670700237155,
+      "full_verification": true,
+      "verified_bytes": 9262287688,
+      "shard_sha256": "5989b803e99dab9a0050d9027e0bf2657a85f9f0481efe03cadd0c128c8c6d8f",
+      "version": 2,
+      "scheduler_epoch": 2
+    },
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1793037279.3596742,
+      "pid": 530,
+      "rank": 0,
+      "verify_d2h_seconds": 1.6300601959228516,
+      "equality_seconds": 8.196978667750955,
+      "hash_seconds": 26.001231510192156,
+      "full_verification": true,
+      "verified_bytes": 18524573512,
+      "shard_sha256": "a29abd0902defd5f1ea71139bc64bc0a73705cb14aced7a5f77ff097d7aa2a92",
+      "version": 1,
+      "scheduler_epoch": 1
+    },
+    {
+      "event": "idle_gradient_replay_verified",
+      "time": 1793037493.5430405,
+      "pid": 530,
+      "rank": 0,
+      "token": "areal-idle-eca4ec6ee90d4e0ca5116082c48e9e93-batch-2",
+      "relative_l2": 0.012328025592334578,
+      "max_absolute_error": 0.0006100349128246307
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "time": 1792842398.868449,
+  "phase": "complete",
+  "completed": [
+    {
+      "phase": "comparison",
+      "workspace": "/root/areal-development/idle-publish-confirm-20261024/comparison/20261024-041150-0700_code_fsdp_c16_b6_774d0b/repetitions/01",
+      "selections": 2,
+      "verified_imports": 6
+    }
+  ],
+  "error": null,
+  "busy_running": true
+}

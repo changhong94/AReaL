@@ -29,6 +29,7 @@ def trainer():
     trainer.config = config
     trainer.actor_alloc = ModelAllocation.from_str("fsdp:d1p1t1")
     trainer.rollout_alloc = ModelAllocation.from_str("vllm:d1p1t1")
+    trainer._idle_training = None
     trainer.actor = Mock()
     trainer._memory_policy = Mock()
     trainer.rollout = Mock()
@@ -51,6 +52,12 @@ def test_resident_configuration_accepts_supported_path(trainer):
     trainer._validate_npu_share()
 
 
+def test_resident_configuration_accepts_decode_graph(trainer):
+    trainer.config.vllm.enforce_eager = False
+    trainer.config.vllm.compilation_config = {"cudagraph_mode": "FULL_DECODE_ONLY"}
+    trainer._validate_npu_share()
+
+
 def test_single_npu_example_configuration_is_valid(trainer):
     """The checked-in recipe parses into the actual public config schema."""
     path = Path(__file__).parents[1] / "examples/math/gsm8k_grpo_single_npu.yaml"
@@ -68,7 +75,6 @@ def test_single_npu_example_configuration_is_valid(trainer):
         ("actor.weight_update_mode", "xccl"),
         ("rollout.max_head_offpolicyness", 2),
         ("rollout.scheduling_strategy.fork", False),
-        ("vllm.enforce_eager", False),
         ("recover.mode", "auto"),
     ],
 )

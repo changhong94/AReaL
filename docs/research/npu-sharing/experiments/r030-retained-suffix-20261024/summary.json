@@ -1,0 +1,16 @@
+{
+  "loop_seconds": {
+    "fixed": 463.3734087944031,
+    "latest": 487.9583351612091
+  },
+  "reduction_percent": -5.305640310860871,
+  "tokens": {
+    "fixed": 362190,
+    "latest": 371859
+  },
+  "workspace": "/root/areal-development/idle-retained-suffix-20261024/comparison/20261024-164250-0700_code_fsdp_c16_b6_2b61e5/repetitions/01",
+  "full_validation_relative_l2": 0.011550005219228837,
+  "full_state_imports": 9,
+  "performance_state_imports": 18,
+  "performance_full_validation": false
+}

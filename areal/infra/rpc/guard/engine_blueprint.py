@@ -457,14 +457,35 @@ def call_engine_method():
         engine = _engines[engine_name]
 
         # Deserialize data
+        import time as save_clock
+
+        from areal.utils import request_trace as save_trace
+
+        save_received = save_clock.monotonic()
         raw_args = deserialize_value(raw_args)
         raw_kwargs = deserialize_value(raw_kwargs)
+        if method_name == "save_async":
+            save_trace.emit(
+                "hf_save_detail_end",
+                stage="worker_deserialize",
+                engine=engine_name,
+                seconds=save_clock.monotonic() - save_received,
+            )
         # Fetch remote tensors
         args = RTensor.localize(raw_args)
         kwargs = RTensor.localize(raw_kwargs)
 
+        save_queued = save_clock.monotonic()
+
         def execute_in_engine_thread():
             try:
+                if method_name == "save_async":
+                    save_trace.emit(
+                        "hf_save_detail_end",
+                        stage="worker_queue",
+                        engine=engine_name,
+                        seconds=save_clock.monotonic() - save_queued,
+                    )
                 args_bcast = args
                 kwargs_bcast = kwargs
                 should_broadcast = _should_broadcast_payload(

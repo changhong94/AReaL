@@ -1,0 +1,291 @@
+{
+  "evidence_class": "development_only_not_formal_benchmark",
+  "workspace": "/root/areal-development/incremental-budget-20261020/20261020-205331-0700_math_fsdp_c16_b6_e0e974",
+  "pairs": [
+    {
+      "repetition": "01",
+      "loop_seconds": {
+        "fixed": 75.50068545341492,
+        "latest": 99.31241512298584
+      },
+      "reduction_percent": -31.538428461372227,
+      "token_audit": {
+        "fixed": {
+          "reconstructed": 133018,
+          "reported": 133017,
+          "segment_differences": {
+            "generate-tokens-571a9ca52140462aae88e6b951bee222-b2aca7e6": 1
+          }
+        },
+        "latest": {
+          "reconstructed": 137942,
+          "reported": 137940,
+          "segment_differences": {
+            "generate-tokens-f7c70b7e476c4743921e8d71937dd413-ab2b3e19": 1,
+            "generate-tokens-0c99c192b8d24a0bbab1e7f4c43e33c5-b90f6b01": 1
+          }
+        }
+      },
+      "arms": {
+        "fixed": {
+          "device_step_union_seconds": {
+            "1": 0,
+            "2": 45.98671746253967
+          },
+          "stage_seconds": {
+            "train.rollout": 12.541405000000001,
+            "train.recompute_logp": 9.178941000000002,
+            "train.compute_advantage": 5.253408,
+            "train.ppo_update": 31.143297,
+            "train.save": 11.368542,
+            "train.checkpoint": 0.000365,
+            "train.update_weights": 4.85832,
+            "train.eval": 0.001094,
+            "train.clear_batches": 0.112965,
+            "train.log_stats": 0.862631
+          },
+          "concurrent_memory": [],
+          "handoffs": []
+        },
+        "latest": {
+          "device_step_union_seconds": {
+            "1": 24.54264736175537,
+            "2": 47.508527517318726
+          },
+          "stage_seconds": {
+            "train.rollout": 9.85365,
+            "train.recompute_logp": 9.879274,
+            "train.compute_advantage": 4.930287,
+            "train.ppo_update": 33.948015,
+            "train.save": 11.028408,
+            "train.checkpoint": 0.000377,
+            "train.update_weights": 4.671661,
+            "train.shared_memory_switch": 0.686012,
+            "train.background_publication": 19.637876000000002,
+            "train.eval": 0.001152,
+            "train.clear_batches": 0.10539399999999999,
+            "train.log_stats": 0.393143,
+            "train.wait_previous_tail": 20.161617999999997
+          },
+          "concurrent_memory": [
+            {
+              "admitted": true,
+              "kv_budget_bytes": 12231505920,
+              "reserved_growth_bytes": 27649693696,
+              "reusable_workspace_bytes": 0,
+              "training_reserve_bytes": 23354726400,
+              "capacity_blocks": 3328
+            },
+            {
+              "admitted": true,
+              "kv_budget_bytes": 3675387904,
+              "reserved_growth_bytes": 23908374528,
+              "reusable_workspace_bytes": 3741319168,
+              "training_reserve_bytes": 23354726400,
+              "capacity_blocks": 992
+            },
+            {
+              "admitted": true,
+              "kv_budget_bytes": 3673823232,
+              "reserved_growth_bytes": 23908374528,
+              "reusable_workspace_bytes": 3741319168,
+              "training_reserve_bytes": 23354726400,
+              "capacity_blocks": 992
+            },
+            {
+              "admitted": true,
+              "kv_budget_bytes": 3673290752,
+              "reserved_growth_bytes": 23908374528,
+              "reusable_workspace_bytes": 3741319168,
+              "training_reserve_bytes": 23354726400,
+              "capacity_blocks": 992
+            },
+            {
+              "admitted": true,
+              "kv_budget_bytes": 3671439360,
+              "reserved_growth_bytes": 23906277376,
+              "reusable_workspace_bytes": 3743416320,
+              "training_reserve_bytes": 23354726400,
+              "capacity_blocks": 992
+            },
+            {
+              "admitted": true,
+              "kv_budget_bytes": 3671173120,
+              "reserved_growth_bytes": 23906277376,
+              "reusable_workspace_bytes": 3743416320,
+              "training_reserve_bytes": 23354726400,
+              "capacity_blocks": 992
+            }
+          ],
+          "handoffs": [
+            {
+              "publish_seconds": 1.4251010678708553,
+              "prepare_seconds": 0.6070443540811539,
+              "handoff": 2.860413324087858
+            },
+            {
+              "publish_seconds": 1.2143580447882414,
+              "prepare_seconds": 0.49445064179599285,
+              "handoff": 2.5098151192069054
+            },
+            {
+              "publish_seconds": 1.225530631840229,
+              "prepare_seconds": 0.5750677138566971,
+              "handoff": 2.617745352908969
+            },
+            {
+              "publish_seconds": 1.134452534839511,
+              "prepare_seconds": 0.42431766353547573,
+              "handoff": 2.337577247992158
+            },
+            {
+              "publish_seconds": 1.0696659721434116,
+              "prepare_seconds": 0.4237933475524187,
+              "handoff": 2.266127372160554
+            }
+          ]
+        }
+      }
+    },
+    {
+      "repetition": "02",
+      "loop_seconds": {
+        "fixed": 75.24298763275146,
+        "latest": 99.62970280647278
+      },
+      "reduction_percent": -32.41061518283781,
+      "token_audit": {
+        "fixed": {
+          "reconstructed": 134271,
+          "reported": 134271,
+          "segment_differences": {}
+        },
+        "latest": {
+          "reconstructed": 133559,
+          "reported": 133559,
+          "segment_differences": {}
+        }
+      },
+      "arms": {
+        "fixed": {
+          "device_step_union_seconds": {
+            "1": 0,
+            "2": 45.98796272277832
+          },
+          "stage_seconds": {
+            "train.rollout": 11.539744,
+            "train.recompute_logp": 9.429982,
+            "train.compute_advantage": 4.739179,
+            "train.ppo_update": 31.971890000000002,
+            "train.save": 11.93425,
+            "train.checkpoint": 0.00035,
+            "train.update_weights": 4.459447000000001,
+            "train.eval": 0.001212,
+            "train.clear_batches": 0.116756,
+            "train.log_stats": 0.8650690000000001
+          },
+          "concurrent_memory": [],
+          "handoffs": []
+        },
+        "latest": {
+          "device_step_union_seconds": {
+            "1": 23.17679762840271,
+            "2": 49.06459069252014
+          },
+          "stage_seconds": {
+            "train.rollout": 8.023457,
+            "train.recompute_logp": 9.597789,
+            "train.compute_advantage": 5.045534,
+            "train.ppo_update": 33.417944,
+            "train.save": 13.968195,
+            "train.checkpoint": 0.00044600000000000005,
+            "train.update_weights": 4.3977960000000005,
+            "train.shared_memory_switch": 0.7069559999999999,
+            "train.background_publication": 19.389876,
+            "train.eval": 0.001184,
+            "train.clear_batches": 0.10399,
+            "train.log_stats": 0.439799,
+            "train.wait_previous_tail": 19.975785000000002
+          },
+          "concurrent_memory": [
+            {
+              "admitted": true,
+              "kv_budget_bytes": 12225882112,
+              "reserved_growth_bytes": 27649693696,
+              "reusable_workspace_bytes": 0,
+              "training_reserve_bytes": 23354726400,
+              "capacity_blocks": 3328
+            },
+            {
+              "admitted": true,
+              "kv_budget_bytes": 3675715584,
+              "reserved_growth_bytes": 23908374528,
+              "reusable_workspace_bytes": 3741319168,
+              "training_reserve_bytes": 23354726400,
+              "capacity_blocks": 992
+            },
+            {
+              "admitted": true,
+              "kv_budget_bytes": 3673610240,
+              "reserved_growth_bytes": 23908374528,
+              "reusable_workspace_bytes": 3741319168,
+              "training_reserve_bytes": 23354726400,
+              "capacity_blocks": 992
+            },
+            {
+              "admitted": true,
+              "kv_budget_bytes": 3671664640,
+              "reserved_growth_bytes": 23908374528,
+              "reusable_workspace_bytes": 3741319168,
+              "training_reserve_bytes": 23354726400,
+              "capacity_blocks": 992
+            },
+            {
+              "admitted": true,
+              "kv_budget_bytes": 3671373824,
+              "reserved_growth_bytes": 23908374528,
+              "reusable_workspace_bytes": 3741319168,
+              "training_reserve_bytes": 23354726400,
+              "capacity_blocks": 992
+            },
+            {
+              "admitted": true,
+              "kv_budget_bytes": 3669202944,
+              "reserved_growth_bytes": 23906277376,
+              "reusable_workspace_bytes": 3743416320,
+              "training_reserve_bytes": 23354726400,
+              "capacity_blocks": 992
+            }
+          ],
+          "handoffs": [
+            {
+              "publish_seconds": 1.037143362686038,
+              "prepare_seconds": 0.6060600765049458,
+              "handoff": 2.524267442524433
+            },
+            {
+              "publish_seconds": 0.9563036989420652,
+              "prepare_seconds": 0.5334054324775934,
+              "handoff": 2.3303212877362967
+            },
+            {
+              "publish_seconds": 1.0345340818166733,
+              "prepare_seconds": 0.5587409604340792,
+              "handoff": 2.4506988395005465
+            },
+            {
+              "publish_seconds": 0.849207179620862,
+              "prepare_seconds": 0.45704385079443455,
+              "handoff": 2.114780142903328
+            },
+            {
+              "publish_seconds": 0.8678708374500275,
+              "prepare_seconds": 0.41598818078637123,
+              "handoff": 2.099409459158778
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

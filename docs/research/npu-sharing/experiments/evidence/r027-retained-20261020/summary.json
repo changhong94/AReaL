@@ -1,0 +1,27 @@
+{
+  "unit_tests": 128,
+  "unit_suite": "dynamic_kv, kv_handoff, kv_rebalance, request_router, queue_rebalance, profit_return, asymmetric_publication, training_prefetch, resident_colocation",
+  "native_mixed_backing": {
+    "bytes": 3145728,
+    "page_bytes": 2097152,
+    "mixed_hbm_dram_equal": true,
+    "source_remained_paused": true,
+    "remapped_pages": 0
+  },
+  "paused_handoff": {
+    "outcome": "import_applied",
+    "tokens_equal": true,
+    "logprob_max_error": 0.0,
+    "total_tokens": 256,
+    "prefix_tokens": 34,
+    "export_bytes": 3670016,
+    "inference_mode": "graph",
+    "tp": 1
+  },
+  "limitations": [
+    "No full RL performance claim",
+    "Mixed HBM/DRAM copy and paused graph handoff validated separately",
+    "TP>1 paused handoff not hardware-tested in this run",
+    "Cross-version routing unit-tested; no stale KV reuse"
+  ]
+}

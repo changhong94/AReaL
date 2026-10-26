@@ -1,0 +1,20 @@
+{
+  "time": 1792827087.816322,
+  "phase": "complete",
+  "completed": [
+    {
+      "phase": "correctness",
+      "workspace": "/root/areal-development/idle-direct-20261023/correctness/20261023-232858-0700_code_fsdp_c16_b2_f51056/repetitions/01",
+      "selections": 2,
+      "verified_imports": 6
+    },
+    {
+      "phase": "comparison",
+      "workspace": "/root/areal-development/idle-direct-20261023/comparison/20261023-235528-0700_code_fsdp_c16_b6_771a75/repetitions/01",
+      "selections": 2,
+      "verified_imports": 6
+    }
+  ],
+  "error": null,
+  "busy_running": true
+}

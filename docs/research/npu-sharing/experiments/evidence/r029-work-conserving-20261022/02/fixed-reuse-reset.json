@@ -1,0 +1,26 @@
+{
+  "seconds": 13.790903963148594,
+  "services": [
+    {
+      "action": "reset",
+      "parked": false,
+      "idle": {
+        "idle": true,
+        "core_pid": 261
+      },
+      "workers": [
+        {
+          "initial_sha256": "330a8316ce8a1510062c94a51d7b2220fe1dd0f8796583753fc65f4f6bef9183",
+          "restored_sha256": "330a8316ce8a1510062c94a51d7b2220fe1dd0f8796583753fc65f4f6bef9183",
+          "initial_dram_bytes": 3554176448,
+          "seconds": 12.877113638445735,
+          "device_used_bytes": 31319953408,
+          "worker_pid": 261,
+          "mutable_dram_bytes": 0
+        }
+      ],
+      "api_pid": 216,
+      "snapshot_separate_from_mutable_backup": true
+    }
+  ]
+}

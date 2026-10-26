@@ -28,5 +28,5 @@
     }
   ],
   "caveat": "Five transfers per length, first excluded from median. Transfer includes packing/copy/unpacking but not scheduler freeze, block import, version handshake, or concurrent training/publication traffic.",
-  "workspace": "/root/areal-benchmarks/20261016-101845-0700_kv-hccl-probe"
+  "workspace": "/root/areal-development/20261016-101845-0700_kv-hccl-probe"
 }

@@ -1,0 +1,44 @@
+{
+  "rl": "code",
+  "code_reward_scheduling": "question",
+  "code_reward_scheduling_by_arm": {
+    "fixed": "answer",
+    "latest": "question"
+  },
+  "engine": "fsdp",
+  "concurrency": 16,
+  "max_head_offpolicyness": 2,
+  "batches": 3,
+  "running_rebalance": "kv",
+  "adaptive_concurrency": "capacity",
+  "inference_mode": "graph",
+  "batch_size": 32,
+  "answers": 8,
+  "questions": 96,
+  "seed": 1,
+  "max_new_tokens": 1024,
+  "timezone": "America/Vancouver",
+  "created": "20261022-215001-0700",
+  "timeout": 3600,
+  "container_prefix": "areal-bench-e2bfc5d739e7-r2",
+  "image": "areal-timeshare:ascend-v0.26-a2-dev1",
+  "devices": [
+    1,
+    2
+  ],
+  "npu_count": 2,
+  "inference_tp": 1,
+  "allocation": {
+    "total": 2,
+    "training": 1,
+    "dedicated_inference": 1,
+    "shared_inference_max": 2
+  },
+  "inference_training_ratio": "1:1",
+  "inference_replicas": 1,
+  "image_id": "sha256:6deffddcf7fec443c62c27863432120e3a194a447d57a9a748ec232724865be3",
+  "repetitions": 2,
+  "reuse_vllm": true,
+  "kv_policy": "exploratory",
+  "evidence_class": "development_only_not_formal_benchmark"
+}

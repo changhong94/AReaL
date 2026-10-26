@@ -2570,7 +2570,9 @@ class MegatronEngine(TrainEngine):
 
     @trace_perf("megatron_engine.update_weights_from_distributed", category="comm")
     def _update_weights_from_distributed(self, meta: WeightUpdateMeta) -> None:
-        if meta.npu_share_snapshot:
+        # Destination and optional snapshot creation are independent. R027 can
+        # keep the shared actor resident while publishing only to fixed replicas.
+        if meta.npu_share_fixed:
             dist.barrier(group=self.cpu_group)
             if dist.get_rank() == 0:
                 self._shared_publisher().publish_fixed(meta)

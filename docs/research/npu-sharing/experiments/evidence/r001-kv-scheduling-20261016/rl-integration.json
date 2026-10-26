@@ -1,6 +1,6 @@
 {
   "scope": "Forced integration diagnostic; excluded from performance claims",
-  "workspace": "/root/areal-benchmarks/20261016-125343-0700_math_fsdp_c16_b2_74d726",
+  "workspace": "/root/areal-development/20261016-125343-0700_math_fsdp_c16_b2_74d726",
   "answers": 192,
   "tokens": 45252,
   "events": [
@@ -177,7 +177,7 @@
   ],
   "source_override": {
     "scope": "Forced one-request routing correctness test; exclude from performance claims",
-    "file": "/root/areal-benchmarks/20261016-125343-0700_math_fsdp_c16_b2_74d726/source/areal/infra/kv_rebalance.py",
+    "file": "/root/areal-development/20261016-125343-0700_math_fsdp_c16_b2_74d726/source/areal/infra/kv_rebalance.py",
     "original_sha256": "64ac75d3ad67d53dd291b5e9e10b40a484bc567712dac406cb9d6f6e64d03588",
     "patched_sha256": "6e99642c058fc41c79ffe6f64cad9de90f12dcaa0bf5c54fa9115feb34a4b21c",
     "patch": "    # Diagnostic-only override in this frozen workspace, never in repository source.\n    if not getattr(controller, \"_diagnostic_forced_done\", False) and \"baseline_tail_s\" in plan:\n        def required_tokens(r):\n            n = r[\"metrics\"][\"prompt_tokens\"] + r[\"metrics\"][\"max_new_tokens\"]\n            return ((n + block_tokens - 1) // block_tokens) * block_tokens\n        target_reserved = sum(required_tokens(r) for r in route[\"active\"] if r[\"rank\"] == target)\n        by_id = {r[\"request_id\"]: r for r in route[\"active\"]}\n        available = engines[target][\"queue\"][\"free_kv_tokens\"] - target_reserved\n        eligible = [x for x in plan[\"candidates\"] if x[\"computed_tokens_exact\"]\n                    and any(a[\"method\"] == \"kv\" for a in x[\"alternatives\"])\n                    and required_tokens(by_id[x[\"request_id\"]]) <= available]\n        if eligible:\n            item = min(eligible, key=lambda x: x[\"computed_tokens_used\"])\n            choice = next(a for a in item[\"alternatives\"] if a[\"method\"] == \"kv\")\n            plan.update(selected=[dict(request_id=item[\"request_id\"], **choice)],\n                        net_predicted_gain_s=999.0, reason=\"diagnostic_forced_not_a_performance_result\")\n            controller._diagnostic_forced_done = True\n"

@@ -1,0 +1,226 @@
+{
+  "settings": {
+    "rl": "code",
+    "code_reward_scheduling": "question",
+    "code_reward_scheduling_by_arm": {
+      "fixed": "answer",
+      "latest": "question"
+    },
+    "engine": "fsdp",
+    "concurrency": 16,
+    "max_head_offpolicyness": 1,
+    "batches": 6,
+    "running_rebalance": "kv",
+    "adaptive_concurrency": "capacity",
+    "inference_mode": "graph",
+    "batch_size": 32,
+    "answers": 8,
+    "questions": 192,
+    "seed": 1,
+    "max_new_tokens": 1024,
+    "timezone": "America/Vancouver",
+    "created": "20261023-221040-0700",
+    "timeout": 7200,
+    "container_prefix": "areal-bench-16bade1df037-r1",
+    "image": "areal-timeshare:ascend-v0.26-a2-dev1",
+    "devices": [
+      1,
+      2
+    ],
+    "npu_count": 2,
+    "inference_tp": 1,
+    "allocation": {
+      "total": 2,
+      "training": 1,
+      "dedicated_inference": 1,
+      "shared_inference_max": 2
+    },
+    "inference_training_ratio": "1:1",
+    "inference_replicas": 1,
+    "image_id": "sha256:6deffddcf7fec443c62c27863432120e3a194a447d57a9a748ec232724865be3",
+    "repetitions": 1,
+    "reuse_vllm": true,
+    "kv_policy": "exploratory",
+    "evidence_class": "development_only_not_formal_benchmark"
+  },
+  "questions": 192,
+  "answers": 1536,
+  "batches": 6,
+  "loop_seconds": {
+    "fixed": 465.9958531856537,
+    "latest": 601.4182779788971
+  },
+  "reduction_percent": -29.060864783981422,
+  "batch_step_timing": {
+    "fixed": [
+      {
+        "batch": 1,
+        "start": 0.02735733985900879,
+        "end": 132.28086948394775,
+        "duration": 132.25351214408875,
+        "answers_ready": 66.51966857910156,
+        "last_answer": 35.25444722175598
+      },
+      {
+        "batch": 2,
+        "start": 132.28097438812256,
+        "end": 199.49384832382202,
+        "duration": 67.21287393569946,
+        "answers_ready": 132.28803634643555,
+        "last_answer": 60.4130494594574
+      },
+      {
+        "batch": 3,
+        "start": 199.49393939971924,
+        "end": 263.0903434753418,
+        "duration": 63.59640407562256,
+        "answers_ready": 199.50588607788086,
+        "last_answer": 164.11210203170776
+      },
+      {
+        "batch": 4,
+        "start": 263.09043645858765,
+        "end": 327.0184540748596,
+        "duration": 63.92801761627197,
+        "answers_ready": 263.097957611084,
+        "last_answer": 233.13436150550842
+      },
+      {
+        "batch": 5,
+        "start": 327.0185523033142,
+        "end": 394.4017994403839,
+        "duration": 67.3832471370697,
+        "answers_ready": 327.01896238327026,
+        "last_answer": 297.94147539138794
+      },
+      {
+        "batch": 6,
+        "start": 394.4018974304199,
+        "end": 465.9948573112488,
+        "duration": 71.59295988082886,
+        "answers_ready": 394.4023013114929,
+        "last_answer": 355.8704688549042
+      }
+    ],
+    "latest": [
+      {
+        "batch": 1,
+        "start": 0.030374765396118164,
+        "end": 188.44332313537598,
+        "duration": 188.41294836997986,
+        "answers_ready": 57.021461725234985,
+        "last_answer": 33.403011083602905
+      },
+      {
+        "batch": 2,
+        "start": 184.41620874404907,
+        "end": 263.2111909389496,
+        "duration": 78.79498219490051,
+        "answers_ready": 185.9429943561554,
+        "last_answer": 37.64405918121338
+      },
+      {
+        "batch": 3,
+        "start": 262.4651358127594,
+        "end": 330.3284206390381,
+        "duration": 67.86328482627869,
+        "answers_ready": 262.48467206954956,
+        "last_answer": 217.61191177368164
+      },
+      {
+        "batch": 4,
+        "start": 329.59413480758667,
+        "end": 397.368262052536,
+        "duration": 67.77412724494934,
+        "answers_ready": 329.6079125404358,
+        "last_answer": 298.16998648643494
+      },
+      {
+        "batch": 5,
+        "start": 396.582879781723,
+        "end": 466.945205450058,
+        "duration": 70.36232566833496,
+        "answers_ready": 396.5859878063202,
+        "last_answer": 363.4609830379486
+      },
+      {
+        "batch": 6,
+        "start": 466.2314438819885,
+        "end": 601.416987657547,
+        "duration": 135.18554377555847,
+        "answers_ready": 466.2328395843506,
+        "last_answer": 430.276948928833
+      }
+    ]
+  },
+  "token_audit": {
+    "fixed": {
+      "reconstructed": 364492,
+      "reported": 364504,
+      "segment_differences": {
+        "generate-tokens-7a85d8b611014095aba197cfccd9d6c5-b1037193": -1,
+        "generate-tokens-4f49efa19faa46abb361ff73c159801d-83f402a7": -1,
+        "generate-tokens-2fae9efb939741d399a0924610561db7-97d72182": -1,
+        "generate-tokens-64a9a71dd9ec4802a400a839259a0f60-8a06f4ab": -1,
+        "generate-tokens-6d187444733649229ba65ea083ad7ee0-885f7c2f": -1,
+        "generate-tokens-8a3719aa8e164ae1aaee5b1e8f30c398-83602c8b": -1,
+        "generate-tokens-42a119f6d3624f09b876e37499b944ee-adafd891": -1,
+        "generate-tokens-cfd1d2836b7d42648aff7ce5d39e7a21-8a597327": -1,
+        "generate-tokens-6a891a434b1e418a861cffb2a1c75224-bc3aef16": -1,
+        "generate-tokens-01218099242047f685f5e66acf4d3068-ac85f582": -1,
+        "generate-tokens-805cc2b5f923481cb843c7bca2d4a998-a9076d49": -1,
+        "generate-tokens-4cb62579451c4bc58b0750de25c4cae0-b7a0d972": -1
+      }
+    },
+    "latest": {
+      "reconstructed": 366240,
+      "reported": 366253,
+      "segment_differences": {
+        "generate-tokens-300cc4b4b6b64be0bb1b191e820308ee-98a29c99": -1,
+        "generate-tokens-55e285a93f0945bb9ccbcb0e1ebf0a56-a1631503": -1,
+        "generate-tokens-fdf8291ef0414303a55107f628a99ed8-99a5bdaa": -1,
+        "generate-tokens-88839ac8de2c4dedac15ecb1c3b8f3f0-aa5efa6c": 1,
+        "generate-tokens-1efe22e1d680431d83da00c4595987bf-8f14b59f": -1,
+        "generate-tokens-b7bbc28ff70a46bc86867915fb11c687-b393ce39": -1,
+        "generate-tokens-b9b227e0e4de4aef85872969742a05ea-a3ba5d9e": -1,
+        "generate-tokens-eadbfa72e94f4930ba93a9c30abb52d7-b9391892": -1,
+        "generate-tokens-76528b3ddfb74f0d92eabca705b09757-87b9095a": -1,
+        "generate-tokens-c16a5487868641e8ae1d47329c888799-bf57d87d": -1,
+        "generate-tokens-72f92cf13b9445628b1de125dc905d7b-ba3e4886": -1,
+        "generate-tokens-0b62cd20a9b24626bbe84cc560926130-a7cb507b": 1,
+        "generate-tokens-3411b943ade14796a17e3c09a79149a5-a645ddf5": -1,
+        "generate-tokens-85381a2b4f1b472dad06becc6ff0c098-b8b86027": -1,
+        "generate-tokens-10a01cbfacbd4d1e86376e5259d1cb02-83f60579": -1,
+        "generate-tokens-56d6a2184f18431c9f658a2512f82aca-8689a07b": -1,
+        "generate-tokens-40a3496bfbb34be399baa63f9dd1b2d4-9a55db81": -1
+      }
+    }
+  },
+  "utilization_sample_means": {
+    "fixed": {
+      "1_aicore": 58.48068669527897,
+      "1_hbm_used_pct": 55.475148213267836,
+      "2_aicore": 23.463519313304722,
+      "2_hbm_used_pct": 48.82525660960971
+    },
+    "latest": {
+      "1_aicore": 46.00666666666667,
+      "1_hbm_used_pct": 65.08560180664062,
+      "2_aicore": 22.776666666666667,
+      "2_hbm_used_pct": 28.16278076171875
+    }
+  },
+  "figures": [
+    "figures/2026-10-23_phases/overview.png",
+    "figures/2026-10-23_phases/overview.zh.png",
+    "figures/2026-10-23_requests/fixed_001.png",
+    "figures/2026-10-23_requests/fixed_002.png",
+    "figures/2026-10-23_requests/fixed_003.png",
+    "figures/2026-10-23_requests/latest_001.png",
+    "figures/2026-10-23_requests/latest_002.png",
+    "figures/2026-10-23_requests/latest_003.png",
+    "figures/2026-10-23_utilization/overview.png",
+    "figures/2026-10-23_utilization/total.png",
+    "figures/2026-10-23_tokens/overview.png"
+  ]
+}

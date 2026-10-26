@@ -295,3 +295,41 @@ def test_exploration_still_rejects_unavailable_memory_and_wrong_version():
     e[0]["budget_valid"] = True
     r["versions"][0] = 1
     assert plan_batch_rebalance(c, r, e, 0, **args)["reason"] == "incompatible_epoch"
+
+
+def test_pair_worker_stalls_do_not_delay_unrelated_replica(monkeypatch):
+    """A third replica's independent tail must not pay another pair's stalls."""
+    import areal.infra.batch_rebalance as module
+
+    c, route, engines = fixture()
+    c.first.append(dict(unit=0.001))
+    c.decode.append({1: 1})
+    route["ready"].append(True)
+    route["versions"].append(0)
+    other = deepcopy(route["active"][0])
+    other.update(request_id="other", rank=2)
+    route["active"].append(other)
+    extra = deepcopy(engines[0])
+    extra["active"] = [dict(request_id="other", tokens=0)]
+    extra["queue"]["running"] = ["other"]
+    engines.append(extra)
+
+    def simulate(*args):
+        ids, rank = args[1], args[5]
+        return {i: 1000.0 if rank == 2 else 10.0 * len(ids) for i in ids}
+
+    monkeypatch.setattr(module, "simulate_decode", simulate)
+    result = plan_batch_rebalance(
+        c,
+        route,
+        engines,
+        0.01,
+        aggressive=dict(
+            needed_questions=1,
+            source_stall_s=0.1,
+            target_stall_s=0.2,
+            coordination_s=0.01,
+        ),
+    )
+    assert result["scenarios"]
+    assert all(s["tail_s"] == 1000.0 for s in result["scenarios"])

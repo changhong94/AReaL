@@ -57,14 +57,15 @@ def methods():
     return namespace
 
 
-def test_fixed_publication_does_not_pause_other_replica(methods):
+@pytest.mark.parametrize("snapshot", [False, True])
+def test_fixed_publication_does_not_pause_other_replica(methods, snapshot):
     publisher = Mock()
     engine = SimpleNamespace(
         _shared_publisher=Mock(return_value=publisher),
         rollout_engine=Mock(),
         cpu_group=object(),
     )
-    meta = SimpleNamespace(npu_share_snapshot=True)
+    meta = SimpleNamespace(npu_share_fixed=True, npu_share_snapshot=snapshot)
     methods["_update_weights_from_distributed"](engine, meta)
     publisher.publish_fixed.assert_called_once_with(meta)
     assert methods["dist"].barrier.call_args_list == [
@@ -72,6 +73,7 @@ def test_fixed_publication_does_not_pause_other_replica(methods):
         call(group=engine.cpu_group),
     ]
     engine.rollout_engine.pause_generation.assert_not_called()
+    engine.rollout_engine.continue_generation.assert_not_called()
     methods["current_platform"].synchronize.assert_not_called()
 
 
@@ -87,7 +89,7 @@ def test_nonshared_publication_preserves_original_pause_protocol(methods):
         _update_weights_via_registry=Mock(),
         _shared_publisher=Mock(),
     )
-    meta = SimpleNamespace(npu_share_snapshot=False)
+    meta = SimpleNamespace(npu_share_fixed=False, npu_share_snapshot=False)
     methods["_update_weights_from_distributed"](engine, meta)
     engine.rollout_engine.pause_generation.assert_called_once()
     engine._update_weights_via_registry.assert_called_once_with(meta)

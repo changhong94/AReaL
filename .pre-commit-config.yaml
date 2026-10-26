@@ -25,7 +25,8 @@ repos:
       - id: check-added-large-files
         name: Check for large files
         args: ['--maxkb=1000']
-        exclude: uv.lock
+        # Keep the reviewed presentation with its original embedded template.
+        exclude: ^(uv\.lock|docs/research/npu-sharing/report/npu-sharing-2026-10-21-v03-huawei\.pptx)$
       - id: check-json
         name: Check JSON files
 

@@ -130,6 +130,7 @@ class RolloutController:
 
         # Task completion futures
         self._pending_futures: dict[int, asyncio.Future] = {}
+        self._generation_workers: dict[int, int] = {}
         self._futures_lock = threading.Lock()
 
         # Proxy worker management (for AgentWorkflow support)
@@ -168,20 +169,21 @@ class RolloutController:
         """
         return f"{self._worker_role}/{rank}"
 
-    def enable_npu_share_pool(self) -> None:
-        """Borrow replica zero; replica one gets a separately allocated device."""
-        if (
-            self.rollout_alloc.parallel.dp_size < 2
-            or self.rollout_alloc.parallel.dp_size % 2
-        ):
-            raise ValueError("NPU sharing requires equal nonempty replica groups")
+    def enable_npu_share_pool(self, borrowed_replicas: int | None = None) -> None:
+        """Colocate the leading replicas on the actor's physical device group."""
+        total = self.rollout_alloc.parallel.dp_size
+        borrowed = total // 2 if borrowed_replicas is None else borrowed_replicas
+        if not 0 < borrowed < total:
+            raise ValueError("NPU sharing requires nonempty borrowed and fixed groups")
+        self._borrowed_replica_count = borrowed
         self._preserve_borrowed_requests = (
             os.getenv("AREAL_NPU_SHARE_PAUSE_KEEP", "0") == "1"
         )
         self._borrowed_pool = BorrowedRolloutPool(
             self.config.consumer_batch_size,
             preserve_requests=self._preserve_borrowed_requests,
-            replicas_per_group=self.rollout_alloc.parallel.dp_size // 2,
+            replicas_per_group=borrowed,
+            fixed_replicas=total - borrowed,
         )
 
     @property
@@ -202,13 +204,21 @@ class RolloutController:
 
     @property
     def borrowed_ranks(self):
-        return tuple(range(self.rollout_alloc.parallel.dp_size // 2))
+        return tuple(
+            range(
+                getattr(
+                    self,
+                    "_borrowed_replica_count",
+                    self.rollout_alloc.parallel.dp_size // 2,
+                )
+            )
+        )
 
     @property
     def fixed_ranks(self):
         return tuple(
             range(
-                self.rollout_alloc.parallel.dp_size // 2,
+                len(self.borrowed_ranks),
                 self.rollout_alloc.parallel.dp_size,
             )
         )
@@ -314,7 +324,8 @@ class RolloutController:
 
         if not hasattr(self, "_batch_calibration"):
             self._batch_calibration = RollingBatchCalibration(
-                replicas=self.rollout_alloc.parallel.dp_size
+                replicas=self.rollout_alloc.parallel.dp_size,
+                borrowed_replicas=len(self.borrowed_ranks),
             )
             self._batch_drain_wakeup = Event()
         with requests.Session() as session:
@@ -336,6 +347,7 @@ class RolloutController:
             route=route,
             handoffs=handoffs,
         )
+        self._return_observation = (engines, route)
         summary = self._batch_calibration.freeze(engines, route, handoffs)
         if os.getenv("AREAL_QUEUE_REBALANCE", "1") == "1":
             import copy
@@ -347,6 +359,55 @@ class RolloutController:
         self._batch_handoff_parts = []
         request_trace.emit("batch_drain_calibration", **summary)
 
+    def decide_inference_return(self, target: int) -> dict:
+        from areal.infra.profit_return import estimate_return
+
+        accepted = self.staleness_manager.get_stats().accepted
+        observation = getattr(self, "_return_observation", None)
+        calibration = getattr(self, "_batch_calibration", None)
+        if target <= accepted:
+            result = dict(action="keep", reason="next_batch_ready", gain_seconds=0.0)
+        elif observation is None or calibration is None:
+            result = dict(action="return", reason="missing_observation_probe")
+        else:
+            engines, route = observation
+            result = estimate_return(
+                calibration,
+                route,
+                engines,
+                target - accepted,
+                getattr(self, "_return_costs", []),
+                margin=float(os.getenv("AREAL_RETURN_MARGIN_SECONDS", "0")),
+            )
+        request_trace.emit(
+            "inference_return_decision", target=target, accepted=accepted, **result
+        )
+        return result
+
+    def evacuate_retained_requests(self) -> None:
+        """Evacuate every paused request; economics never veto a continuation."""
+        from areal.infra.kv_rebalance import evacuate_retained
+
+        self.wait_running_rebalance()
+        if self._request_pool is None:
+            raise RuntimeError("Retained evacuation requires request lease routing")
+        if getattr(self, "_shared_held_for_training", False):
+            if any(self._request_pool.active_requests(r) for r in self.borrowed_ranks):
+                raise RuntimeError("Held training replica unexpectedly owns requests")
+            return
+        evacuate_retained(self)
+
+    def record_inference_return(self, seconds: float) -> None:
+        self._return_publish_cost = seconds
+
+    def skip_inference_return(self, version: int) -> None:
+        # No snapshot exists for this version. Keep leases closed and old model
+        # versions unchanged until a later full load ACK, including during train.
+        self._shared_held_for_training = True
+        self._batch_publish_seconds = None
+        self._batch_transition_started = None
+        request_trace.emit("inference_return_skipped", version=version)
+
     def record_training_ready(
         self, prepare_seconds: float, idle_seconds: float | None = None
     ) -> None:
@@ -354,6 +415,16 @@ class RolloutController:
             return
         # Publication tail finishes on this same executor BEFORE preparation.
         # Never await a future queued behind the drain that is making a decision.
+        return_cost = getattr(self, "_return_publish_cost", None)
+        if return_cost is not None:
+            from collections import deque
+
+            if not hasattr(self, "_return_costs"):
+                self._return_costs = deque(maxlen=3)
+            self._return_costs.append(
+                dict(publish=return_cost, restore=prepare_seconds)
+            )
+            self._return_publish_cost = None
         publish = getattr(self, "_batch_publish_seconds", None)
         if publish is not None:
             self._batch_handoffs = getattr(self, "_batch_handoffs", [])
@@ -368,6 +439,7 @@ class RolloutController:
                 dict(tail=max(0.0, handoff - prepare_seconds), restore=prepare_seconds)
             )
             self._batch_publish_seconds = None
+            self._batch_transition_started = None
             request_trace.emit(
                 "batch_drain_training_ready",
                 publish_seconds=publish,
@@ -508,6 +580,8 @@ class RolloutController:
         )
 
     def resume_training_inference(self) -> None:
+        if getattr(self, "_shared_held_for_training", False):
+            raise RuntimeError("Shared model is stale after a skipped return")
         if getattr(self, "_request_pool", None) is None:
             raise RuntimeError("Concurrent training requires request lease routing")
         self._group_rpc(self.borrowed_ranks, "continue_generation", http_timeout=60.0)
@@ -527,6 +601,10 @@ class RolloutController:
 
     def prepare_fixed_publication(self) -> None:
         self.wait_shared_publication()
+        # Start every publication cycle, including cycles with no shared drain.
+        # A later drain decision narrows this to the non-overlapped handoff tail.
+        self._batch_transition_started = time.monotonic()
+        self._batch_publish_seconds = None
         if self._borrowed_pool is None:
             raise RuntimeError("Asymmetric publication requires a borrowed replica")
         self.wait_running_rebalance()
@@ -564,7 +642,9 @@ class RolloutController:
             time=time.time(),
         )
 
-    def load_shared_snapshot_async(self, meta: WeightUpdateMeta) -> None:
+    def load_shared_snapshot_async(
+        self, meta: WeightUpdateMeta, restore_memory: bool = False
+    ) -> None:
         self.wait_shared_publication()
         if meta.version != self.get_version() or not meta.npu_share_snapshot:
             raise ValueError("Shared snapshot must match the published fixed version")
@@ -575,6 +655,7 @@ class RolloutController:
             ).submit(
                 self._load_shared_snapshot,
                 replace(meta, clear_checkpoint_after_load=False),
+                restore_memory,
             )
 
     def _schedule_queue_rebalance(self, version: int) -> None:
@@ -760,7 +841,9 @@ class RolloutController:
                 uncertain=submitted,
             )
 
-    def _load_shared_snapshot(self, meta: WeightUpdateMeta) -> None:
+    def _load_shared_snapshot(
+        self, meta: WeightUpdateMeta, restore_memory: bool = False
+    ) -> None:
         started = time.perf_counter()
         self._pool_event(
             "shared_load_start",
@@ -769,6 +852,10 @@ class RolloutController:
             time=time.time(),
         )
         try:
+            if restore_memory:
+                self._group_rpc(
+                    self.borrowed_ranks, "colocation_memory", action="restore"
+                )
             if getattr(self, "_preserve_borrowed_requests", False):
                 # Memory policy has restored the old model and its live KV.
                 # Keep admission closed until all old-version leases complete.
@@ -804,6 +891,7 @@ class RolloutController:
                     for replica_rank in self.borrowed_ranks:
                         pool.open(replica_rank, meta.version)
                 self._group_rpc(self.borrowed_ranks, "resume", http_timeout=60.0)
+                self._shared_held_for_training = False
                 self._borrowed_pool.release(self.staleness_manager.get_stats().accepted)
                 self._shared_loading = False
                 transition = getattr(self, "_shared_transition_started", None)
@@ -889,15 +977,36 @@ class RolloutController:
             self.config.max_concurrent_rollouts or self.config.consumer_batch_size
         )
         consumer_batch_size = self.config.consumer_batch_size
+        concurrency_target = None
+        if (
+            os.getenv("AREAL_ADAPTIVE_CONCURRENCY", "off") == "capacity"
+            and self._borrowed_pool is not None
+        ):
+            from areal.infra.adaptive_concurrency import CapacityConcurrency
+
+            concurrency_target = CapacityConcurrency(
+                max_concurrent_rollouts,
+                len(self.fixed_ranks),
+                self._concurrency_snapshot,
+            )
+            # Bound admission by the configured replica topology, not a fixed multiple.
+            max_concurrent_rollouts = concurrency_target.capacity_for(
+                self.rollout_alloc.parallel.dp_size
+            )
         self._staleness_manager = StalenessManager(
             version_provider=self,
             max_concurrent_rollouts=max_concurrent_rollouts,
             consumer_batch_size=consumer_batch_size,
             max_staleness=self.config.max_head_offpolicyness,
+            concurrency_target=concurrency_target,
         )
 
         # Create and initialize the dispatcher
-        qsize = self.config.queue_size or max_concurrent_rollouts * 16
+        qsize = (
+            self.config.queue_size
+            or (self.config.max_concurrent_rollouts or self.config.consumer_batch_size)
+            * 16
+        )
         self._dispatcher = BatchTaskDispatcher[
             _RemoteRolloutTaskInput, _RemoteRolloutResult
         ](
@@ -919,16 +1028,25 @@ class RolloutController:
         if self._request_pool is not None:
             self._collective_rpc("configure_request_router", address=self.callback_addr)
             if os.getenv("AREAL_RUNNING_REBALANCE", "off") == "kv":
-                from areal.infra.kv_rebalance import initialize_pair
+                from areal.infra.kv_rebalance import initialize_pairs
 
-                if dp_size != 2 or instance_size != 1:
-                    raise ValueError("KV handoff requires two TP=1 inference replicas")
-                self._kv_peer_geometry = initialize_pair(
+                if self.rollout_alloc.parallel.pp_size != 1:
+                    raise ValueError(
+                        "KV handoff requires equal-TP inference replicas and PP=1"
+                    )
+                self._kv_peers = initialize_pairs(
                     self._request_pool.addresses,
-                    self.fixed_ranks[0],
-                    self.borrowed_ranks[0],
+                    self.fixed_ranks,
+                    self.borrowed_ranks,
                 )
-                self._kv_block_tokens = self._kv_peer_geometry["block_tokens"]
+                if self._preserve_borrowed_requests:
+                    self._kv_peers.update(
+                        initialize_pairs(
+                            self._request_pool.addresses,
+                            self.borrowed_ranks,
+                            self.fixed_ranks,
+                        )
+                    )
 
     async def _async_initialize(
         self,
@@ -1092,6 +1210,7 @@ class RolloutController:
         self._stop_proxy_gateway()
         with self._futures_lock:
             self._pending_futures.clear()
+            self._generation_workers.clear()
 
     def start_proxy(self) -> None:
         """Initialize proxy workers for AgentWorkflow support.
@@ -1384,7 +1503,15 @@ class RolloutController:
             payload = request.get_json() or {}
             task_id = payload.get("task_id")
             try:
-                self._resolve_task_future(task_id)
+                if payload.get("event") == "generation_complete":
+                    if self.staleness_manager.on_generation_complete(task_id):
+                        with self._futures_lock:
+                            self._generation_workers.pop(task_id, None)
+                        with self.dispatcher._input_cv:
+                            self.dispatcher._input_cv.notify_all()
+                        self._pool_event("generation_slot_released", task_id=task_id)
+                else:
+                    self._resolve_task_future(task_id)
                 return jsonify({"status": "ok"})
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
@@ -1498,8 +1625,22 @@ class RolloutController:
         ]
         return await asyncio.gather(*tasks)
 
+    def _concurrency_snapshot(self):
+        pool = getattr(self, "_request_pool", None)
+        if pool is None:
+            return dict(
+                ready=[True] * len(self.fixed_ranks),
+                waiting=0,
+                borrowed_available=False,
+            )
+        state = pool.admission_snapshot(self.get_version())
+        borrowed = self._borrowed_pool
+        with borrowed._lock:
+            state["borrowed_available"] = borrowed.state == "inference"
+        return state
+
     def _choose_worker(self) -> tuple[Worker, int]:
-        """Choose a worker for the next request using round-robin scheduling.
+        """Choose a least-loaded eligible worker, rotating ties.
 
         Returns
         -------
@@ -1508,18 +1649,24 @@ class RolloutController:
         """
         if not self.workers:
             raise RuntimeError("No workers available to choose from.")
+        with self._futures_lock:
+            loads = {
+                rank: list(self._generation_workers.values()).count(rank)
+                for rank in range(len(self.workers))
+            }
         if self._borrowed_pool is not None:
             accepted = self.staleness_manager.get_stats().accepted
-            rank, withdrawn = self._borrowed_pool.choose(accepted)
+            rank, withdrawn = self._borrowed_pool.choose(accepted, loads)
             if withdrawn:
                 self._pool_event(
                     "withdraw", ranks=list(self.borrowed_ranks), accepted=accepted
                 )
             return self.workers[rank], rank
-        worker = self.workers[self._current_worker_idx]
-        rank = self._current_worker_idx
-        self._current_worker_idx = (self._current_worker_idx + 1) % len(self.workers)
-        return worker, rank
+        ranks = list(range(len(self.workers)))
+        rotated = ranks[self._current_worker_idx :] + ranks[: self._current_worker_idx]
+        rank = min(rotated, key=lambda r: loads[r])
+        self._current_worker_idx = (rank + 1) % len(self.workers)
+        return self.workers[rank], rank
 
     def _resolve_workflow_str(self, workflow: WorkflowLike | None) -> str | None:
         """Resolve workflow to a string import path.
@@ -1578,8 +1725,10 @@ class RolloutController:
 
     def _create_submit_callback(self, pending_task: _RemoteRolloutTaskInput):
         async def _submit_then_wait() -> _RemoteRolloutResult | None:
-            # Choose worker via round-robin
+            # Choose by active generation load, excluding pending rewards.
             worker, rank = self._choose_worker()
+            with self._futures_lock:
+                self._generation_workers[pending_task.task_id] = rank
             engine_name = self._engine_name(rank)
             if self._borrowed_pool is not None:
                 self._pool_event("dispatch", rank=rank, task_id=pending_task.task_id)
@@ -1634,7 +1783,7 @@ class RolloutController:
 
                 traj = result
                 if traj is not None:
-                    manager.on_rollout_accepted()
+                    manager.on_rollout_accepted(task_id)
                     wakeup = getattr(self, "_batch_drain_wakeup", None)
                     if wakeup is not None:
                         wakeup.set()
@@ -1644,25 +1793,33 @@ class RolloutController:
                         )
                     return _RemoteRolloutResult(task_id=task_id, trajectory=traj)
 
-                manager.on_rollout_rejected()
+                manager.on_rollout_rejected(task_id)
                 if self.config.enable_rollout_tracing:
                     logger.info(f"Finish but reject rollout. {self._rollout_stats()}")
                 return None
 
+            except asyncio.CancelledError:
+                manager.on_rollout_rejected(task_id)
+                with self._futures_lock:
+                    self._pending_futures.pop(task_id, None)
+                raise
             except TimeoutError:
                 if task_id is not None:
                     with self._futures_lock:
                         self._pending_futures.pop(task_id, None)
-                manager.on_rollout_rejected()
+                manager.on_rollout_rejected(task_id)
                 logger.error(f"Rollout timed out after {self.config.request_timeout}s")
                 return None
             except Exception as exc:
                 if task_id is not None:
                     with self._futures_lock:
                         self._pending_futures.pop(task_id, None)
-                manager.on_rollout_rejected()
+                manager.on_rollout_rejected(task_id)
                 logger.error("Workflow execution failed: %s", exc, exc_info=True)
                 return None
+            finally:
+                with self._futures_lock:
+                    self._generation_workers.pop(task_id, None)
 
         return _submit_then_wait
 
@@ -1870,7 +2027,8 @@ class RolloutController:
         if meta.npu_share_fixed:
             if (
                 self._borrowed_pool is None
-                or meta.gen_allocation.world_size * 2 != self.rollout_alloc.world_size
+                or meta.gen_allocation.world_size
+                != len(self.fixed_ranks) * self.rollout_alloc.parallel.tp_size
             ):
                 raise ValueError(
                     "Fixed publication allocation must match the dedicated device group"
@@ -2033,6 +2191,10 @@ class RolloutController:
         self._collective_rpc("pause", http_timeout=60.0)
 
     def resume(self):
+        if getattr(self, "_shared_held_for_training", False):
+            self._group_rpc(self.fixed_ranks, "resume", http_timeout=60.0)
+            self.dispatcher.resume()
+            return
         if self._borrowed_pool is not None and self._shared_publication is not None:
             with self._shared_publication_lock:
                 if self._shared_publication.done():

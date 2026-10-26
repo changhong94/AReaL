@@ -26,6 +26,11 @@ except ImportError:
 
 from areal.engine.core.distributed import init_custom_process_group
 from areal.engine.vllm_ext.ascend_kernel_warmup import install_ascend_kernel_warmup
+from areal.engine.vllm_ext.graph_compat import (
+    assert_graph_storage,
+    assert_graph_storage_collective,
+    install_graph_guard,
+)
 from areal.engine.vllm_ext.kv_slab_adapter import install_kv_slab
 from areal.engine.vllm_ext.queue_rebalance import install_queue_rebalance
 from areal.infra.platforms import current_platform
@@ -82,6 +87,10 @@ def _apply_ascend_patch_awex():
 
 _apply_ascend_patch_awex()
 install_kv_slab()
+if getattr(current_platform, "device_type", None) == "npu":
+    from vllm_ascend.worker.model_runner_v1 import NPUModelRunner
+
+    install_graph_guard(NPUModelRunner)
 
 install_queue_rebalance()
 
@@ -109,6 +118,7 @@ class VLLMWorkerExtension:
             if get_tensor_model_parallel_rank() != member_rank:
                 action = "status"
         runner = self.model_runner
+        assert_graph_storage(runner)
         memory = getattr(runner, "_adaptive_memory", None)
         if memory is None:
             raise RuntimeError("Adaptive inference memory is not enabled")
@@ -119,6 +129,7 @@ class VLLMWorkerExtension:
             "restore",
             "reclaim",
             "pause_preserved",
+            "discard_preserved",
             "resume_preserved",
             "kv_budget",
             "kv_budget_clear",
@@ -145,7 +156,7 @@ class VLLMWorkerExtension:
             result["capacity_blocks"] = cap
             result["dynamic_kv"] = dynamic.snapshot()
             return result
-        if action in {"pause_preserved", "resume_preserved"}:
+        if action in {"pause_preserved", "resume_preserved", "discard_preserved"}:
             if dynamic is None or not kv_idle_verified:
                 raise RuntimeError(
                     "Retained pause requires dynamic KV and a paused scheduler"
@@ -234,8 +245,13 @@ class VLLMWorkerExtension:
         torch.distributed.barrier()
 
     def areal_update_weights(self, model_path, snapshot_version=None):
+        memory = getattr(self.model_runner, "_adaptive_memory", None)
+        if memory is not None:
+            memory.mark_dirty(("weights",))
         logger.info(f"start update weights, {model_path}", flush=True)
         try:
+            current_platform.synchronize()
+            assert_graph_storage_collective(self.model_runner)
             # load weight
             undo_moe_postprocess_for_reload(self.model_runner.model)
             if snapshot_version is None:
@@ -280,6 +296,7 @@ class VLLMWorkerExtension:
                         self.model_runner.device,
                     )
             self.sync()
+            assert_graph_storage_collective(self.model_runner)
 
             return True, "Success"
         except Exception as e:
@@ -294,6 +311,9 @@ class VLLMWorkerExtension:
         lora_int_id: int,
         base_model_name: str,
     ):
+        memory = getattr(self.model_runner, "_adaptive_memory", None)
+        if memory is not None:
+            memory.mark_dirty(("weights",))
         logger.info(
             f"start lora update weights, lora_model_path-{lora_model_path}, lora_name-{lora_name}, lora_int_id-{lora_int_id}, base_model_name-{base_model_name}",
             flush=True,
@@ -346,6 +366,9 @@ class VLLMWorkerExtension:
         lora_bias: str,
         base_model_name: str,
     ):
+        memory = getattr(self.model_runner, "_adaptive_memory", None)
+        if memory is not None:
+            memory.mark_dirty(("weights",))
         logger.info(
             f"start set lora weights meta for lora_name={lora_name}, lora_int_id={lora_int_id}"
         )
@@ -363,6 +386,9 @@ class VLLMWorkerExtension:
         return True, "Success"
 
     def areal_update_weight_xccl(self):
+        memory = getattr(self.model_runner, "_adaptive_memory", None)
+        if memory is not None:
+            memory.mark_dirty(("weights",))
         logger.info("start update weights by nccl or hccl", flush=True)
         names = self.areal_weight_meta_names
         dtypes = self.areal_weight_meta_dtypes
@@ -374,6 +400,8 @@ class VLLMWorkerExtension:
                 f"Weight update group named `{self.areal_weight_meta_group_name}` not found"
             )
         try:
+            current_platform.synchronize()
+            assert_graph_storage_collective(self.model_runner)
             memory = getattr(self.model_runner, "_adaptive_memory", None)
             if memory is not None and (
                 memory.broken or memory.states["weights"] != "mapped"
@@ -420,6 +448,7 @@ class VLLMWorkerExtension:
                         self.model_runner.device,
                     )
             self.sync()
+            assert_graph_storage_collective(self.model_runner)
             if backend is not None:
                 backend.assert_covered(
                     list(self.model_runner.model.parameters())
@@ -432,6 +461,9 @@ class VLLMWorkerExtension:
             return False, error_msg
 
     def areal_update_weight_lora_xccl(self):
+        memory = getattr(self.model_runner, "_adaptive_memory", None)
+        if memory is not None:
+            memory.mark_dirty(("weights",))
         # NOTE: This code relies on vLLM private APIs: _adapter_manager, _registered_adapters,
         # and _add_adapter/activate_adapter, which may change/ breakdown due to newer vllm versions.
 

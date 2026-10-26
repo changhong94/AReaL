@@ -1,0 +1,164 @@
+{
+  "settings": {
+    "rl": "code",
+    "code_reward_scheduling": "question",
+    "code_reward_scheduling_by_arm": {
+      "fixed": "answer",
+      "latest": "question"
+    },
+    "engine": "fsdp",
+    "concurrency": 16,
+    "max_head_offpolicyness": 2,
+    "batches": 3,
+    "running_rebalance": "kv",
+    "adaptive_concurrency": "capacity",
+    "inference_mode": "graph",
+    "batch_size": 32,
+    "answers": 8,
+    "questions": 96,
+    "seed": 1,
+    "max_new_tokens": 1024,
+    "timezone": "America/Vancouver",
+    "created": "20261022-215001-0700",
+    "timeout": 3600,
+    "container_prefix": "areal-bench-e2bfc5d739e7-r2",
+    "image": "areal-timeshare:ascend-v0.26-a2-dev1",
+    "devices": [
+      1,
+      2
+    ],
+    "npu_count": 2,
+    "inference_tp": 1,
+    "allocation": {
+      "total": 2,
+      "training": 1,
+      "dedicated_inference": 1,
+      "shared_inference_max": 2
+    },
+    "inference_training_ratio": "1:1",
+    "inference_replicas": 1,
+    "image_id": "sha256:6deffddcf7fec443c62c27863432120e3a194a447d57a9a748ec232724865be3",
+    "repetitions": 2,
+    "reuse_vllm": true,
+    "kv_policy": "exploratory",
+    "evidence_class": "development_only_not_formal_benchmark"
+  },
+  "questions": 96,
+  "answers": 768,
+  "batches": 3,
+  "loop_seconds": {
+    "fixed": 543.316260099411,
+    "latest": 538.702978849411
+  },
+  "reduction_percent": 0.8490968499922924,
+  "batch_step_timing": {
+    "fixed": [
+      {
+        "batch": 1,
+        "start": 0.027446508407592773,
+        "end": 256.21554231643677,
+        "duration": 256.1880958080292,
+        "answers_ready": 192.97516202926636,
+        "last_answer": 33.48592734336853
+      },
+      {
+        "batch": 2,
+        "start": 256.2156455516815,
+        "end": 384.0134015083313,
+        "duration": 127.79775595664978,
+        "answers_ready": 320.2840371131897,
+        "last_answer": 54.390883684158325
+      },
+      {
+        "batch": 3,
+        "start": 384.0135016441345,
+        "end": 543.3151321411133,
+        "duration": 159.30163049697876,
+        "answers_ready": 465.50609970092773,
+        "last_answer": 81.48378014564514
+      }
+    ],
+    "latest": [
+      {
+        "batch": 1,
+        "start": 0.029193878173828125,
+        "end": 228.80675196647644,
+        "duration": 228.7775580883026,
+        "answers_ready": 161.58607840538025,
+        "last_answer": 33.025195837020874
+      },
+      {
+        "batch": 2,
+        "start": 224.73627972602844,
+        "end": 392.8212673664093,
+        "duration": 168.08498764038086,
+        "answers_ready": 322.3999078273773,
+        "last_answer": 41.37827706336975
+      },
+      {
+        "batch": 3,
+        "start": 388.36282777786255,
+        "end": 538.7017188072205,
+        "duration": 150.3388910293579,
+        "answers_ready": 462.9302227497101,
+        "last_answer": 49.585125207901
+      }
+    ]
+  },
+  "token_audit": {
+    "fixed": {
+      "reconstructed": 178836,
+      "reported": 178843,
+      "segment_differences": {
+        "generate-tokens-f111ca3ae3df4412b15317b6e3b451b5-ab350200": -1,
+        "generate-tokens-1d3a39ae4dfd4107a5086a028eb69abe-8161d5fe": -1,
+        "generate-tokens-ced096af0de24a46be4239879cabcfb7-a30958d3": -1,
+        "generate-tokens-ff3dddf8a87742a9917e6a59f39e5717-9c7306a9": -1,
+        "generate-tokens-0fd8bb82aeeb4655afb51e88423234e2-908fc457": -1,
+        "generate-tokens-bff77276611a427e97f4220d645c23cb-b020515e": -1,
+        "generate-tokens-3691b5e9add149cc89683441e8086bd3-83652cd8": -1
+      }
+    },
+    "latest": {
+      "reconstructed": 181984,
+      "reported": 181994,
+      "segment_differences": {
+        "generate-tokens-28592ec1f0874eaaa135b41ffe4214ca-86c56ab6": -1,
+        "generate-tokens-2f5b4ca82634450e97ea42211ec3410b-bb76d50b": -1,
+        "generate-tokens-3607a8379f1346e884e146b1aafe3635-821060e0": -1,
+        "generate-tokens-df5956bb31c1439fa15467312baa173e-9cc198ab": -1,
+        "generate-tokens-b297d729e15147a7b3c24f0523060a40-891408b1": -1,
+        "generate-tokens-f2d346b2955540bd9cbd8f2827d9bc79-8f2b80e2": -1,
+        "generate-tokens-82338744d09b468a8ae7d7e50ed44b95-b7e0800e": -1,
+        "generate-tokens-4926a124f6b443e59f8cb589f6ea198b-a6b7566e": -1,
+        "generate-tokens-6da2b6aebf6a42ae8c4cb70de6ee1812-a31c9ee4": -1,
+        "generate-tokens-e76a855014664d60adeeb176c91c62ea-b8339061": -1
+      }
+    }
+  },
+  "utilization_sample_means": {
+    "fixed": {
+      "1_aicore": 25.227941176470587,
+      "1_hbm_used_pct": 46.28584805656882,
+      "2_aicore": 9.003676470588236,
+      "2_hbm_used_pct": 52.56426755119772
+    },
+    "latest": {
+      "1_aicore": 30.561338289962826,
+      "1_hbm_used_pct": 65.53127473171759,
+      "2_aicore": 4.594795539033457,
+      "2_hbm_used_pct": 17.93077887212477
+    }
+  },
+  "figures": [
+    "figures/2026-10-22_phases/overview.png",
+    "figures/2026-10-22_phases/overview.zh.png",
+    "figures/2026-10-22_requests/fixed_001.png",
+    "figures/2026-10-22_requests/fixed_002.png",
+    "figures/2026-10-22_requests/latest_001.png",
+    "figures/2026-10-22_requests/latest_002.png",
+    "figures/2026-10-22_utilization/overview.png",
+    "figures/2026-10-22_utilization/total.png",
+    "figures/2026-10-22_tokens/overview.png"
+  ]
+}

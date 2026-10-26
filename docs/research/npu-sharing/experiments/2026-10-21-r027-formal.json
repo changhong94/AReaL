@@ -1,0 +1,120 @@
+{
+  "workspace": "/root/areal-development/r027-formal-20261021/20261021-011439-0700_math_fsdp_c16_b6_493072",
+  "runs": [
+    {
+      "arm": "fixed",
+      "seconds": 88.48919296264648,
+      "tokens": 137727,
+      "requests": 576,
+      "skipped_returns": 0,
+      "stages": {
+        "train.rollout": 14.229142,
+        "train.recompute_logp": 9.352464000000001,
+        "train.compute_advantage": 4.929817,
+        "train.ppo_update": 32.252818,
+        "train.save": 13.341369,
+        "train.checkpoint": 0.00036199999999999996,
+        "train.update_weights": 13.198602999999999,
+        "train.eval": 0.001055,
+        "train.clear_batches": 0.111984,
+        "train.log_stats": 0.8710769999999999
+      },
+      "checkpoint_stages": {
+        "fsdp_engine.save_cpu_state": 0.782128,
+        "fsdp_engine.save_cast": 1.498982,
+        "fsdp_engine.save_serialize": 4.225544
+      },
+      "decisions": [],
+      "resident_budget_hits": []
+    },
+    {
+      "arm": "latest",
+      "seconds": 80.51392674446106,
+      "tokens": 137944,
+      "requests": 576,
+      "skipped_returns": 4,
+      "stages": {
+        "train.rollout": 10.824687999999998,
+        "train.recompute_logp": 9.484015,
+        "train.compute_advantage": 5.413045,
+        "train.ppo_update": 32.367456000000004,
+        "train.save": 10.623318999999999,
+        "train.checkpoint": 0.00034300000000000004,
+        "train.update_weights": 5.792554,
+        "train.background_publication": 4.654904999999999,
+        "train.eval": 0.0056500000000000005,
+        "train.clear_batches": 0.14480200000000001,
+        "train.log_stats": 0.39129100000000006,
+        "train.wait_previous_tail": 4.324755,
+        "train.shared_memory_switch": 0.117032
+      },
+      "checkpoint_stages": {
+        "fsdp_engine.save_cpu_state": 0.767411,
+        "fsdp_engine.save_cast": 1.399959,
+        "fsdp_engine.save_serialize": 2.697748
+      },
+      "decisions": [
+        {
+          "event": "inference_return_decision",
+          "time": 1792571453.0547984,
+          "pid": 1,
+          "target": 32,
+          "accepted": 48,
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "gain_seconds": 0.0
+        },
+        {
+          "event": "inference_return_decision",
+          "time": 1792571463.6851056,
+          "pid": 1,
+          "target": 48,
+          "accepted": 62,
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "gain_seconds": 0.0
+        },
+        {
+          "event": "inference_return_decision",
+          "time": 1792571471.6230009,
+          "pid": 1,
+          "target": 64,
+          "accepted": 71,
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "gain_seconds": 0.0
+        },
+        {
+          "event": "inference_return_decision",
+          "time": 1792571480.0405767,
+          "pid": 1,
+          "target": 80,
+          "accepted": 84,
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "gain_seconds": 0.0
+        },
+        {
+          "event": "inference_return_decision",
+          "time": 1792571489.281579,
+          "pid": 1,
+          "target": 96,
+          "accepted": 95,
+          "needed_questions": 1,
+          "estimator": "profit_return_v1",
+          "action": "return",
+          "reason": "calibration_probe"
+        }
+      ],
+      "resident_budget_hits": [
+        "{\"forward_credit_bytes\": 9718202368, \"backward_credit_bytes\": 3741319168, \"gross_required_bytes\": 25502210048, \"incremental_required_bytes\": 12042688512, \"available_bytes\": 17634557952}\u001b[0m",
+        "{\"forward_credit_bytes\": 10341056512, \"backward_credit_bytes\": 3741319168, \"gross_required_bytes\": 25502210048, \"incremental_required_bytes\": 11419834368, \"available_bytes\": 17011527680}\u001b[0m",
+        "{\"forward_credit_bytes\": 10341056512, \"backward_credit_bytes\": 3743416320, \"gross_required_bytes\": 25502210048, \"incremental_required_bytes\": 11417737216, \"available_bytes\": 17007583232}\u001b[0m",
+        "{\"forward_credit_bytes\": 10341056512, \"backward_credit_bytes\": 3743416320, \"gross_required_bytes\": 25502210048, \"incremental_required_bytes\": 11417737216, \"available_bytes\": 17007534080}\u001b[0m"
+      ]
+    }
+  ],
+  "evidence_class": "independent_startup_formal",
+  "saved_seconds": 7.975266218185425,
+  "saved_percent": 9.012700818225328
+}

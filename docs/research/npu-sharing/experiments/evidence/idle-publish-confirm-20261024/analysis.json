@@ -1,0 +1,849 @@
+{
+  "comparison": {
+    "workspace": "/root/areal-development/idle-publish-confirm-20261024/comparison/20261024-041150-0700_code_fsdp_c16_b6_774d0b/repetitions/01",
+    "arms": {
+      "fixed": {
+        "events": [],
+        "switch_seconds": 0,
+        "upload_retries": 0,
+        "verified_imports": 0
+      },
+      "latest": {
+        "events": [
+          {
+            "event": "idle_training_initialized",
+            "time": 1792841692.4680684,
+            "pid": 1,
+            "single_world_size": 1,
+            "multi_world_size": 2
+          },
+          {
+            "event": "idle_dram_backup_staged",
+            "time": 1792841703.5730562,
+            "pid": 609,
+            "rank": 0,
+            "staged_bytes": 9262287688,
+            "stage_seconds": 1.3107090722769499,
+            "version": 0
+          },
+          {
+            "event": "idle_dram_backup_staged",
+            "time": 1792841704.1484687,
+            "pid": 614,
+            "rank": 1,
+            "staged_bytes": 9262287688,
+            "stage_seconds": 1.2327095828950405,
+            "version": 0
+          },
+          {
+            "event": "idle_standby_prepared",
+            "time": 1792841704.1505039,
+            "pid": 1,
+            "scheduler_epoch": 0,
+            "copy_seconds": 9.344104543328285
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792841815.7601304,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "operation": "source_inspect",
+            "seconds": 0.016931338235735893
+          },
+          {
+            "event": "idle_dram_wait",
+            "time": 1792841815.7603683,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "seconds": 0.02799290418624878,
+            "copy_seconds": 9.344104543328285,
+            "copied_bytes": 18524573512
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792841815.8163352,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "operation": "source_finish",
+            "seconds": 0.05581388436257839
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792841815.872718,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "operation": "source_park_cache",
+            "seconds": 0.056197427213191986
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792841817.6211474,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "operation": "source_offload",
+            "seconds": 1.7482143212109804
+          },
+          {
+            "event": "idle_backup_join",
+            "time": 1792841817.637214,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "seconds": 0.01582752726972103,
+            "prestaged": true
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792841818.5767426,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "operation": "destination_restore",
+            "seconds": 0.9393216259777546
+          },
+          {
+            "event": "idle_dram_import_verified",
+            "time": 1792841818.583788,
+            "pid": 609,
+            "rank": 0,
+            "verify_d2h_seconds": 0.0,
+            "equality_seconds": 0.0,
+            "hash_seconds": 0.0,
+            "full_verification": false,
+            "verified_bytes": 0,
+            "shard_sha256": null,
+            "version": 0,
+            "scheduler_epoch": 0
+          },
+          {
+            "event": "idle_dram_import_verified",
+            "time": 1792841818.5855,
+            "pid": 614,
+            "rank": 1,
+            "verify_d2h_seconds": 0.0,
+            "equality_seconds": 0.0,
+            "hash_seconds": 0.0,
+            "full_verification": false,
+            "verified_bytes": 0,
+            "shard_sha256": null,
+            "version": 0,
+            "scheduler_epoch": 0
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792841818.587122,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "operation": "destination_verify",
+            "seconds": 0.010089507326483727
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792841818.6080794,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "operation": "destination_inspect",
+            "seconds": 0.020773576572537422
+          },
+          {
+            "event": "idle_training_state_transferred",
+            "time": 1792841818.6082687,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "before": {
+              "optimizer_step_max": 0.0,
+              "optimizer_step_min": 0.0,
+              "sampled_state_sha256": "0c653f8d81836973a3c442ea833279836b22992004ee66d848dd6d09805ca68a",
+              "scheduler_epoch": 0,
+              "version": 0,
+              "world_size": 1
+            },
+            "after": {
+              "optimizer_step_max": 0.0,
+              "optimizer_step_min": 0.0,
+              "sampled_state_sha256": "0c653f8d81836973a3c442ea833279836b22992004ee66d848dd6d09805ca68a",
+              "scheduler_epoch": 0,
+              "version": 0,
+              "world_size": 2
+            }
+          },
+          {
+            "event": "idle_training_selected",
+            "time": 1792841818.6085658,
+            "pid": 1,
+            "batch": 1,
+            "world_size": 2,
+            "reason": "inference_idle",
+            "switch_seconds": 3.1183384470641613
+          },
+          {
+            "event": "idle_dram_sync_started",
+            "time": 1792841864.619885,
+            "pid": 1,
+            "batch": 1,
+            "dual": true
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792841867.4745853,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "operation": "source_inspect",
+            "seconds": 0.029239168390631676
+          },
+          {
+            "event": "idle_dram_wait",
+            "time": 1792841867.4748268,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "seconds": 2.3525972049683332,
+            "copy_seconds": 2.822921011596918,
+            "copied_bytes": 9262287688
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792841867.5466015,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "operation": "source_finish",
+            "seconds": 0.07158005237579346
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792841868.3747947,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "operation": "source_park_cache",
+            "seconds": 0.8279264327138662
+          },
+          {
+            "event": "idle_dram_backup_staged",
+            "time": 1792841869.3034492,
+            "pid": 530,
+            "rank": 0,
+            "staged_bytes": 18524573512,
+            "stage_seconds": 1.50467680208385,
+            "version": 0
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792841869.3061368,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "operation": "destination_backup_stage",
+            "seconds": 1.8309712912887335
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792841869.398485,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "operation": "source_offload",
+            "seconds": 1.0233651921153069
+          },
+          {
+            "event": "idle_backup_join",
+            "time": 1792841869.3987076,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "seconds": 1.3921409845352173e-05,
+            "prestaged": false
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792841870.7326553,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "operation": "destination_restore",
+            "seconds": 1.3337909430265427
+          },
+          {
+            "event": "idle_dram_import_verified",
+            "time": 1792841870.7392483,
+            "pid": 530,
+            "rank": 0,
+            "verify_d2h_seconds": 0.0,
+            "equality_seconds": 0.0,
+            "hash_seconds": 0.0,
+            "full_verification": false,
+            "verified_bytes": 0,
+            "shard_sha256": null,
+            "version": 0,
+            "scheduler_epoch": 1
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792841870.7406254,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "operation": "destination_verify",
+            "seconds": 0.007729845121502876
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792841870.7574694,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "operation": "destination_inspect",
+            "seconds": 0.016670219600200653
+          },
+          {
+            "event": "idle_training_state_transferred",
+            "time": 1792841870.757652,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "before": {
+              "optimizer_step_max": 1.0,
+              "optimizer_step_min": 1.0,
+              "sampled_state_sha256": "0ca63c9c5c3cb4bb130c8d2c3ac831da0a5a96df59cebc8ca2c6dbc21cdcf291",
+              "scheduler_epoch": 1,
+              "version": 0,
+              "world_size": 2
+            },
+            "after": {
+              "optimizer_step_max": 1.0,
+              "optimizer_step_min": 1.0,
+              "sampled_state_sha256": "0ca63c9c5c3cb4bb130c8d2c3ac831da0a5a96df59cebc8ca2c6dbc21cdcf291",
+              "scheduler_epoch": 1,
+              "version": 0,
+              "world_size": 1
+            }
+          },
+          {
+            "event": "idle_training_returned",
+            "time": 1792841870.9650333,
+            "pid": 1,
+            "batch": 1,
+            "switch_seconds": 6.34491404145956
+          },
+          {
+            "event": "idle_publication_overlap",
+            "time": 1792841871.0790882,
+            "pid": 530,
+            "rank": 0,
+            "generation": 1,
+            "copy_pending": false,
+            "version": 1
+          },
+          {
+            "event": "idle_training_selected",
+            "time": 1792841877.070062,
+            "pid": 1,
+            "batch": 2,
+            "world_size": 1,
+            "reason": "inference_not_idle"
+          },
+          {
+            "event": "idle_dram_sync_started",
+            "time": 1792841945.200393,
+            "pid": 1,
+            "batch": 2,
+            "dual": false
+          },
+          {
+            "event": "idle_publication_overlap",
+            "time": 1792841945.3756175,
+            "pid": 530,
+            "rank": 0,
+            "generation": 2,
+            "copy_pending": true,
+            "version": 2
+          },
+          {
+            "event": "idle_training_selected",
+            "time": 1792841947.2683737,
+            "pid": 1,
+            "batch": 3,
+            "world_size": 1,
+            "reason": "inference_not_idle"
+          },
+          {
+            "event": "idle_dram_backup_staged",
+            "time": 1792841948.835617,
+            "pid": 614,
+            "rank": 1,
+            "staged_bytes": 9262287688,
+            "stage_seconds": 1.1426569651812315,
+            "version": 1
+          },
+          {
+            "event": "idle_dram_backup_staged",
+            "time": 1792841948.8560455,
+            "pid": 609,
+            "rank": 0,
+            "staged_bytes": 9262287688,
+            "stage_seconds": 1.2051641996949911,
+            "version": 1
+          },
+          {
+            "event": "idle_standby_prepared",
+            "time": 1792841948.8648539,
+            "pid": 1,
+            "scheduler_epoch": 2,
+            "copy_seconds": 1.9283513873815536
+          },
+          {
+            "event": "idle_dram_sync_started",
+            "time": 1792842007.660373,
+            "pid": 1,
+            "batch": 3,
+            "dual": false
+          },
+          {
+            "event": "idle_publication_overlap",
+            "time": 1792842007.7748063,
+            "pid": 530,
+            "rank": 0,
+            "generation": 3,
+            "copy_pending": true,
+            "version": 3
+          },
+          {
+            "event": "idle_training_selected",
+            "time": 1792842010.342644,
+            "pid": 1,
+            "batch": 4,
+            "world_size": 1,
+            "reason": "inference_not_idle"
+          },
+          {
+            "event": "idle_dram_backup_staged",
+            "time": 1792842011.9257946,
+            "pid": 614,
+            "rank": 1,
+            "staged_bytes": 9262287688,
+            "stage_seconds": 1.1107811611145735,
+            "version": 2
+          },
+          {
+            "event": "idle_dram_backup_staged",
+            "time": 1792842011.9403734,
+            "pid": 609,
+            "rank": 0,
+            "staged_bytes": 9262287688,
+            "stage_seconds": 1.19978192076087,
+            "version": 2
+          },
+          {
+            "event": "idle_standby_prepared",
+            "time": 1792842011.9468284,
+            "pid": 1,
+            "scheduler_epoch": 3,
+            "copy_seconds": 2.058272607624531
+          },
+          {
+            "event": "idle_dram_sync_started",
+            "time": 1792842073.3500786,
+            "pid": 1,
+            "batch": 4,
+            "dual": false
+          },
+          {
+            "event": "idle_publication_overlap",
+            "time": 1792842073.4624162,
+            "pid": 530,
+            "rank": 0,
+            "generation": 4,
+            "copy_pending": true,
+            "version": 4
+          },
+          {
+            "event": "idle_dram_backup_staged",
+            "time": 1792842076.7102764,
+            "pid": 614,
+            "rank": 1,
+            "staged_bytes": 9262287688,
+            "stage_seconds": 1.1063512917608023,
+            "version": 3
+          },
+          {
+            "event": "idle_dram_backup_staged",
+            "time": 1792842076.77181,
+            "pid": 609,
+            "rank": 0,
+            "staged_bytes": 9262287688,
+            "stage_seconds": 1.2019456196576357,
+            "version": 3
+          },
+          {
+            "event": "idle_standby_prepared",
+            "time": 1792842076.7779915,
+            "pid": 1,
+            "scheduler_epoch": 4,
+            "copy_seconds": 1.8239453434944153
+          },
+          {
+            "event": "idle_training_selected",
+            "time": 1792842077.090288,
+            "pid": 1,
+            "batch": 5,
+            "world_size": 1,
+            "reason": "inference_not_idle"
+          },
+          {
+            "event": "idle_dram_sync_started",
+            "time": 1792842142.798793,
+            "pid": 1,
+            "batch": 5,
+            "dual": false
+          },
+          {
+            "event": "idle_publication_overlap",
+            "time": 1792842142.9165506,
+            "pid": 530,
+            "rank": 0,
+            "generation": 5,
+            "copy_pending": true,
+            "version": 5
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792842145.1609724,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "operation": "source_inspect",
+            "seconds": 0.016627011820673943
+          },
+          {
+            "event": "idle_dram_wait",
+            "time": 1792842145.1612089,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "seconds": 0.028307873755693436,
+            "copy_seconds": 2.0345437973737717,
+            "copied_bytes": 18524573512
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792842145.2204838,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "operation": "source_finish",
+            "seconds": 0.05912800878286362
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792842145.9588332,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "operation": "source_park_cache",
+            "seconds": 0.7381422929465771
+          },
+          {
+            "event": "idle_dram_backup_staged",
+            "time": 1792842146.6608775,
+            "pid": 614,
+            "rank": 1,
+            "staged_bytes": 9262287688,
+            "stage_seconds": 1.3196259699761868,
+            "version": 4
+          },
+          {
+            "event": "idle_dram_backup_staged",
+            "time": 1792842146.6954231,
+            "pid": 609,
+            "rank": 0,
+            "staged_bytes": 9262287688,
+            "stage_seconds": 1.4046953208744526,
+            "version": 4
+          },
+          {
+            "event": "idle_standby_prepared",
+            "time": 1792842146.6974943,
+            "pid": 1,
+            "scheduler_epoch": 5,
+            "copy_seconds": 2.0345437973737717
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792842147.619203,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "operation": "source_offload",
+            "seconds": 1.6600713785737753
+          },
+          {
+            "event": "idle_backup_join",
+            "time": 1792842147.62714,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "seconds": 0.0077123939990997314,
+            "prestaged": true
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792842148.7929583,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "operation": "destination_restore",
+            "seconds": 1.1656268741935492
+          },
+          {
+            "event": "idle_dram_import_verified",
+            "time": 1792842148.799755,
+            "pid": 609,
+            "rank": 0,
+            "verify_d2h_seconds": 0.0,
+            "equality_seconds": 0.0,
+            "hash_seconds": 0.0,
+            "full_verification": false,
+            "verified_bytes": 0,
+            "shard_sha256": null,
+            "version": 5,
+            "scheduler_epoch": 5
+          },
+          {
+            "event": "idle_dram_import_verified",
+            "time": 1792842148.8005826,
+            "pid": 614,
+            "rank": 1,
+            "verify_d2h_seconds": 0.0,
+            "equality_seconds": 0.0,
+            "hash_seconds": 0.0,
+            "full_verification": false,
+            "verified_bytes": 0,
+            "shard_sha256": null,
+            "version": 5,
+            "scheduler_epoch": 5
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792842148.802146,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "operation": "destination_verify",
+            "seconds": 0.008964309468865395
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792842148.8223581,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "operation": "destination_inspect",
+            "seconds": 0.020029623061418533
+          },
+          {
+            "event": "idle_training_state_transferred",
+            "time": 1792842148.8225555,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "before": {
+              "optimizer_step_max": 5.0,
+              "optimizer_step_min": 5.0,
+              "sampled_state_sha256": "fdb20c2a3185a0dc0653fe17b8eb940764de9de11f519d429d8ca00389a4c63d",
+              "scheduler_epoch": 5,
+              "version": 5,
+              "world_size": 1
+            },
+            "after": {
+              "optimizer_step_max": 5.0,
+              "optimizer_step_min": 5.0,
+              "sampled_state_sha256": "fdb20c2a3185a0dc0653fe17b8eb940764de9de11f519d429d8ca00389a4c63d",
+              "scheduler_epoch": 5,
+              "version": 5,
+              "world_size": 2
+            }
+          },
+          {
+            "event": "idle_training_selected",
+            "time": 1792842148.8228104,
+            "pid": 1,
+            "batch": 6,
+            "world_size": 2,
+            "reason": "inference_idle",
+            "switch_seconds": 3.91765577159822
+          },
+          {
+            "event": "idle_dram_sync_started",
+            "time": 1792842191.297091,
+            "pid": 1,
+            "batch": 6,
+            "dual": true
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792842192.178522,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "operation": "source_inspect",
+            "seconds": 0.02081197500228882
+          },
+          {
+            "event": "idle_dram_wait",
+            "time": 1792842192.1787462,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "seconds": 0.48260962776839733,
+            "copy_seconds": 0.6789775714278221,
+            "copied_bytes": 9262287688
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792842192.241429,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "operation": "source_finish",
+            "seconds": 0.06249760277569294
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792842193.0223975,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "operation": "source_park_cache",
+            "seconds": 0.7807631213217974
+          },
+          {
+            "event": "idle_dram_backup_staged",
+            "time": 1792842193.8645995,
+            "pid": 530,
+            "rank": 0,
+            "staged_bytes": 18524573512,
+            "stage_seconds": 1.351447731256485,
+            "version": 5
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792842193.867114,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "operation": "destination_backup_stage",
+            "seconds": 1.688025152310729
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792842194.0803642,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "operation": "source_offload",
+            "seconds": 1.0576409194618464
+          },
+          {
+            "event": "idle_backup_join",
+            "time": 1792842194.080601,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "seconds": 8.979812264442444e-06,
+            "prestaged": false
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792842195.54172,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "operation": "destination_restore",
+            "seconds": 1.4609655477106571
+          },
+          {
+            "event": "idle_dram_import_verified",
+            "time": 1792842195.5481372,
+            "pid": 530,
+            "rank": 0,
+            "verify_d2h_seconds": 0.0,
+            "equality_seconds": 0.0,
+            "hash_seconds": 0.0,
+            "full_verification": false,
+            "verified_bytes": 0,
+            "shard_sha256": null,
+            "version": 5,
+            "scheduler_epoch": 6
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792842195.5495534,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "operation": "destination_verify",
+            "seconds": 0.007622582837939262
+          },
+          {
+            "event": "idle_training_transfer_step",
+            "time": 1792842195.5666432,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "operation": "destination_inspect",
+            "seconds": 0.016887899488210678
+          },
+          {
+            "event": "idle_training_state_transferred",
+            "time": 1792842195.5668194,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "before": {
+              "optimizer_step_max": 6.0,
+              "optimizer_step_min": 6.0,
+              "sampled_state_sha256": "4b4739d1d51a11a30cbb86654cca9c4873c92c3fa27291bd5c8851085ae2a4ef",
+              "scheduler_epoch": 6,
+              "version": 5,
+              "world_size": 2
+            },
+            "after": {
+              "optimizer_step_max": 6.0,
+              "optimizer_step_min": 6.0,
+              "sampled_state_sha256": "4b4739d1d51a11a30cbb86654cca9c4873c92c3fa27291bd5c8851085ae2a4ef",
+              "scheduler_epoch": 6,
+              "version": 5,
+              "world_size": 1
+            }
+          },
+          {
+            "event": "idle_training_returned",
+            "time": 1792842195.7350712,
+            "pid": 1,
+            "batch": 6,
+            "switch_seconds": 4.437735026702285
+          }
+        ],
+        "switch_seconds": 17.818643286824226,
+        "upload_retries": 0,
+        "verified_imports": 6
+      }
+    },
+    "summary": {
+      "loop_seconds": {
+        "fixed": 457.63683891296387,
+        "latest": 450.4857475757599
+      },
+      "reduction_percent": 1.562612693984633,
+      "token_audit": {
+        "fixed": {
+          "reconstructed": 362886,
+          "reported": 362900,
+          "segment_differences": {
+            "generate-tokens-3f671d22a8fc4e83994554ff274b4d05-986ba0a1": -1,
+            "generate-tokens-3b5f8033c79043a391af3895cb163b31-bd351a0d": -1,
+            "generate-tokens-0b194c11bfb54ece81b3f2a79bccef03-8748bd98": -1,
+            "generate-tokens-5bc225acab5a4a659abd19d30f094164-929ea91f": -1,
+            "generate-tokens-6955ec569e764387ad84e3fe216b8cdc-8af54f25": -1,
+            "generate-tokens-3b3949ae59d248d8a2ee8f0c9e498a8b-8b895077": -1,
+            "generate-tokens-890ddbb873184d0caf85d96e9ed0d7b5-ac87dc07": -1,
+            "generate-tokens-5061c1301f5941f6891f690d27c439dc-909990e7": -1,
+            "generate-tokens-0053d58e1a8c432b97ee844772820ba0-9af43443": -1,
+            "generate-tokens-502cb072935c4d7cbdabc033074a3ce1-a3181816": -1,
+            "generate-tokens-8e52205aaf6d445eaaf63a3d974feb04-b3c6cc50": -1,
+            "generate-tokens-9e1081a1784f4c079104cdf0acee1ed1-bb63f55d": -1,
+            "generate-tokens-6cffcb24ce6342a1b9970cf0d4ce2020-a88db24a": -1,
+            "generate-tokens-f7a5a06e88be47f69a7263861af44bda-bcc39270": -1
+          }
+        },
+        "latest": {
+          "reconstructed": 351970,
+          "reported": 351983,
+          "segment_differences": {
+            "generate-tokens-b70028e03fb443e7841b23c861d18f93-8ddccc12": -1,
+            "generate-tokens-10be2e04c3894386a2ea9ecb9a0de528-82dbb770": -1,
+            "generate-tokens-6f011b6cf31345339ab280da74cc4c81-bbf1fb28": -1,
+            "generate-tokens-3458e85da9f84a3288bbf4c7f0c90355-9945c05c": -1,
+            "generate-tokens-f562fe3eba5148b0a7260b3bb5eb8f1c-8d555b9b": -1,
+            "generate-tokens-ba2828029e604e26820cbb0ef35db40d-9588c9f6": -1,
+            "generate-tokens-bcd5080b07d24b35a1fd093036935658-9cbee66d": -1,
+            "generate-tokens-fcbb7ac0107642559b2308664b9f6330-b673e3b0": -1,
+            "generate-tokens-67fdbe19b083468a9c99087d64470e09-baa30c49": -1,
+            "generate-tokens-c741e0e4c0aa491bbab77ffeb4c97a69-bdbd177d": -1,
+            "generate-tokens-5cc33994b2534a59bf2e0f0811940b4f-aaba2c87": -1,
+            "generate-tokens-34b58627cca24060b2e703aa14183ac1-9114c9d7": -1,
+            "generate-tokens-9e1f212095d342c58a8f0419fdfc4e05-b03dfc1c": -1
+          }
+        }
+      }
+    }
+  }
+}

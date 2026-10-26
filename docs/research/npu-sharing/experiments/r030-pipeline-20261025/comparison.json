@@ -1,0 +1,12 @@
+{
+  "workspace": "/root/areal-development/idle-pipeline-20261025/retry-1/comparison/20261025-120816-0700_code_fsdp_c16_b6_cf9177/repetitions/01",
+  "fixed_seconds": 461.57789635658264,
+  "shared_seconds": 492.14670300483704,
+  "switch_seconds": 65.03532017022371,
+  "previous_switch_seconds": 68.06218354217708,
+  "reported_tokens": {
+    "fixed": 364419,
+    "latest": 363288
+  },
+  "development_only": true
+}

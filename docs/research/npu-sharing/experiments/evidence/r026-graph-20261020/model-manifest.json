@@ -1,0 +1,64 @@
+{
+  "model": "Qwen/Qwen2-7B-Instruct",
+  "reference_revision": "f2826a00ceef68f0f2b946d945ecc0477ce4450c",
+  "source": "/mnt/nvme0/LLMs/Qwen2-7B-Instruct",
+  "destination": "/root/areal-assets/Qwen2-7B-Instruct",
+  "files": {
+    ".gitattributes": {
+      "size": 1519,
+      "sha256": "11ad7efa24975ee4b0c3c3a38ed18737f0658a5f75a0a96787b576a78a023361"
+    },
+    "LICENSE": {
+      "size": 11344,
+      "sha256": "c156170b718ec29139d3653d40ed1986fd92fb7e0959b5c71f3c48f62e6636f4"
+    },
+    "README.md": {
+      "size": 6551,
+      "sha256": "ab3f6754f1cc48690d5225ac9d92f3f1fd3c6e91321d2abb3b3979753839bf4e"
+    },
+    "config.json": {
+      "size": 663,
+      "sha256": "8b9a4f6c0acf4854a2d301616d4203039c3d7972cb0a557dae98686b6c3ae4b2"
+    },
+    "generation_config.json": {
+      "size": 243,
+      "sha256": "3a8f9087e486054c8a4a08dae2e5a3ba62e23da212b5b8c08bc42cb983c3459f"
+    },
+    "merges.txt": {
+      "size": 1671839,
+      "sha256": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3"
+    },
+    "model-00001-of-00004.safetensors": {
+      "size": 3945426872,
+      "sha256": "26d9919262ccd063fcdfd926763fe9025ef1e3073767aaa8c83a375d7c5140c4"
+    },
+    "model-00002-of-00004.safetensors": {
+      "size": 3864726352,
+      "sha256": "f5bb99fdadcac55c2c176497ec99f088a1764e78ed986fa4a0d45d12426ef0fa"
+    },
+    "model-00003-of-00004.safetensors": {
+      "size": 3864726408,
+      "sha256": "0b749a4446d7cda007d5e7bd9f908849d08d89867192d4c039dc167e9ab5a02e"
+    },
+    "model-00004-of-00004.safetensors": {
+      "size": 3556392240,
+      "sha256": "da724bb7d3c3512eb371aa6caa5bcc08d78bda84f94e00ae9a9b2124e3e9c62f"
+    },
+    "model.safetensors.index.json": {
+      "size": 27752,
+      "sha256": "f00d17cbf433746c391ad43948613e373aa51222dbee3b0db61ffff59a74bb1a"
+    },
+    "tokenizer.json": {
+      "size": 7028015,
+      "sha256": "f7c9b2dba4a296b1aa76c16a34b8225c0c118978400d4bb66bff0902d702f5b8"
+    },
+    "tokenizer_config.json": {
+      "size": 1288,
+      "sha256": "be21acaf90e7f449b7282fdef7b06516a0102476e86cbc2108e18ac071f9cc9c"
+    },
+    "vocab.json": {
+      "size": 2776833,
+      "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+    }
+  }
+}

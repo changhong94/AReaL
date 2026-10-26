@@ -162,7 +162,7 @@ class PPOTrainer:
                 or os.getenv("AREAL_DYNAMIC_KV", "1") != "1"
             ):
                 raise ValueError(
-                    "Training-priority inference requires equal shared/fixed device groups and dynamic KV"
+                    "Training-priority inference requires shared/fixed device groups and dynamic KV"
                 )
             if (
                 min(
@@ -392,6 +392,11 @@ class PPOTrainer:
         # before the data controller can colocate with them.
         engine_init_kwargs = {"addr": None, "ft_spec": ft_spec}
         self.actor.initialize(**engine_init_kwargs, role="actor")
+        from areal.trainer.idle_training import IdleTrainingPool, idle_training_enabled
+
+        self._idle_training = (
+            IdleTrainingPool(self, ft_spec) if idle_training_enabled() else None
+        )
         if self.critic is not None:
             self.critic.initialize(**engine_init_kwargs, role="critic")
         if self.ref is not None:
@@ -561,10 +566,10 @@ class PPOTrainer:
 
         self._fixed_weight_update_meta = None
         if self._uses_npu_share_pool:
-            # Only actor + fixed replica join this group (two physical NPUs).
+            # Only actor and dedicated inference replicas join this publication group.
             self._fixed_weight_update_meta = WeightUpdateMeta.from_fsdp_xccl(
                 gen_allocation=ModelAllocation.from_str(
-                    f"vllm:d{self.rollout_alloc.parallel.dp_size // 2}p1t{self.rollout_alloc.parallel.tp_size}"
+                    f"vllm:d{(self.rollout_alloc.world_size - self.actor_alloc.world_size) // self.rollout_alloc.parallel.tp_size}p1t{self.rollout_alloc.parallel.tp_size}"
                 )
             )
             self._fixed_weight_update_meta.npu_share_fixed = True
@@ -576,7 +581,17 @@ class PPOTrainer:
         self.evaluator = Evaluator(config.evaluator, ft_spec)
 
         # Set up save as HF model
-        self.saver = Saver(config.saver, ft_spec)
+        saver_config = config.saver
+        if (
+            self._idle_training is not None
+            and config.saver.mode == "auto"
+            and os.getenv("AREAL_IDLE_ASYNC_TAIL", "1") == "1"
+        ):
+            import copy
+
+            saver_config = copy.deepcopy(config.saver)
+            saver_config.mode = "async"
+        self.saver = Saver(saver_config, ft_spec)
         self.recover_handler = RecoverHandler(config.recover, ft_spec)
 
         # Set up statistics logging (wandb, tensoboard, etc.)
@@ -766,10 +781,15 @@ class PPOTrainer:
     def _uses_npu_share_pool(self) -> bool:
         return (
             self.config.npu_share
-            and self.rollout_alloc.world_size == 2 * self.actor_alloc.world_size
+            and self.rollout_alloc.world_size > self.actor_alloc.world_size
         )
 
     def _start_train_prefetch(self, batch: int) -> None:
+        if getattr(self, "_idle_training", None) is not None:
+            self._idle_training.arm(batch)
+            return
+        if not getattr(self, "_return_shared_inference", True):
+            return  # No inference return occurred, so no restoration can overlap.
         if not (
             self._uses_npu_share_pool
             and os.getenv("AREAL_PARK_TRAIN_CACHE", "0") == "1"
@@ -786,7 +806,9 @@ class PPOTrainer:
         def prepare():
             started = time.monotonic()
             self.rollout.borrow_for_training()
-            self._memory_policy.train()
+            # An idle-engine return may already have restored this actor.
+            # Verify real allocator reuse; parked actors still use full restore.
+            self._memory_policy.train(resident=True)
             self.rollout.record_training_ready(
                 time.monotonic() - started, idle["seconds"]
             )
@@ -808,6 +830,8 @@ class PPOTrainer:
         )
 
     def _resume_training_inference(self):
+        if not getattr(self, "_return_shared_inference", True):
+            return  # Shared weights were deliberately not updated; never relabel them.
         if self.config.rollout.max_head_offpolicyness == 0:
             return  # The next batch cannot execute before weight publication.
         if os.getenv("AREAL_TRAIN_PRIORITY_INFERENCE", "0") != "1":
@@ -825,14 +849,25 @@ class PPOTrainer:
         self._training_inference_active = False
         request_trace.emit("training_inference_overlap_end")
 
-    def _prepare_training_publication(self, allow_drain: bool) -> None:
+    def _prepare_training_publication(
+        self, allow_drain: bool, next_target: int | None = None
+    ) -> None:
         if (
             os.getenv("AREAL_BATCH_DRAIN_METRICS", "0") == "1"
             and self._uses_npu_share_pool
         ):
             self.rollout.freeze_drain_window()
+        self._return_shared_inference = True
         if (
             allow_drain
+            and next_target is not None
+            and os.getenv("AREAL_PROFIT_AWARE_RETURN", "1") == "1"
+        ):
+            decision = self.rollout.decide_inference_return(next_target)
+            self._return_shared_inference = decision["action"] == "return"
+        if (
+            allow_drain
+            and self._return_shared_inference
             and (
                 getattr(self, "_shared_drain_seconds", 0) > 0
                 or getattr(self, "_adaptive_drain", False)
@@ -844,6 +879,10 @@ class PPOTrainer:
             )
         else:
             self._stop_training_inference()
+            if not self._return_shared_inference and getattr(
+                self.rollout, "_preserve_borrowed_requests", False
+            ):
+                self.rollout.evacuate_retained_requests()
 
     def _finish_training_drain(self, new_version: int) -> None:
         deadline = getattr(self, "_shared_drain_deadline", None)
@@ -862,6 +901,17 @@ class PPOTrainer:
             return
 
         if self._uses_npu_share_pool and not is_eval:
+            if not getattr(self, "_return_shared_inference", True):
+                # The main loop joined the previous tail. Borrowed generation is
+                # still held and actor memory never left training. Retain the
+                # budget check for growth, but do not pause/reclaim a second time.
+                if not getattr(rollout, "_shared_held_for_training", False):
+                    raise RuntimeError(
+                        "Resident training reuse requires held inference"
+                    )
+                self._memory_policy.train(resident=True)
+                request_trace.emit("training_resident_reused")
+                return
             prefetch = getattr(self, "_train_prefetch", None)
             if prefetch is not None:
                 request_trace.emit("train_prefetch_join_begin", batch=prefetch.batch)
@@ -964,16 +1014,23 @@ class PPOTrainer:
         return self._finish_shared_weights(new_version)
 
     def _publish_fixed_weights(self, new_version: int) -> None:
+        if self._idle_training is not None:
+            self._idle_publication_started = time.monotonic()
         self.rollout.prepare_fixed_publication()
         fixed_meta = self._fixed_weight_update_meta.with_version(new_version)
-        fixed_meta.npu_share_snapshot = True
+        returning = getattr(self, "_return_shared_inference", True)
+        fixed_meta.npu_share_snapshot = returning
         fixed_meta.path = self.weight_update_meta.with_version(new_version).path
         self.actor.update_weights(fixed_meta)
-        self._started_snapshot_version = new_version
+        self._started_snapshot_version = new_version if returning else None
         self.actor.set_version(new_version)
         self.rollout.publish_fixed_version(new_version)
+        self._return_fixed_ready_at = time.monotonic()
 
     def _finish_shared_weights(self, new_version: int) -> dict[str, float]:
+        if not getattr(self, "_return_shared_inference", True):
+            self.rollout.skip_inference_return(new_version)
+            return self.actor.export_stats()
         # Fixed inference is already resumed. Only the background tail waits
         # for owned CPU bytes before releasing actor device storage.
         if getattr(self, "_started_snapshot_version", None) != new_version:
@@ -1010,6 +1067,13 @@ class PPOTrainer:
                 )
             request_trace.emit("shared_memory_switch_end", version=new_version)
         self.rollout.load_shared_snapshot_async(snapshot_meta)
+        if self._idle_training is not None:
+            self._idle_training._entry_budget.observe(
+                new_version,
+                1,
+                "return",
+                time.monotonic() - self._idle_publication_started,
+            )
         if self.eval_rollout is not None:
             self.eval_rollout.set_version(new_version)
         return actor_stats
@@ -1049,6 +1113,8 @@ class PPOTrainer:
                     total_epochs,
                 )
             finally:
+                if self._idle_training is not None:
+                    self._idle_training.cancel_entry()
                 prefetch = getattr(self, "_train_prefetch", None)
                 if prefetch is not None:
                     prefetch.cancel()
@@ -1140,8 +1206,13 @@ class PPOTrainer:
             # No actor RPC, tensor mutation, or next-step stats before this join.
             self._wait_step_tail()
             stats_tracker.scalar(**{"timeperf/rollout": prepare_seconds})
-            if self._should_offload_rollout:
+            if self._should_offload_rollout and self._idle_training is None:
                 self._offload_rollout()
+            training_actor = (
+                self._idle_training.select(global_step + 1)
+                if self._idle_training is not None
+                else self.actor
+            )
             request_trace.emit("train_compute_begin", batch=global_step + 1)
 
             if self.critic is not None:
@@ -1194,7 +1265,7 @@ class PPOTrainer:
                 if self._should_offload_teacher:
                     self._offload_teachers()
 
-            if self._should_offload_actor:
+            if self._should_offload_actor and training_actor is self.actor:
                 self._onload_model(self.actor, role="actor")
             if config.actor.should_compute_prox_logp():
                 with (
@@ -1205,10 +1276,10 @@ class PPOTrainer:
                         args={"global_step": global_step},
                     ),
                 ):
-                    prox_logps = self.actor.compute_logp(rollout_batch)
+                    prox_logps = training_actor.compute_logp(rollout_batch)
                     for traj, logp in zip(rollout_batch, prox_logps):
                         traj["prox_logp"] = logp
-                    self.actor.get_device_stats().log("recompute logp")
+                    training_actor.get_device_stats().log("recompute logp")
 
             with (
                 stats_tracker.record_timing("compute_advantage"),
@@ -1218,8 +1289,8 @@ class PPOTrainer:
                     args={"global_step": global_step},
                 ),
             ):
-                adv_batch = self.actor.compute_advantages(rollout_batch)
-                self.actor.get_device_stats().log("compute advantages")
+                adv_batch = training_actor.compute_advantages(rollout_batch)
+                training_actor.get_device_stats().log("compute advantages")
 
             # Wait for async checkpoint staging to complete before modifying parameters
             self.saver.maybe_wait_for_staging()
@@ -1238,9 +1309,17 @@ class PPOTrainer:
                     args={"global_step": global_step},
                 ),
             ):
-                self.actor.ppo_update(adv_batch)
-                self.actor.step_lr_scheduler()
-                self.actor.get_device_stats().log("ppo update")
+                if self._idle_training is not None:
+                    training_actor = self._idle_training.ppo_update(
+                        training_actor, adv_batch, global_step + 1
+                    )
+                else:
+                    training_actor.ppo_update(adv_batch)
+                training_actor.step_lr_scheduler()
+                training_actor.get_device_stats().log("ppo update")
+
+            if self._idle_training is not None:
+                self._idle_training.finish(global_step + 1)
 
             if (
                 config.memory_profiler is not None
@@ -1310,11 +1389,19 @@ class PPOTrainer:
                 if config.total_train_steps is not None
                 else max_steps,
             )
-            self._prepare_training_publication(
-                allow_drain=asymmetric and not final_step and not evaluation_due
-            )
+            idle_multi = self._idle_training is not None and self._idle_training.active
+            if not idle_multi:
+                self._prepare_training_publication(
+                    allow_drain=asymmetric and not final_step and not evaluation_due,
+                    next_target=(global_step + 2) * config.train_dataset.batch_size,
+                )
             terminal_no_eval = asymmetric and final_step and not evaluation_due
-            defer_tail = asymmetric and not evaluation_due and not terminal_no_eval
+            defer_tail = (
+                asymmetric
+                and not evaluation_due
+                and not terminal_no_eval
+                and not idle_multi
+            )
             # Preserve cleanup-before-next-read ordering for the data service
             # before fixed publication opens the next main-loop batch read.
             data_cleared = defer_tail and self.data_controller is not None
@@ -1333,11 +1420,20 @@ class PPOTrainer:
                     # Checkpoints are already saved. No subsequent consumer needs
                     # another inference replica, so leave the actor resident and
                     # both rollout admissions closed until normal shutdown.
-                    self.actor.set_version(global_step + 1)
-                    actor_stats = self.actor.export_stats()
+                    publisher = (
+                        self._idle_training.current
+                        if self._idle_training is not None
+                        else self.actor
+                    )
+                    publisher.set_version(global_step + 1)
+                    actor_stats = publisher.export_stats()
                     request_trace.emit(
                         "terminal_publication_skipped", version=global_step + 1
                     )
+                elif idle_multi:
+                    actor_stats = self._idle_training.publish_multi(global_step + 1)
+                    if evaluation_due or os.getenv("AREAL_IDLE_ASYNC_TAIL", "1") != "1":
+                        self.rollout.wait_shared_publication()
                 elif defer_tail:
                     self._publish_fixed_weights(global_step + 1)
                 else:
@@ -1366,6 +1462,10 @@ class PPOTrainer:
 
         if self._uses_npu_share_pool:
             self.rollout.wait_shared_publication()
+        # Include the final write in completed-loop timing; never report an
+        # unfinished background checkpoint as a completed benchmark.
+        with perf_tracer.trace_scope("train.save_finalize", category=Category.IO):
+            self.saver.finalize()
 
     def _wait_step_tail(self) -> None:
         future = getattr(self, "_step_tail", None)
@@ -1385,6 +1485,10 @@ class PPOTrainer:
             ):
                 actor_stats = self._finish_shared_weights(kwargs["global_step"] + 1)
                 self.rollout.wait_shared_publication()
+                if getattr(self, "_return_shared_inference", True):
+                    self.rollout.record_inference_return(
+                        time.monotonic() - self._return_fixed_ready_at
+                    )
             self._finish_step(actor_stats=actor_stats, **kwargs)
         except BaseException as exc:
             # Wake a main thread blocked in prepare_batch, and keep admission shut.
@@ -1465,6 +1569,17 @@ class PPOTrainer:
                 # returns (stats dicts, etc.) that aren't tracked by the
                 # standard batch lifecycle above. See #1209.
                 cleanups.append(("actor sweep", self.actor.clear_all_local_rtensors))
+                if self._idle_training is not None:
+                    multi = self._idle_training.multi
+                    cleanups.extend(
+                        [
+                            (
+                                "actor-multi",
+                                lambda: multi.clear_batches(rollout_batch, adv_batch),
+                            ),
+                            ("actor-multi sweep", multi.clear_all_local_rtensors),
+                        ]
+                    )
                 if self.critic is not None:
                     cleanups.append(
                         ("critic sweep", self.critic.clear_all_local_rtensors)
@@ -1509,7 +1624,11 @@ class PPOTrainer:
             self.ref.destroy()
         if self.critic is not None:
             self.critic.destroy()
+        if self._idle_training is not None:
+            self._idle_training.close()
         self.actor.destroy()
+        if self._idle_training is not None:
+            self._idle_training.multi.destroy()
         perf_tracer.save(force=True)
         self._awex_runtime.close()
 
@@ -1523,6 +1642,10 @@ class PPOTrainer:
             return
 
         self.actor.config_perf_tracer(self.config.perf_tracer, role="actor")
+        if self._idle_training is not None:
+            self._idle_training.multi.config_perf_tracer(
+                self.config.perf_tracer, role="actor-multi"
+            )
         if self.critic is not None:
             self.critic.config_perf_tracer(self.config.perf_tracer, role="critic")
         if self.ref is not None:
@@ -1535,6 +1658,8 @@ class PPOTrainer:
 
     def _save_perf_tracer(self, step: int):
         self.actor.save_perf_tracer(step=step)
+        if self._idle_training is not None:
+            self._idle_training.multi.save_perf_tracer(step=step)
         if self.ref is not None:
             self.ref.save_perf_tracer(step=step)
         if self.critic is not None:
@@ -1715,7 +1840,10 @@ class PPOTrainer:
         else:
             controller = engine_cls.as_controller(config, self.scheduler)
         if self._uses_npu_share_pool and not is_eval:
-            controller.enable_npu_share_pool()
+            controller.enable_npu_share_pool(
+                borrowed_replicas=self.actor_alloc.world_size
+                // self.rollout_alloc.parallel.tp_size
+            )
         init_kwargs = dict(
             role="rollout",
             server_args=server_args,
@@ -1805,7 +1933,9 @@ class PPOTrainer:
     def _save_hf(self, epoch: int, epoch_step: int, global_step: int):
         # Save as HF models for evaluation
         self.saver.save(
-            self.actor,
+            self._idle_training.current
+            if self._idle_training is not None
+            else self.actor,
             epoch,
             epoch_step,
             global_step,
@@ -1829,7 +1959,11 @@ class PPOTrainer:
 
     def _save_recover_checkpoint(self, epoch: int, epoch_step: int, global_step: int):
         # Save recoverable checkpoints
-        to_save: dict = dict(default=self.actor)
+        to_save: dict = dict(
+            default=self._idle_training.current
+            if self._idle_training is not None
+            else self.actor
+        )
         if self.critic is not None:
             to_save["critic"] = self.critic
         step_info = StepInfo(
@@ -1932,7 +2066,14 @@ class PPOTrainer:
         actor_stats: dict[str, float] | None = None,
     ):
         # Upload statistics to the logger (e.g., wandb)
-        stats = actor_stats if actor_stats is not None else self.actor.export_stats()
+        stats_actor = (
+            self._idle_training.current
+            if self._idle_training is not None
+            else self.actor
+        )
+        stats = actor_stats if actor_stats is not None else stats_actor.export_stats()
+        if self._idle_training is not None:
+            stats.update(self._idle_training.take_stats())
         stats.update(self.rollout.export_stats())
         if self.eval_rollout is not None:
             stats.update(self.eval_rollout.export_stats())
@@ -1949,7 +2090,7 @@ class PPOTrainer:
         checks = {
             "single-controller local scheduler": is_single_controller()
             and config.scheduler.type == "local",
-            "pure-DP training and one or two equal device pools of vLLM instances": self.actor_alloc.backend
+            "pure-DP training and compatible borrowed and fixed pools of vLLM instances": self.actor_alloc.backend
             in ("fsdp", "megatron")
             and self.rollout_alloc.backend == "vllm"
             and self.actor_alloc.parallel.tp_size == 1
@@ -1957,8 +2098,7 @@ class PPOTrainer:
             and self.actor_alloc.world_size == self.actor_alloc.parallel.dp_size
             and self.actor_alloc.world_size % self.rollout_alloc.parallel.tp_size == 0
             and self.rollout_alloc.parallel.pp_size == 1
-            and self.rollout_alloc.world_size
-            in (self.actor_alloc.world_size, 2 * self.actor_alloc.world_size),
+            and self.rollout_alloc.world_size >= self.actor_alloc.world_size,
             "rollout forked on actor's device": self._is_colocation(strategy)
             and strategy.target == "actor"
             and strategy.fork
@@ -1970,9 +2110,8 @@ class PPOTrainer:
             "no auxiliary models": config.ref is None
             and config.critic is None
             and config.teacher is None,
-            "full-model eager execution": not config.actor.use_lora
-            and not config.rollout.use_lora
-            and config.vllm.enforce_eager,
+            "full-model execution": not config.actor.use_lora
+            and not config.rollout.use_lora,
             "compatible batch admission": (
                 config.rollout.max_head_offpolicyness >= 0
                 if self._uses_npu_share_pool

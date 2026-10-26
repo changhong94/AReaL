@@ -1,5 +1,10 @@
 English | [中文](R001-runtime-request-rebalancing.zh.md)
 
+Current status: implemented; shared-system benefit validated. The independent-startup
+comparison showed 14.72% lower training-loop time versus fixed allocation. Isolating the
+contribution of running-request KV migration still requires a matched shared-policy
+ablation.
+
 > Current accepted policy and results:
 > [2026-10-19](../experiments/2026-10-19-r001-accepted-policy.md). Earlier sections
 > below record historical stages.
@@ -343,3 +348,39 @@ snapshot handling, not a measured scheduling speedup.
 
 The six-batch live comparisons and their limitations are recorded in the
 [2026-10-16 experiment report](../experiments/2026-10-16-r001-live-kv-scheduling.md).
+
+## Equal-TP KV handoff extension (2026-10-19)
+
+R001 now supports corresponding-shard transfer between two equal-width TP replicas with
+PP=1. Each rank has a separate HCCL peer channel. Allocation preflight and import
+acknowledgements cover every rank; incompatible shard geometry fails closed. The cost
+model sums transferred bytes across ranks and uses maximum rank stall time. A four-NPU
+TP=2 probe preserved all 256 greedy output tokens with zero maximum log-probability
+difference (34 generated tokens before export; 91 computed tokens imported). This
+establishes transfer/continuation correctness, not RL speedup. TP=4 hardware validation
+and arbitrary replica-pair routing remain outstanding.
+
+See the [TP=2 validation record](../experiments/2026-10-19-r001-tp2.md).
+
+## Multiple equal-TP replicas (2026-10-19)
+
+The implementation now retains a distinct HCCL channel per directed fixed-to-borrowed
+replica pair and TP rank. Pair-specific geometry and role checks prevent channel reuse
+across unrelated peers. Recovery scans pairs serially, refreshing the live snapshot
+between transactions; training waits for the whole sweep. Exploratory budgets remain
+controller-wide. This is a deterministic greedy sweep, not a global assignment solver.
+
+An eight-NPU probe with four TP=2 instances tested all four fixed-to-borrowed edges.
+Every edge reported `import_applied`, preserved all 256 output tokens, and had zero
+maximum logprob error. See
+[recorded evidence](../experiments/2026-10-19-r001-multipeer-probe.json). There is no
+claim of additional performance benefit from this correctness probe. TP=4 and arbitrary
+bidirectional migration remain unvalidated/unsupported respectively.
+
+The shared-only Megatron integration check completed three batches on four NPUs with
+four TP=1 replicas (48 questions, six answers, concurrency 16). Two donor replicas each
+migrated five requests to one shared target; all ten distinct tickets reported
+`import_applied`. The training loop took 78.74 seconds. This was not a fixed/shared
+performance comparison. The second shared target was not selected by this workload; all
+four edges were separately exercised by the TP=2 transport probe. See the
+[integration evidence](../experiments/2026-10-19-r001-multipeer-smoke.json).

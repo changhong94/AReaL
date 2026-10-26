@@ -1,0 +1,85 @@
+{
+  "seconds": 13.375886077061296,
+  "services": [
+    {
+      "action": "reset",
+      "parked": false,
+      "idle": {
+        "idle": true,
+        "core_pid": 261
+      },
+      "workers": [
+        {
+          "initial_sha256": "330a8316ce8a1510062c94a51d7b2220fe1dd0f8796583753fc65f4f6bef9183",
+          "restored_sha256": "330a8316ce8a1510062c94a51d7b2220fe1dd0f8796583753fc65f4f6bef9183",
+          "initial_dram_bytes": 3554176448,
+          "seconds": 13.042187824845314,
+          "device_used_bytes": 5952647168,
+          "worker_pid": 261,
+          "mutable_offload": {
+            "states": {
+              "weights": "mapped",
+              "kv_cache": "mapped"
+            },
+            "bytes": {
+              "weights": 3273654272,
+              "kv_cache": 0
+            },
+            "resident_bytes": {
+              "weights": 3273654272,
+              "kv_cache": 0
+            },
+            "restore_bytes": 0,
+            "cpu_backup_bytes": 0,
+            "free_bytes": 59499466752,
+            "total_bytes": 65452113920,
+            "supports_partial_reclaim": true
+          },
+          "mutable_dram_bytes": 0
+        }
+      ],
+      "api_pid": 216,
+      "snapshot_separate_from_mutable_backup": true
+    },
+    {
+      "action": "reset",
+      "parked": false,
+      "idle": {
+        "idle": true,
+        "core_pid": 980
+      },
+      "workers": [
+        {
+          "initial_sha256": "330a8316ce8a1510062c94a51d7b2220fe1dd0f8796583753fc65f4f6bef9183",
+          "restored_sha256": "330a8316ce8a1510062c94a51d7b2220fe1dd0f8796583753fc65f4f6bef9183",
+          "initial_dram_bytes": 3554176448,
+          "seconds": 13.193831669166684,
+          "device_used_bytes": 8072577024,
+          "worker_pid": 980,
+          "mutable_offload": {
+            "states": {
+              "weights": "mapped",
+              "kv_cache": "mapped"
+            },
+            "bytes": {
+              "weights": 3273654272,
+              "kv_cache": 0
+            },
+            "resident_bytes": {
+              "weights": 3273654272,
+              "kv_cache": 0
+            },
+            "restore_bytes": 0,
+            "cpu_backup_bytes": 0,
+            "free_bytes": 57379536896,
+            "total_bytes": 65452113920,
+            "supports_partial_reclaim": true
+          },
+          "mutable_dram_bytes": 0
+        }
+      ],
+      "api_pid": 954,
+      "snapshot_separate_from_mutable_backup": true
+    }
+  ]
+}

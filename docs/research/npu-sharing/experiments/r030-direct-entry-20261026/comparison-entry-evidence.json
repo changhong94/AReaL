@@ -1,0 +1,211 @@
+{
+  "selected": [
+    {
+      "event": "idle_training_selected",
+      "time": 1792999578.0273607,
+      "pid": 1,
+      "batch": 1,
+      "world_size": 2,
+      "reason": "idle_cold_start",
+      "preparation_seconds": 1.9467254001647234,
+      "direct_from_inference": true
+    },
+    {
+      "event": "idle_training_selected",
+      "time": 1792999634.812246,
+      "pid": 1,
+      "batch": 2,
+      "world_size": 1,
+      "reason": "runnable_inference",
+      "preparation_seconds": 1.8097251374274492,
+      "direct_from_inference": true
+    },
+    {
+      "event": "idle_training_selected",
+      "time": 1792999713.5926244,
+      "pid": 1,
+      "batch": 3,
+      "world_size": 1,
+      "reason": "runnable_inference",
+      "preparation_seconds": 0.28036211617290974,
+      "direct_from_inference": true
+    },
+    {
+      "event": "idle_training_selected",
+      "time": 1792999784.3315494,
+      "pid": 1,
+      "batch": 4,
+      "world_size": 1,
+      "reason": "runnable_inference",
+      "preparation_seconds": 0.2020195610821247,
+      "direct_from_inference": true
+    },
+    {
+      "event": "idle_training_selected",
+      "time": 1792999853.7321134,
+      "pid": 1,
+      "batch": 5,
+      "world_size": 1,
+      "reason": "runnable_inference",
+      "preparation_seconds": 0.12089958600699902,
+      "direct_from_inference": true
+    },
+    {
+      "event": "idle_training_selected",
+      "time": 1792999930.2377334,
+      "pid": 1,
+      "batch": 6,
+      "world_size": 2,
+      "reason": "positive_incremental_gain",
+      "preparation_seconds": 4.220172895118594,
+      "direct_from_inference": true
+    }
+  ],
+  "direct": [
+    {
+      "event": "idle_training_direct_restored",
+      "time": 1792999578.0270436,
+      "pid": 1,
+      "token": "entry-5def8e3a907541ca9575b2887f23615f",
+      "source_parked": false,
+      "version": 0,
+      "scheduler_epoch": 0,
+      "world_size": 2
+    },
+    {
+      "event": "idle_training_direct_restored",
+      "time": 1792999930.2375083,
+      "pid": 1,
+      "token": "entry-09cec98a683e4f57924f10604bdf00ab",
+      "source_parked": false,
+      "version": 5,
+      "scheduler_epoch": 5,
+      "world_size": 2
+    }
+  ],
+  "publications": [
+    {
+      "event": "idle_training_dram_publication",
+      "time": 1792999631.0098128,
+      "pid": 1,
+      "version": 1,
+      "seconds": 8.179804040119052,
+      "publisher_world_size": 2,
+      "primary_hbm_restored": false
+    }
+  ],
+  "imports": [
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1792999578.014903,
+      "pid": 613,
+      "rank": 1,
+      "verify_d2h_seconds": 0.0,
+      "equality_seconds": 0.0,
+      "hash_seconds": 0.0,
+      "full_verification": false,
+      "verified_bytes": 0,
+      "shard_sha256": null,
+      "version": 0,
+      "scheduler_epoch": 0
+    },
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1792999930.2273526,
+      "pid": 613,
+      "rank": 1,
+      "verify_d2h_seconds": 0.0,
+      "equality_seconds": 0.0,
+      "hash_seconds": 0.0,
+      "full_verification": false,
+      "verified_bytes": 0,
+      "shard_sha256": null,
+      "version": 5,
+      "scheduler_epoch": 5
+    },
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1792999577.072672,
+      "pid": 609,
+      "rank": 0,
+      "verify_d2h_seconds": 0.0,
+      "equality_seconds": 0.0,
+      "hash_seconds": 0.0,
+      "full_verification": false,
+      "verified_bytes": 0,
+      "shard_sha256": null,
+      "version": 0,
+      "scheduler_epoch": 0
+    },
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1792999928.973745,
+      "pid": 609,
+      "rank": 0,
+      "verify_d2h_seconds": 0.0,
+      "equality_seconds": 0.0,
+      "hash_seconds": 0.0,
+      "full_verification": false,
+      "verified_bytes": 0,
+      "shard_sha256": null,
+      "version": 5,
+      "scheduler_epoch": 5
+    },
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1792999634.7879019,
+      "pid": 530,
+      "rank": 0,
+      "verify_d2h_seconds": 0.0,
+      "equality_seconds": 0.0,
+      "hash_seconds": 0.0,
+      "full_verification": false,
+      "verified_bytes": 0,
+      "shard_sha256": null,
+      "version": 1,
+      "scheduler_epoch": 1
+    },
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1792999713.5912952,
+      "pid": 530,
+      "rank": 0,
+      "verify_d2h_seconds": 0.0,
+      "equality_seconds": 0.0,
+      "hash_seconds": 0.0,
+      "full_verification": false,
+      "verified_bytes": 0,
+      "shard_sha256": null,
+      "version": 2,
+      "scheduler_epoch": 2
+    },
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1792999784.329924,
+      "pid": 530,
+      "rank": 0,
+      "verify_d2h_seconds": 0.0,
+      "equality_seconds": 0.0,
+      "hash_seconds": 0.0,
+      "full_verification": false,
+      "verified_bytes": 0,
+      "shard_sha256": null,
+      "version": 3,
+      "scheduler_epoch": 3
+    },
+    {
+      "event": "idle_dram_import_verified",
+      "time": 1792999853.7308226,
+      "pid": 530,
+      "rank": 0,
+      "verify_d2h_seconds": 0.0,
+      "equality_seconds": 0.0,
+      "hash_seconds": 0.0,
+      "full_verification": false,
+      "verified_bytes": 0,
+      "shard_sha256": null,
+      "version": 4,
+      "scheduler_epoch": 4
+    }
+  ]
+}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations  # noqa
 
+import asyncio
 import json
 import os
 import random
@@ -29,6 +30,7 @@ from .async_task_runner import (
     TimedResult,
 )
 from .staleness_manager import StalenessManager
+from areal.infra.generation_admission import GenerationCompletion
 from areal.infra import workflow_context
 from .workflow_context import WorkflowContext
 from areal.experimental.openai.types import (
@@ -357,6 +359,32 @@ class BatchTaskDispatcher(Generic[TInput, TResult]):
         """Remove a registered callback for a task (e.g., on timeout)."""
         self._task_callbacks.pop(task_id, None)
 
+    async def notify_generation_complete(self, task_id: int) -> None:
+        """Acknowledge the stage transition before admitting another question."""
+        addr = self._task_callbacks.get(task_id)
+        if addr is not None:
+
+            def post():
+                response = requests.post(
+                    addr,
+                    json={"task_id": task_id, "event": "generation_complete"},
+                    timeout=10,
+                )
+                response.raise_for_status()
+
+            try:
+                await asyncio.to_thread(post)
+            except requests.RequestException:
+                # Conservatively retain the slot; scoring must still finish.
+                self.logger.warning(
+                    "Generation progress callback failed for %s", task_id
+                )
+                return
+        if self.staleness_manager.on_generation_complete(task_id):
+            trace_session_event("generation_slot_released", task_id=task_id)
+            with self._input_cv:
+                self._input_cv.notify_all()
+
     def _send_callback(self, addr: str, task_id: int, result: TResult):
         """Send task result to callback address (fire-and-forget)."""
 
@@ -385,12 +413,13 @@ class BatchTaskDispatcher(Generic[TInput, TResult]):
                     continue
 
                 task_fn = self.task_factory(task_input)
+                self.staleness_manager.on_rollout_submitted(task_input.task_id)
                 try:
                     self.runner.submit(task_fn, task_id=task_input.task_id)
-                    self.staleness_manager.on_rollout_submitted()
                     if self.enable_tracing:
                         self.logger.info(f"Submit rollout. {self._rollout_stats()}")
                 except TaskQueueFullError:
+                    self.staleness_manager.rollback_submission(task_input.task_id)
                     with self._input_cv:
                         self._pending_inputs.appendleft(task_input)
                         self._input_cv.wait_for(
@@ -401,6 +430,9 @@ class BatchTaskDispatcher(Generic[TInput, TResult]):
                         )
                     # Allow other threads to make progress before retrying
                     continue
+                except BaseException:
+                    self.staleness_manager.rollback_submission(task_input.task_id)
+                    raise
 
             except Exception as e:
                 self.logger.error("Producer thread failed", exc_info=True)
@@ -408,6 +440,10 @@ class BatchTaskDispatcher(Generic[TInput, TResult]):
                 with self._result_cv:
                     self._result_cv.notify_all()
                 break
+            finally:
+                with self._input_cv:
+                    self._dispatching_input = False
+                    self._input_cv.notify_all()
 
     def _fetch_loop(self) -> None:
         """Consumer thread - continuously collects results from runner."""
@@ -460,8 +496,11 @@ class BatchTaskDispatcher(Generic[TInput, TResult]):
                     and self.staleness_manager.get_capacity() > 0
                     and self._pending_inputs
                 ):
+                    self._dispatching_input = True
                     return self._pending_inputs.popleft()
-                self._input_cv.wait()
+                # A recovered replica can increase admission without a task completion.
+                dynamic = getattr(self.staleness_manager, "concurrency_target", None)
+                self._input_cv.wait(timeout=0.5 if dynamic is not None else None)
 
         return None
 
@@ -503,6 +542,49 @@ class BatchTaskDispatcher(Generic[TInput, TResult]):
 
         # Shutdown the async task runner
         self.runner.destroy()
+
+    def generation_work_snapshot(self) -> dict:
+        """Read runnable generation without reserving devices or pausing work."""
+        with self._input_cv:
+            self._check_thread_exception()
+            pending = len(self._pending_inputs)
+            capacity = self.staleness_manager.get_capacity()
+            queued = self.runner.get_input_queue_size()
+            dispatching = int(getattr(self, "_dispatching_input", False))
+            manager = self.staleness_manager
+            with manager.lock:
+                generating = max(
+                    0, manager.rollout_stat.running - len(manager._generation_finished)
+                )
+            return dict(
+                generating=generating,
+                queued=queued,
+                pending_runnable=min(pending, max(0, capacity)),
+                dispatching=dispatching,
+            )
+
+    def pause_if_generation_idle(self) -> bool:
+        """Fence new admission only when no generation is queued or executing.
+
+        Reward-only workflows may remain active. Inputs blocked by the current
+        policy-version limit are not runnable inference work.
+        """
+        with self._input_cv:
+            self._check_thread_exception()
+            if self.runner.paused.is_set() or getattr(
+                self, "_dispatching_input", False
+            ):
+                return False
+            if self._pending_inputs and self.staleness_manager.get_capacity() > 0:
+                return False
+            if self.runner.get_input_queue_size():
+                return False
+            manager = self.staleness_manager
+            with manager.lock:
+                if manager.rollout_stat.running != len(manager._generation_finished):
+                    return False
+                self.runner.pause()
+            return True
 
     def pause(self):
         """Pause request submission for async tasks.
@@ -1155,7 +1237,14 @@ class WorkflowExecutor:
 
             # Set workflow execution context
             workflow_context.set(
-                WorkflowContext(is_eval=pending_task.is_eval, task_id=task_id)
+                WorkflowContext(
+                    is_eval=pending_task.is_eval,
+                    task_id=task_id,
+                    generation_completion=GenerationCompletion(
+                        getattr(pending_task.workflow, "group_size", 1),
+                        lambda: self.dispatcher.notify_generation_complete(task_id),
+                    ),
+                )
             )
 
             manager = self.staleness_manager
@@ -1219,7 +1308,7 @@ class WorkflowExecutor:
                         )
 
                 if should_accept_traj:
-                    manager.on_rollout_accepted()
+                    manager.on_rollout_accepted(task_id)
                     stats_tracker.get("rollout").scalar(accepted=1)
                     trace_session_event(
                         "mark_finalized",
@@ -1233,7 +1322,7 @@ class WorkflowExecutor:
                     assert traj is not None
                     return _RolloutResult(task_id=task_id, trajectory=traj)
 
-                manager.on_rollout_rejected()
+                manager.on_rollout_rejected(task_id)
                 stats_tracker.get("rollout").scalar(rejected=1)
                 trace_session_event(
                     "mark_finalized",
@@ -1247,11 +1336,14 @@ class WorkflowExecutor:
                     )
                 return None
 
+            except asyncio.CancelledError:
+                manager.on_rollout_rejected(task_id)
+                raise
             except Exception as exc:  # pragma: no cover - workflow execution errors
                 fatal = self.config.abort_on_prompt_mismatch and is_exact_token_refusal(
                     exc
                 )
-                manager.on_rollout_rejected()
+                manager.on_rollout_rejected(task_id)
                 stats_tracker.get("rollout").scalar(rejected=1)
                 trace_session_event(
                     "mark_finalized",

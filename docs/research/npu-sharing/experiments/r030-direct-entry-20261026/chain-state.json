@@ -1,0 +1,20 @@
+{
+  "time": 1793000186.121198,
+  "phase": "complete",
+  "completed": [
+    {
+      "phase": "correctness",
+      "workspace": "/tmp/huawei/areal-development/idle-entry-20261025/retry-2/correctness/20261025-233928-0700_code_fsdp_c16_b3_6cb692/repetitions/01",
+      "selections": 2,
+      "verified_imports": 7
+    },
+    {
+      "phase": "comparison",
+      "workspace": "/tmp/huawei/areal-development/idle-entry-20261025/retry-2/comparison/20261026-000110-0700_code_fsdp_c16_b6_6d5887/repetitions/01",
+      "selections": 2,
+      "verified_imports": 8
+    }
+  ],
+  "error": null,
+  "busy_running": true
+}

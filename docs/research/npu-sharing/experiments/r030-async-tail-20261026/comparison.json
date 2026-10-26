@@ -1,0 +1,363 @@
+{
+  "workspace": "/tmp/huawei/areal-development/idle-async-tail-20261026/comparison/20261026-110049-0700_code_fsdp_c16_b6_0790ab/repetitions/01",
+  "loop_seconds": {
+    "fixed": 455.83541774749756,
+    "latest": 430.84464168548584
+  },
+  "reduction_percent": 5.482412091957045,
+  "tokens": {
+    "fixed": 358492,
+    "latest": 353648
+  },
+  "stages": {
+    "fixed": {
+      "train.rollout": [
+        65.603738,
+        0.007432,
+        0.011772,
+        0.007576,
+        0.000342,
+        0.00031
+      ],
+      "train.recompute_logp": [
+        11.746373,
+        12.040556,
+        11.585793,
+        11.555652,
+        12.081259,
+        11.275122
+      ],
+      "train.compute_advantage": [
+        2.373425,
+        2.126893,
+        1.927447,
+        1.970402,
+        2.050771,
+        2.053015
+      ],
+      "train.ppo_update": [
+        47.33251,
+        49.862233,
+        47.116424,
+        48.567327,
+        49.514733,
+        46.211345
+      ],
+      "train.save": [
+        0.00015,
+        8.4e-05,
+        0.000143,
+        0.000129,
+        7.3e-05,
+        10.811786
+      ],
+      "train.checkpoint": [
+        7.9e-05,
+        4.7e-05,
+        7.6e-05,
+        7.7e-05,
+        5.7e-05,
+        0.000104
+      ],
+      "train.update_weights": [
+        1.479658,
+        0.55858,
+        0.533159,
+        0.542775,
+        0.555089,
+        0.719742
+      ],
+      "train.eval": [
+        0.000154,
+        0.000159,
+        0.00016,
+        0.000164,
+        0.000154,
+        0.000192
+      ],
+      "train.clear_batches": [
+        0.027158,
+        0.026229,
+        0.023693,
+        0.026,
+        0.026756,
+        0.026968
+      ],
+      "train.log_stats": [
+        0.597984,
+        0.621407,
+        0.605687,
+        0.602108,
+        0.629639,
+        0.05149
+      ],
+      "train.save_finalize": [
+        1.2e-05
+      ]
+    },
+    "latest": {
+      "train.rollout": [
+        57.140983,
+        0.070846,
+        0.015495,
+        0.01033,
+        0.001314,
+        0.001615
+      ],
+      "train.idle_entry_multi": [
+        1.922974,
+        2.572617
+      ],
+      "train.recompute_logp": [
+        11.149375,
+        15.159941,
+        11.972136,
+        11.562537,
+        12.127953,
+        9.579701
+      ],
+      "train.compute_advantage": [
+        2.04989,
+        2.493063,
+        2.194835,
+        2.174627,
+        2.536859,
+        1.781353
+      ],
+      "train.ppo_update": [
+        32.668192,
+        43.504236,
+        48.534121,
+        47.35179,
+        43.971645,
+        29.81323
+      ],
+      "train.save": [
+        0.000216,
+        0.000185,
+        0.000184,
+        0.000189,
+        0.000239,
+        11.549102
+      ],
+      "train.checkpoint": [
+        0.000125,
+        0.000102,
+        0.000103,
+        0.000119,
+        0.000115,
+        0.000166
+      ],
+      "train.update_weights": [
+        6.977426,
+        2.113217,
+        2.276975,
+        1.714298,
+        1.837579,
+        0.561656
+      ],
+      "train.eval": [
+        0.000173,
+        0.00016,
+        0.00016,
+        0.000296,
+        0.000181,
+        0.000385
+      ],
+      "train.clear_batches": [
+        0.060347,
+        0.069717,
+        0.056292,
+        0.058126,
+        0.054348,
+        0.058624
+      ],
+      "train.log_stats": [
+        0.186738,
+        0.056561,
+        0.059473,
+        0.061734,
+        0.055696,
+        0.057359
+      ],
+      "train.idle_entry_single": [
+        1.733214,
+        0.122042,
+        0.2074,
+        0.218954
+      ],
+      "train.background_publication": [
+        0.415001,
+        0.528892,
+        0.497008,
+        3.46825
+      ],
+      "train.wait_previous_tail": [
+        0.56126,
+        0.669637,
+        0.647445,
+        3.607588
+      ],
+      "train.shared_memory_switch": [
+        0.280229
+      ],
+      "train.save_finalize": [
+        1.94005
+      ]
+    }
+  },
+  "initialization_seconds": {
+    "fixed": 178.67099356651306,
+    "latest": 390.4529323577881
+  },
+  "events": [
+    {
+      "event": "idle_training_selected",
+      "time": 1793039234.3339067,
+      "pid": 1,
+      "batch": 1,
+      "world_size": 2,
+      "reason": "idle_cold_start",
+      "preparation_seconds": 1.9231581706553698,
+      "direct_from_inference": true
+    },
+    {
+      "event": "idle_training_dram_publication",
+      "time": 1793039287.282255,
+      "pid": 1,
+      "version": 1,
+      "seconds": 6.975585859268904,
+      "publisher_world_size": 2,
+      "primary_hbm_restored": false
+    },
+    {
+      "event": "idle_training_selected",
+      "time": 1793039290.9617445,
+      "pid": 1,
+      "batch": 2,
+      "world_size": 1,
+      "reason": "runnable_inference",
+      "preparation_seconds": 1.7332581207156181,
+      "direct_from_inference": true
+    },
+    {
+      "event": "idle_helper_end",
+      "time": 1793039351.3318486,
+      "pid": 1,
+      "batch": 2,
+      "token": "areal-idle-d0ea93b1b2714e4c9d36dba573a0bc07-batch-2",
+      "seconds": 31.706508796662092,
+      "prepared_seconds": 2.160886423662305,
+      "export_seconds": 3.638216085731983,
+      "import_seconds": 1.340242750942707,
+      "release_seconds": 0.9922033324837685,
+      "completion_seconds": 3.0678829811513424
+    },
+    {
+      "event": "idle_training_selected",
+      "time": 1793039355.3506205,
+      "pid": 1,
+      "batch": 3,
+      "world_size": 1,
+      "reason": "runnable_inference",
+      "preparation_seconds": 0.12207766063511372,
+      "direct_from_inference": true
+    },
+    {
+      "event": "idle_helper_end",
+      "time": 1793039417.079746,
+      "pid": 1,
+      "batch": 3,
+      "token": "areal-idle-d0ea93b1b2714e4c9d36dba573a0bc07-batch-3",
+      "seconds": 23.760365469381213,
+      "prepared_seconds": 2.23669945448637,
+      "export_seconds": 3.6314419973641634,
+      "import_seconds": 1.2686879727989435,
+      "release_seconds": 1.0172648280858994,
+      "completion_seconds": 2.3544611893594265
+    },
+    {
+      "event": "idle_training_selected",
+      "time": 1793039421.3772733,
+      "pid": 1,
+      "batch": 4,
+      "world_size": 1,
+      "reason": "runnable_inference",
+      "preparation_seconds": 0.20748933963477612,
+      "direct_from_inference": true
+    },
+    {
+      "event": "idle_helper_end",
+      "time": 1793039481.4985034,
+      "pid": 1,
+      "batch": 4,
+      "token": "areal-idle-d0ea93b1b2714e4c9d36dba573a0bc07-batch-4",
+      "seconds": 23.280114229768515,
+      "prepared_seconds": 2.101982893422246,
+      "export_seconds": 3.6138828843832016,
+      "import_seconds": 1.2829033359885216,
+      "release_seconds": 0.9736537672579288,
+      "completion_seconds": 2.4053894076496363
+    },
+    {
+      "event": "idle_training_selected",
+      "time": 1793039485.2193224,
+      "pid": 1,
+      "batch": 5,
+      "world_size": 1,
+      "reason": "runnable_inference",
+      "preparation_seconds": 0.2189914472401142,
+      "direct_from_inference": true
+    },
+    {
+      "event": "idle_helper_end",
+      "time": 1793039542.8836997,
+      "pid": 1,
+      "batch": 5,
+      "token": "areal-idle-d0ea93b1b2714e4c9d36dba573a0bc07-batch-5",
+      "seconds": 25.76739789173007,
+      "prepared_seconds": 2.132428115233779,
+      "export_seconds": 4.123108487576246,
+      "import_seconds": 1.2671557795256376,
+      "release_seconds": 0.9896890744566917,
+      "completion_seconds": 2.3858154956251383
+    },
+    {
+      "event": "idle_training_selected",
+      "time": 1793039552.0350044,
+      "pid": 1,
+      "batch": 6,
+      "world_size": 2,
+      "reason": "idle_cold_start",
+      "preparation_seconds": 2.5726729538291693,
+      "direct_from_inference": true
+    },
+    {
+      "event": "hf_save_staged",
+      "time": 1793039604.824581,
+      "pid": 609,
+      "path": "/run-output/checkpoints/root/npu-share-ab/run/default/epoch0epochstep5globalstep5",
+      "seconds": 4.271675396710634,
+      "from_dram": true
+    },
+    {
+      "event": "hf_save_write_begin",
+      "time": 1793039604.8253176,
+      "pid": 609,
+      "path": "/run-output/checkpoints/root/npu-share-ab/run/default/epoch0epochstep5globalstep5",
+      "scheduler_epoch": 6,
+      "actor_version_at_capture": 5,
+      "from_dram": true
+    },
+    {
+      "event": "hf_save_write_end",
+      "time": 1793039607.258968,
+      "pid": 609,
+      "path": "/run-output/checkpoints/root/npu-share-ab/run/default/epoch0epochstep5globalstep5",
+      "seconds": 2.4344712253659964,
+      "scheduler_epoch": 6,
+      "actor_version_at_capture": 5,
+      "from_dram": true
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "time": 1792820896.7429302,
+  "phase": "complete",
+  "completed": [
+    {
+      "phase": "correctness",
+      "workspace": "/root/areal-development/idle-dram-20261023-retry/correctness/20261023-214334-0700_code_fsdp_c16_b2_2ebedc/repetitions/01",
+      "selections": 2,
+      "verified_imports": 6
+    },
+    {
+      "phase": "comparison",
+      "workspace": "/root/areal-development/idle-dram-20261023-retry/comparison/20261023-221040-0700_code_fsdp_c16_b6_12e8c8/repetitions/01",
+      "selections": 2,
+      "verified_imports": 6
+    }
+  ],
+  "error": null,
+  "busy_running": true
+}

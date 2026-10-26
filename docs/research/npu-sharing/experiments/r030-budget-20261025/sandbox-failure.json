@@ -1,0 +1,80 @@
+[
+  {
+    "event": "code_sandbox_upload_missing",
+    "time": 1792961841.1765063,
+    "pid": 605,
+    "sandbox_id": "01a174f8-8722-7830-a089-9e4d694afbc6",
+    "attempt": 1,
+    "exhausted": false,
+    "request_id": "aa0bf7405ab846c9a25f9b61280bcfe0",
+    "task_id": 99,
+    "session_id": 817,
+    "rank": 0,
+    "role": "rollout"
+  },
+  {
+    "event": "code_sandbox_upload_missing",
+    "time": 1792961841.7263548,
+    "pid": 605,
+    "sandbox_id": "01a174f8-8722-7830-a089-9e4d694afbc6",
+    "attempt": 2,
+    "exhausted": false,
+    "request_id": "aa0bf7405ab846c9a25f9b61280bcfe0",
+    "task_id": 99,
+    "session_id": 817,
+    "rank": 0,
+    "role": "rollout"
+  },
+  {
+    "event": "code_sandbox_upload_missing",
+    "time": 1792961842.4735875,
+    "pid": 605,
+    "sandbox_id": "01a174f8-8722-7830-a089-9e4d694afbc6",
+    "attempt": 3,
+    "exhausted": false,
+    "request_id": "aa0bf7405ab846c9a25f9b61280bcfe0",
+    "task_id": 99,
+    "session_id": 817,
+    "rank": 0,
+    "role": "rollout"
+  },
+  {
+    "event": "code_sandbox_upload_missing",
+    "time": 1792961843.6210365,
+    "pid": 605,
+    "sandbox_id": "01a174f8-8722-7830-a089-9e4d694afbc6",
+    "attempt": 4,
+    "exhausted": false,
+    "request_id": "aa0bf7405ab846c9a25f9b61280bcfe0",
+    "task_id": 99,
+    "session_id": 817,
+    "rank": 0,
+    "role": "rollout"
+  },
+  {
+    "event": "code_sandbox_upload_missing",
+    "time": 1792961845.5678632,
+    "pid": 605,
+    "sandbox_id": "01a174f8-8722-7830-a089-9e4d694afbc6",
+    "attempt": 5,
+    "exhausted": false,
+    "request_id": "aa0bf7405ab846c9a25f9b61280bcfe0",
+    "task_id": 99,
+    "session_id": 817,
+    "rank": 0,
+    "role": "rollout"
+  },
+  {
+    "event": "code_sandbox_upload_missing",
+    "time": 1792961847.9156122,
+    "pid": 605,
+    "sandbox_id": "01a174f8-8722-7830-a089-9e4d694afbc6",
+    "attempt": 6,
+    "exhausted": true,
+    "request_id": "aa0bf7405ab846c9a25f9b61280bcfe0",
+    "task_id": 99,
+    "session_id": 817,
+    "rank": 0,
+    "role": "rollout"
+  }
+]

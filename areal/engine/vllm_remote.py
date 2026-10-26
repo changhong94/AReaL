@@ -82,8 +82,18 @@ class VLLMBackend:
     """vLLM-specific backend implementation for remote inference."""
 
     @staticmethod
-    def build_server_env(env: Mapping[str, str]) -> dict[str, str]:
+    def build_server_env(
+        env: Mapping[str, str], server_args: dict[str, Any] | None = None
+    ) -> dict[str, str]:
         _env = sanitize_tms_env_vars(env)
+        if (
+            server_args is not None
+            and not server_args.get("enforce_eager", False)
+            and _env.get("TASK_QUEUE_ENABLE") == "2"
+        ):
+            # Only the inference child changes; the training process keeps its queue.
+            _env["TASK_QUEUE_ENABLE"] = "1"
+
         triton_cache_path = _env.get("TRITON_CACHE_PATH", TRITON_CACHE_PATH)
         _env["TRITON_CACHE_PATH"] = os.path.join(triton_cache_path, str(uuid.uuid4()))
 
@@ -426,7 +436,7 @@ class VLLMBackend:
     def launch_server(self, server_args: dict[str, Any]) -> subprocess.Popen:
         """Launch vLLM server subprocess."""
         cmd = vLLMConfig.build_cmd_from_args(server_args)
-        _env = self.build_server_env(os.environ)
+        _env = self.build_server_env(os.environ, server_args)
 
         logger.info(f"Launching vLLM server with command: {' '.join(cmd)}")
         return subprocess.Popen(

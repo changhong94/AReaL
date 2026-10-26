@@ -1,0 +1,109 @@
+{
+  "workspace": "/root/areal-development/r027-formal-repeat-20261021/20261021-014005-0700_math_fsdp_c16_b6_f6e9d4",
+  "runs": [
+    {
+      "arm": "fixed",
+      "seconds": 83.06207776069641,
+      "tokens": 136303,
+      "requests": 576,
+      "skipped_returns": 0,
+      "stages": {
+        "train.rollout": 11.900712,
+        "train.recompute_logp": 9.168528,
+        "train.compute_advantage": 4.847381,
+        "train.ppo_update": 31.811221000000003,
+        "train.save": 11.119441,
+        "train.checkpoint": 0.000329,
+        "train.update_weights": 13.047594,
+        "train.eval": 0.0010609999999999999,
+        "train.clear_batches": 0.116787,
+        "train.log_stats": 0.866885
+      },
+      "decisions": [],
+      "resident_budget_hits": []
+    },
+    {
+      "arm": "latest",
+      "seconds": 75.6173644065857,
+      "tokens": 135066,
+      "requests": 576,
+      "skipped_returns": 5,
+      "stages": {
+        "train.rollout": 9.764065999999998,
+        "train.recompute_logp": 9.237694,
+        "train.compute_advantage": 5.071235999999999,
+        "train.ppo_update": 31.759462000000003,
+        "train.save": 11.427807000000001,
+        "train.checkpoint": 0.000388,
+        "train.update_weights": 5.497727000000001,
+        "train.background_publication": 0.5982860000000001,
+        "train.eval": 0.001734,
+        "train.clear_batches": 0.142455,
+        "train.log_stats": 0.37729,
+        "train.wait_previous_tail": 1.185232
+      },
+      "decisions": [
+        {
+          "event": "inference_return_decision",
+          "time": 1792572968.815474,
+          "pid": 1,
+          "target": 32,
+          "accepted": 47,
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "gain_seconds": 0.0
+        },
+        {
+          "event": "inference_return_decision",
+          "time": 1792572978.8866267,
+          "pid": 1,
+          "target": 48,
+          "accepted": 55,
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "gain_seconds": 0.0
+        },
+        {
+          "event": "inference_return_decision",
+          "time": 1792572986.8411632,
+          "pid": 1,
+          "target": 64,
+          "accepted": 70,
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "gain_seconds": 0.0
+        },
+        {
+          "event": "inference_return_decision",
+          "time": 1792572995.7419248,
+          "pid": 1,
+          "target": 80,
+          "accepted": 85,
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "gain_seconds": 0.0
+        },
+        {
+          "event": "inference_return_decision",
+          "time": 1792573003.995319,
+          "pid": 1,
+          "target": 96,
+          "accepted": 96,
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "gain_seconds": 0.0
+        }
+      ],
+      "resident_budget_hits": [
+        "{\"forward_credit_bytes\": 9718202368, \"backward_credit_bytes\": 3741319168, \"gross_required_bytes\": 25502210048, \"incremental_required_bytes\": 12042688512, \"available_bytes\": 17783279616}\u001b[0m",
+        "{\"forward_credit_bytes\": 9718202368, \"backward_credit_bytes\": 3743416320, \"gross_required_bytes\": 25502210048, \"incremental_required_bytes\": 12040591360, \"available_bytes\": 17781075968}\u001b[0m",
+        "{\"forward_credit_bytes\": 9718202368, \"backward_credit_bytes\": 3743416320, \"gross_required_bytes\": 25502210048, \"incremental_required_bytes\": 12040591360, \"available_bytes\": 17779703808}\u001b[0m",
+        "{\"forward_credit_bytes\": 9718202368, \"backward_credit_bytes\": 3745513472, \"gross_required_bytes\": 25502210048, \"incremental_required_bytes\": 12038494208, \"available_bytes\": 17774845952}\u001b[0m",
+        "{\"forward_credit_bytes\": 9718202368, \"backward_credit_bytes\": 3745513472, \"gross_required_bytes\": 25502210048, \"incremental_required_bytes\": 12038494208, \"available_bytes\": 17775046656}\u001b[0m"
+      ]
+    }
+  ],
+  "evidence_class": "independent_startup_formal",
+  "saved_seconds": 7.444713354110718,
+  "saved_percent": 8.962830638018826
+}

@@ -362,7 +362,7 @@ def plan_batch_rebalance(
             # Selected requests wait for the common staging barrier. Other
             # requests only pay measured worker stalls, not HTTP coordination.
             for i in output:
-                if i not in moved:
+                if i not in moved and rows[i]["rank"] in (source, target):
                     key = (
                         "source_stall_s"
                         if rows[i]["rank"] == source

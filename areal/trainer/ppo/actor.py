@@ -251,82 +251,89 @@ class PPOActor:
 
     @trace_perf("ppo_actor.ppo_update", category="compute")
     @stats_tracker.scope_func_wrapper("ppo_actor")
-    def ppo_update(self, data: list[dict[str, Any]]) -> None:
-        batched_call(self._ppo_update, data, unpack=False)
-
-    def _ppo_update(self, data: dict[str, Any]) -> None:
-        attn_mask = data["attention_mask"]
-        loss_mask = data["loss_mask"]
-        reward_score = data["rewards"]
-        seqlens = attn_mask.sum(-1)
-
-        ########## Logging code starts ##########
-        result_denominators = {
-            "correct_n_seqs": (reward_score > 0).bool(),
-            "incorrect_n_seqs": (reward_score <= 0).bool(),
-        }
-        if self.config.log_agent_stats:
-            if "begin_of_trajectory" not in data:
-                raise RuntimeError(
-                    "'begin_of_trajectory' is expected to log agent statistics"
-                )
-            if len(self.config.log_agent_stats_keys) == 0:
-                raise RuntimeError(
-                    "`log_agent_stats_keys` should not be empty when log_agent_stats=True"
-                )
-            agent_denominator = (data["begin_of_trajectory"] > 0).bool()
-            result_denominators["agent"] = agent_denominator
-        global_denominators = dict(
-            n_seqs=torch.ones_like(reward_score, dtype=torch.bool),
-            n_tokens=infer_token_denominator(data, loss_mask),
-            n_valid_tokens=loss_mask.bool(),
-            **result_denominators,
-        )
-        stats_tracker.denominator(**global_denominators)
-        stats_tracker.stat(
-            correct_seq_len=seqlens.float(), denominator="correct_n_seqs"
-        )
-        stats_tracker.stat(
-            incorrect_seq_len=seqlens.float(), denominator="incorrect_n_seqs"
+    def ppo_update(self, data: list[dict[str, Any]], accumulation=None) -> None:
+        if accumulation is not None and self.config.ppo_n_minibatches != 1:
+            raise ValueError("Resumable PPO requires one original optimizer minibatch")
+        batched_call(
+            functools.partial(self._ppo_update, accumulation=accumulation),
+            data,
+            unpack=False,
         )
 
-        stats = dict(
-            advantages=data["advantages"],
-            kl_rewards=data["kl_rewards"],
-            final_reward=data["tot_rewards"],
-        )
-        stats_tracker.stat(**stats, denominator="n_valid_tokens")
+    def _ppo_update(self, data: dict[str, Any], accumulation=None) -> None:
+        if accumulation is None or not accumulation.get("skip_statistics", False):
+            attn_mask = data["attention_mask"]
+            loss_mask = data["loss_mask"]
+            reward_score = data["rewards"]
+            seqlens = attn_mask.sum(-1)
 
-        prompt_lens = data["attention_mask"].sum(-1) - data["loss_mask"].sum(-1)
-        seq_stats = dict(
-            no_eos_ratios=(seqlens == attn_mask.shape[-1]).float(),
-            task_reward=reward_score.float(),
-            prompt_len=prompt_lens.float(),
-            seq_len=seqlens.float(),
-        )
-        stats_tracker.stat(**seq_stats, denominator="n_seqs")
-        scalars = dict(
-            mask_no_eos_with_zero=self.config.mask_no_eos_with_zero,
-            eps_clip=self.config.eps_clip,
-        )
-        if self.config.c_clip is not None:
-            scalars["c_clip"] = self.config.c_clip
-            scalars["use_dual_clip"] = 1
-        else:
-            scalars["use_dual_clip"] = 0
-        if self.config.rejection_sampling is not None:
-            rs = self.config.rejection_sampling
-            scalars["rs_upper"] = rs.upper
-            if rs.lower is not None:
-                scalars["rs_lower"] = rs.lower
-        stats_tracker.scalar(**scalars)
-
-        if self.config.log_agent_stats:
-            stats_tracker.stat(
-                **{k: data[k].float() for k in self.config.log_agent_stats_keys},
-                denominator="agent",
+            ########## Logging code starts ##########
+            result_denominators = {
+                "correct_n_seqs": (reward_score > 0).bool(),
+                "incorrect_n_seqs": (reward_score <= 0).bool(),
+            }
+            if self.config.log_agent_stats:
+                if "begin_of_trajectory" not in data:
+                    raise RuntimeError(
+                        "'begin_of_trajectory' is expected to log agent statistics"
+                    )
+                if len(self.config.log_agent_stats_keys) == 0:
+                    raise RuntimeError(
+                        "`log_agent_stats_keys` should not be empty when log_agent_stats=True"
+                    )
+                agent_denominator = (data["begin_of_trajectory"] > 0).bool()
+                result_denominators["agent"] = agent_denominator
+            global_denominators = dict(
+                n_seqs=torch.ones_like(reward_score, dtype=torch.bool),
+                n_tokens=infer_token_denominator(data, loss_mask),
+                n_valid_tokens=loss_mask.bool(),
+                **result_denominators,
             )
-        ########## Logging code ends ##########
+            stats_tracker.denominator(**global_denominators)
+            stats_tracker.stat(
+                correct_seq_len=seqlens.float(), denominator="correct_n_seqs"
+            )
+            stats_tracker.stat(
+                incorrect_seq_len=seqlens.float(), denominator="incorrect_n_seqs"
+            )
+
+            stats = dict(
+                advantages=data["advantages"],
+                kl_rewards=data["kl_rewards"],
+                final_reward=data["tot_rewards"],
+            )
+            stats_tracker.stat(**stats, denominator="n_valid_tokens")
+
+            prompt_lens = data["attention_mask"].sum(-1) - data["loss_mask"].sum(-1)
+            seq_stats = dict(
+                no_eos_ratios=(seqlens == attn_mask.shape[-1]).float(),
+                task_reward=reward_score.float(),
+                prompt_len=prompt_lens.float(),
+                seq_len=seqlens.float(),
+            )
+            stats_tracker.stat(**seq_stats, denominator="n_seqs")
+            scalars = dict(
+                mask_no_eos_with_zero=self.config.mask_no_eos_with_zero,
+                eps_clip=self.config.eps_clip,
+            )
+            if self.config.c_clip is not None:
+                scalars["c_clip"] = self.config.c_clip
+                scalars["use_dual_clip"] = 1
+            else:
+                scalars["use_dual_clip"] = 0
+            if self.config.rejection_sampling is not None:
+                rs = self.config.rejection_sampling
+                scalars["rs_upper"] = rs.upper
+                if rs.lower is not None:
+                    scalars["rs_lower"] = rs.lower
+            stats_tracker.scalar(**scalars)
+
+            if self.config.log_agent_stats:
+                stats_tracker.stat(
+                    **{k: data[k].float() for k in self.config.log_agent_stats_keys},
+                    denominator="agent",
+                )
+            ########## Logging code ends ##########
 
         # Pop keys that are no longer needed after advantage computation
         # Note: "versions" is kept if needed for approximation/metrics in loss function
@@ -334,16 +341,18 @@ class PPOActor:
             data.pop(key, None)
         # NOTE: calling engine.train() is critical to enabling gradient checkpointing
         self.engine.train()
-        mb_inputs = split_padded_tensor_dict_into_mb_list(
-            data,
-            mb_spec=MicroBatchSpec(n_mbs=self.config.ppo_n_minibatches),
-        )
+        if accumulation is not None and accumulation.get("plan_path"):
+            minibatches = [data]
+        else:
+            minibatches = split_padded_tensor_dict_into_mb_list(
+                data, mb_spec=MicroBatchSpec(n_mbs=self.config.ppo_n_minibatches)
+            ).mbs
 
         with stats_tracker.scope("update"):
             # Get current version for proximal approximation metrics
             current_version = self.engine.get_version()
 
-            for mb in mb_inputs.mbs:
+            for mb in minibatches:
                 train_stat = self.engine.train_batch(
                     mb,
                     loss_fn=functools.partial(
@@ -362,6 +371,11 @@ class PPOActor:
                         use_decoupled_loss=self.config.use_decoupled_loss,
                     ),
                     loss_weight_fn=lambda x: x["loss_mask"].count_nonzero(),
+                    **(
+                        {"accumulation": accumulation}
+                        if accumulation is not None
+                        else {}
+                    ),
                 )
                 stats_tracker.scalar(**train_stat)
 

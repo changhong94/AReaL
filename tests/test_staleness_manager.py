@@ -815,3 +815,50 @@ def test_on_version_recovered_with_running_rollouts(running):
 if __name__ == "__main__":
     # Run tests with pytest
     pytest.main([__file__, "-v"])
+
+
+class TestGenerationRewardSeparation:
+    def test_generation_releases_slot_without_accepting_reward(self):
+        manager = StalenessManager(MockVersionProvider(), 2, 4, 1)
+        for task_id in range(2):
+            manager.on_rollout_enqueued()
+            manager.on_rollout_submitted(task_id)
+        assert manager.get_capacity() == 0
+        assert manager.on_generation_complete(0)
+        assert not manager.on_generation_complete(0)
+        assert manager.get_capacity() == 1
+        assert manager.get_stats().accepted == 0
+        assert manager.get_stats().running == 2
+        manager.on_rollout_accepted(0)
+        manager.on_rollout_rejected(0)
+        assert manager.get_stats().running == 1
+        assert manager.get_stats().accepted == 1
+        assert not manager.on_generation_complete(0)
+
+    def test_reward_backlog_stays_within_offpolicy_budget(self):
+        manager = StalenessManager(MockVersionProvider(), 2, 2, 1)
+        for task_id in range(4):
+            assert manager.get_capacity() > 0
+            manager.on_rollout_enqueued()
+            manager.on_rollout_submitted(task_id)
+            manager.on_generation_complete(task_id)
+        assert manager.get_capacity() == 0
+        manager.on_rollout_accepted(0)
+        assert manager.get_capacity() == 0
+        manager.version_provider.set_version(1)
+        assert manager.get_capacity() == 1
+
+    def test_rejected_and_rolled_back_tasks_do_not_leak_slots(self):
+        manager = StalenessManager(MockVersionProvider(), 1, 4, 1)
+        manager.on_rollout_enqueued()
+        manager.on_rollout_submitted(7)
+        manager.rollback_submission(7)
+        assert manager.get_stats().enqueued == 1
+        assert manager.get_stats().running == 0
+        assert not manager.on_generation_complete(7)
+        manager.on_rollout_submitted(7)
+        manager.on_generation_complete(7)
+        manager.on_rollout_rejected(7)
+        manager.on_rollout_rejected(7)
+        assert manager.get_stats().running == 0
+        assert manager.get_capacity() == 1

@@ -53,17 +53,33 @@ def test_memory_summary_never_sums_free_capacity():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("devices,tp", [(2, 1), (4, 1), (4, 2), (8, 1), (8, 2), (8, 4)])
-async def test_publication_joins_every_dedicated_instance_once(devices, tp):
+@pytest.mark.parametrize(
+    "devices,tp,training",
+    [
+        (2, 1, 1),
+        (4, 1, 2),
+        (4, 2, 2),
+        (8, 1, 4),
+        (8, 2, 4),
+        (8, 4, 4),
+        (3, 1, 1),
+        (4, 1, 1),
+        (6, 2, 2),
+        (8, 2, 2),
+    ],
+)
+async def test_publication_joins_every_dedicated_instance_once(devices, tp, training):
     replicas = devices // tp
     config = InferenceEngineConfig(backend=f"vllm:d{replicas}p1t{tp}")
     scheduler = SimpleNamespace(async_call_engine=AsyncMock())
     ctrl = RolloutController(Mock, config, scheduler)
     ctrl._worker_role = "rollout"
-    ctrl.enable_npu_share_pool()
+    ctrl.enable_npu_share_pool(borrowed_replicas=training // tp)
     ctrl.workers = [Worker(id=f"rollout/{i}", ip="localhost") for i in range(replicas)]
     meta = WeightUpdateMeta.from_fsdp_xccl(
-        gen_allocation=ModelAllocation.from_str(f"vllm:d{replicas // 2}p1t{tp}")
+        gen_allocation=ModelAllocation.from_str(
+            f"vllm:d{(devices - training) // tp}p1t{tp}"
+        )
     )
     meta.npu_share_fixed = True
     await ctrl.init_weights_update_group(meta)
@@ -72,9 +88,9 @@ async def test_publication_joins_every_dedicated_instance_once(devices, tp):
         f"rollout/{i}" for i in ctrl.fixed_ranks
     ]
     assert [c.kwargs["xccl_group_ranks"] for c in calls] == [
-        [i] for i in range(replicas // 2)
+        [i] for i in range((devices - training) // tp)
     ]
-    assert meta.gen_allocation.world_size == devices // 2
+    assert meta.gen_allocation.world_size == devices - training
 
 
 def test_rebalance_reserves_actual_target_without_duplicate_execution():

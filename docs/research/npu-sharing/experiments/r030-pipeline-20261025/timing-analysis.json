@@ -1,0 +1,149 @@
+{
+  "workspace": "/root/areal-development/idle-pipeline-20261025/retry-1/comparison/20261025-120816-0700_code_fsdp_c16_b6_cf9177/repetitions/01",
+  "arms": {
+    "fixed": {
+      "loop_seconds": 461.57789635658264,
+      "initialization_seconds": 179.00865864753723,
+      "scopes": {
+        "train.rollout": 64.24248399999999,
+        "train.recompute_logp": 72.537466,
+        "train.compute_advantage": 13.435449,
+        "train.ppo_update": 292.15590299999997,
+        "train.save": 11.104527000000001,
+        "train.checkpoint": 0.000433,
+        "train.update_weights": 4.409962,
+        "train.eval": 0.001109,
+        "train.clear_batches": 0.14798899999999998,
+        "train.log_stats": 3.19834
+      },
+      "ppo_batches": [
+        {
+          "batch": 1,
+          "seconds": 47.858164
+        },
+        {
+          "batch": 2,
+          "seconds": 50.131887
+        },
+        {
+          "batch": 3,
+          "seconds": 48.348242
+        },
+        {
+          "batch": 4,
+          "seconds": 48.405349
+        },
+        {
+          "batch": 5,
+          "seconds": 49.49998
+        },
+        {
+          "batch": 6,
+          "seconds": 47.912281
+        }
+      ],
+      "mid_batch_switches": [],
+      "switch_seconds": 0,
+      "ppo_excluding_nested_switch_seconds": 292.15590299999997,
+      "upload_retries": 0,
+      "gradient_diagnostic_events": 0
+    },
+    "latest": {
+      "loop_seconds": 492.14670300483704,
+      "initialization_seconds": 324.5018513202667,
+      "scopes": {
+        "train.rollout": 57.913623,
+        "train.idle_state_single_to_multi": 14.169007,
+        "train.idle_switch_in": 31.343021,
+        "train.recompute_logp": 74.61050499999999,
+        "train.compute_advantage": 14.191532,
+        "train.ppo_update": 262.953701,
+        "train.idle_state_multi_to_single": 26.345297000000002,
+        "train.idle_switch_out": 33.69133000000001,
+        "train.save": 14.402913,
+        "train.checkpoint": 0.000663,
+        "train.update_weights": 5.016826,
+        "train.shared_memory_switch": 0.801065,
+        "train.background_publication": 20.681595,
+        "train.eval": 0.009680000000000001,
+        "train.clear_batches": 0.566047,
+        "train.log_stats": 0.560797,
+        "train.wait_previous_tail": 19.863856000000002
+      },
+      "ppo_batches": [
+        {
+          "batch": 1,
+          "seconds": 32.595291
+        },
+        {
+          "batch": 2,
+          "seconds": 50.176105
+        },
+        {
+          "batch": 3,
+          "seconds": 49.586648
+        },
+        {
+          "batch": 4,
+          "seconds": 49.334623
+        },
+        {
+          "batch": 5,
+          "seconds": 49.666121
+        },
+        {
+          "batch": 6,
+          "seconds": 31.594913
+        }
+      ],
+      "mid_batch_switches": [
+        {
+          "event": "idle_training_mid_batch_selected",
+          "time": 1792956926.1964495,
+          "pid": 1,
+          "batch": 2,
+          "consumed": 69,
+          "remaining": 187,
+          "consumed_microbatches": 26,
+          "switch_seconds": 6.640891181305051
+        },
+        {
+          "event": "idle_training_mid_batch_selected",
+          "time": 1792957003.5624127,
+          "pid": 1,
+          "batch": 3,
+          "consumed": 65,
+          "remaining": 191,
+          "consumed_microbatches": 26,
+          "switch_seconds": 6.719968451187015
+        },
+        {
+          "event": "idle_training_mid_batch_selected",
+          "time": 1792957080.5422814,
+          "pid": 1,
+          "batch": 4,
+          "consumed": 68,
+          "remaining": 188,
+          "consumed_microbatches": 26,
+          "switch_seconds": 6.442530773580074
+        },
+        {
+          "event": "idle_training_mid_batch_selected",
+          "time": 1792957156.3275876,
+          "pid": 1,
+          "batch": 5,
+          "consumed": 71,
+          "remaining": 185,
+          "consumed_microbatches": 28,
+          "switch_seconds": 6.6854042541235685
+        }
+      ],
+      "switch_seconds": 65.03532017022371,
+      "ppo_excluding_nested_switch_seconds": 236.46490633980432,
+      "upload_retries": 0,
+      "gradient_diagnostic_events": 0
+    }
+  },
+  "saved_seconds": -30.568806648254395,
+  "reduction_percent": -6.622675585106243
+}

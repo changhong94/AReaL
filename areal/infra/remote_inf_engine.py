@@ -95,6 +95,7 @@ class GroupedRolloutWorkflow(RolloutWorkflow):
             task_id=parent.task_id,
             group_size=self.group_size,
             processor_cache=shared_processor_cache,
+            generation_completion=parent.generation_completion,
         )
 
         async def run_sample(sample_idx: int) -> tuple[int, Any]:
@@ -105,6 +106,7 @@ class GroupedRolloutWorkflow(RolloutWorkflow):
                     sample_idx=sample_idx,
                     group_size=group_context.group_size,
                     processor_cache=shared_processor_cache,
+                    generation_completion=group_context.generation_completion,
                 )
             )
             result = await self.workflow.arun_episode(engine, data)

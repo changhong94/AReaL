@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Opt-in bounded KV handoff coordinator for a same-version TP=1 pair."""
+"""Opt-in bounded KV handoff coordinator for a same-version equal-TP pair."""
 
 import os
 import statistics
@@ -26,11 +26,38 @@ def rpc(address, action, data):
         return response.json()
 
 
+def pair_key(source, target):
+    return f"replica-{source}-to-{target}"
+
+
+def initialize_pairs(addresses, sources, targets):
+    """Warm directed fixed-to-borrowed channels in deterministic serial order."""
+    if (
+        not sources
+        or not targets
+        or len(set(sources)) != len(sources)
+        or len(set(targets)) != len(targets)
+        or set(sources) & set(targets)
+        or any(rank < 0 or rank >= len(addresses) for rank in [*sources, *targets])
+    ):
+        raise ValueError("KV peer sets must be distinct, nonempty valid replicas")
+    peers = {}
+    for source in sources:
+        for target in targets:
+            peers[source, target] = initialize_pair(addresses, source, target)
+    return peers
+
+
 def initialize_pair(addresses, source, target):
     from areal.utils.network import find_free_ports, gethostip
 
+    info = [rpc(addresses[rank], "info", {}) for rank in (source, target)]
+    if info[0] != info[1]:
+        raise RuntimeError("KV peer geometries differ")
+    width = info[0].get("tp_size", 1)
     data = dict(
-        init_method=f"tcp://{gethostip()}:{find_free_ports(1)[0]}",
+        pair_id=pair_key(source, target),
+        init_methods=[f"tcp://{gethostip()}:{port}" for port in find_free_ports(width)],
         group_name="areal-kv-" + uuid.uuid4().hex,
     )
     with ThreadPoolExecutor(max_workers=2) as executor:
@@ -108,14 +135,17 @@ def rebalance(controller, version, route, engines, overhead, source, target):
             history = getattr(controller, "_kv_" + key, ())
             if history:
                 aggressive[key] = statistics.median(history)
-    geometry = controller._kv_peer_geometry
-    block_tokens = controller._kv_block_tokens
+    geometry = controller._kv_peers[source, target]
+    block_tokens = geometry["block_tokens"]
     cost = KVTransferCost(
-        geometry["tensors"] * geometry["block_bytes"] // block_tokens,
+        geometry["tensors"]
+        * geometry["block_bytes"]
+        * geometry.get("tp_size", 1)
+        // block_tokens,
         block_tokens,
         observed,
         0.0,
-        64 * 1024**2,
+        64 * 1024**2 * geometry.get("tp_size", 1),
         0.0,
     )
     started = time.monotonic()
@@ -135,7 +165,7 @@ def rebalance(controller, version, route, engines, overhead, source, target):
         aggressive=aggressive,
     )
     # Require a margin above planning and snapshot cost; make at most one bounded
-    # transaction per recovery. No periodic scans of a balanced pair.
+    # transaction per pair in a serialized recovery sweep. No periodic balanced scans.
     margin = 0.005 if aggressive else max(0.25, observed * 2)
     if (
         plan["selected"]
@@ -153,9 +183,13 @@ def rebalance(controller, version, route, engines, overhead, source, target):
         if reason and plan["selected"]:
             plan.update(rejected_candidate=plan["selected"], selected=[], reason=reason)
     chosen = [x for x in plan["selected"] if x["method"] == "kv"]
-    request_trace.emit("kv_rebalance_plan", version=version, **plan)
+    request_trace.emit(
+        "kv_rebalance_plan", version=version, source=source, target=target, **plan
+    )
     request_trace.emit(
         "kv_rebalance_snapshot",
+        source=source,
+        target=target,
         version=version,
         route=route,
         engines=engines,
@@ -213,7 +247,22 @@ def rebalance(controller, version, route, engines, overhead, source, target):
                 ):
                     return
                 time.sleep(0.002)
-            transfer = dict(data, bytes=exported["bytes"], geometry=geometry)
+            transfer = dict(
+                data,
+                bytes=exported["bytes"],
+                geometry=geometry,
+                pair_id=pair_key(source, target),
+            )
+            # No rank enters HCCL until both replicas have staged every shard.
+            preparation = []
+            for rank in (source, target):
+                preparation.append(
+                    rpc(
+                        pool.addresses[rank],
+                        "prepare_transfer",
+                        dict(transfer, source=rank == source),
+                    )
+                )
             with ThreadPoolExecutor(max_workers=2) as executor:
                 jobs = [
                     executor.submit(
@@ -237,13 +286,15 @@ def rebalance(controller, version, route, engines, overhead, source, target):
             )
             stage_samples.append(time.monotonic() - stage_started)
             source_stalls.append(
-                exported.get("worker_s", exported.get("pack_s", 0.0))
+                preparation[0].get("worker_s", 0.0)
+                + exported.get("worker_s", exported.get("pack_s", 0.0))
                 + transfer_results[0].get(
                     "worker_s", transfer_results[0].get("transfer_s", 0.0)
                 )
             )
             target_stalls.append(
-                transfer_results[1].get(
+                preparation[1].get("worker_s", 0.0)
+                + transfer_results[1].get(
                     "worker_s", transfer_results[1].get("transfer_s", 0.0)
                 )
             )
@@ -300,6 +351,9 @@ def rebalance(controller, version, route, engines, overhead, source, target):
                 setattr(controller, "_kv_" + key, history)
         request_trace.emit(
             "kv_rebalance_handoff",
+            source=source,
+            target=target,
+            pair_id=pair_key(source, target),
             request_ids=list(reservation),
             seconds=elapsed,
             policy=policy,
@@ -344,3 +398,175 @@ def rebalance(controller, version, route, engines, overhead, source, target):
             with pool.lock:
                 pool.error = "KV cleanup failed: " + ",".join(cleanup_errors)
             raise RuntimeError(pool.error)
+
+
+def evacuate_retained(controller):
+    """Mandatory R027 evacuation, distinct from economically selected R001 moves.
+
+    A single request is staged at a time. Source pause/backups remain intact until
+    abort acknowledgement; target import is observed before staging the next.
+    Different versions and unsupported requests use token-prefix replay.
+    """
+    pool = controller._request_pool
+    timeout = controller.config.request_timeout
+    with requests.Session() as session:
+        session.trust_env = False
+        for source in controller.borrowed_ranks:
+            leases = pool.force_prefix_evacuation(source, list(controller.fixed_ranks))
+            progress = session.post(
+                f"http://{pool.addresses[source]}/areal_generation_progress",
+                json={"include_internal_ids": True},
+                timeout=timeout,
+            )
+            progress.raise_for_status()
+            # Registry keys are native attempt IDs, exposed as internal_id below.
+            native = progress.json()["internal_ids"]
+            request_trace.emit(
+                "retained_evacuation_begin",
+                source=source,
+                request_ids=[r["request_id"] for r in leases],
+                economic_filter=False,
+            )
+            for lease in leases:
+                rid = lease["request_id"]
+                targets = [
+                    r
+                    for r in controller.fixed_ranks
+                    if pool.ready[r]
+                    and r not in pool.closing
+                    and pool.versions[r] == lease["version"]
+                    and (source, r) in getattr(controller, "_kv_peers", {})
+                ]
+                if not targets or not native.get(rid):
+                    request_trace.emit(
+                        "retained_evacuation_fallback",
+                        request_id=rid,
+                        reason="no_same_version_peer_or_native_request",
+                        transport="prefix_replay",
+                    )
+                    continue
+                target = min(targets, key=lambda r: len(pool.active_requests(r)))
+                data = dict(
+                    ticket=uuid.uuid4().hex,
+                    request_id=native[rid],
+                    retained_source=True,
+                )
+                submitted = False
+                pool.pin_retained_kv(lease, target)
+                try:
+                    exported = rpc(pool.addresses[source], "export", data)
+                    if "skipped" in exported:
+                        request_trace.emit(
+                            "retained_evacuation_fallback",
+                            request_id=rid,
+                            reason=exported["skipped"],
+                            transport="prefix_replay",
+                        )
+                        continue
+                    transfer = dict(
+                        ticket=data["ticket"],
+                        bytes=exported["bytes"],
+                        geometry=controller._kv_peers[source, target],
+                        pair_id=pair_key(source, target),
+                        retained_transaction=True,
+                    )
+                    preparation = [
+                        rpc(
+                            pool.addresses[rank],
+                            "prepare_transfer",
+                            dict(
+                                transfer,
+                                source=rank == source,
+                                retained_source=rank == source,
+                            ),
+                        )
+                        for rank in (source, target)
+                    ]
+                    if any("rejected" in result for result in preparation):
+                        request_trace.emit(
+                            "retained_evacuation_fallback",
+                            request_id=rid,
+                            reason="target_staging_budget",
+                            transport="prefix_replay",
+                        )
+                        continue
+                    with ThreadPoolExecutor(max_workers=2) as executor:
+                        jobs = [
+                            executor.submit(
+                                rpc,
+                                pool.addresses[rank],
+                                "transfer",
+                                dict(
+                                    transfer,
+                                    source=rank == source,
+                                    retained_source=rank == source,
+                                ),
+                            )
+                            for rank in (source, target)
+                        ]
+                        for job in jobs:
+                            job.result()
+                    rpc(
+                        pool.addresses[target],
+                        "register",
+                        dict(
+                            exported,
+                            ticket=data["ticket"],
+                            external_id=rid,
+                            version=lease["version"],
+                        ),
+                    )
+                    submitted = True
+                    response = session.post(
+                        f"http://{pool.addresses[source]}/areal_evacuate_retained",
+                        json=dict(internal_ids=[data["request_id"]]),
+                        timeout=timeout,
+                    )
+                    response.raise_for_status()
+                    if response.json()["aborted"] != [data["request_id"]]:
+                        raise RuntimeError("Retained source abort was not acknowledged")
+                    deadline = time.monotonic() + timeout
+                    while True:
+                        report = rpc(pool.addresses[target], "import_status", {})[
+                            "results"
+                        ].get(data["ticket"])
+                        if report is not None:
+                            pool.complete_retained_kv(lease)
+                            request_trace.emit(
+                                "retained_evacuation_import",
+                                request_id=rid,
+                                source=source,
+                                target=target,
+                                version=lease["version"],
+                                import_report=report,
+                            )
+                            break
+                        if time.monotonic() >= deadline:
+                            raise TimeoutError(
+                                "Retained KV continuation was not acknowledged"
+                            )
+                        time.sleep(0.02)
+                except Exception as exc:
+                    with pool.lock:
+                        pool.error = "Retained evacuation failed: " + type(exc).__name__
+                    raise
+                finally:
+                    # Never invalidate target staging after ownership has moved.
+                    if not submitted:
+                        pool.cancel_retained_kv(lease, list(controller.fixed_ranks))
+                        rpc(pool.addresses[target], "discard", data)
+                    rpc(pool.addresses[source], "discard", data)
+                    rpc(pool.addresses[source], "unfreeze", data)
+            response = session.post(
+                f"http://{pool.addresses[source]}/areal_evacuate_retained",
+                json={},
+                timeout=timeout,
+            )
+            response.raise_for_status()
+            pool.wait_empty(source, timeout=timeout)
+            request_trace.emit(
+                "retained_evacuation_complete",
+                source=source,
+                released_source_leases=len(leases),
+                remaining=0,
+            )

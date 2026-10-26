@@ -1,0 +1,190 @@
+[
+  {
+    "variant": "idle-direct-20261023",
+    "workspace": "/root/areal-development/idle-direct-20261023/comparison/20261023-235528-0700_code_fsdp_c16_b6_771a75/repetitions/01",
+    "loop_seconds": {
+      "fixed": 472.07406854629517,
+      "latest": 487.01895689964294
+    },
+    "reduction_percent": -3.1657931136461315,
+    "switch_seconds": 33.82758578658104,
+    "tokens": {
+      "fixed": 372574,
+      "latest": 360932
+    },
+    "phases": {
+      "fixed": {
+        "train.rollout": 68.82924899999999,
+        "train.recompute_logp": 72.157324,
+        "train.compute_advantage": 14.047518,
+        "train.ppo_update": 297.69523100000004,
+        "train.save": 10.543342,
+        "train.checkpoint": 0.000341,
+        "train.update_weights": 4.407974,
+        "train.eval": 0.00107,
+        "train.clear_batches": 0.150623,
+        "train.log_stats": 3.333968
+      },
+      "latest": {
+        "train.rollout": 55.093889999999995,
+        "train.idle_state_single_to_multi": 12.089120999999999,
+        "train.idle_switch_in": 12.542883,
+        "train.recompute_logp": 73.097641,
+        "train.compute_advantage": 13.205829,
+        "train.ppo_update": 269.04122700000005,
+        "train.idle_state_multi_to_single": 19.908381,
+        "train.idle_switch_out": 21.284461,
+        "train.save": 14.198269,
+        "train.checkpoint": 0.000892,
+        "train.update_weights": 18.956813,
+        "train.shared_memory_switch": 0.180043,
+        "train.background_publication": 7.025649999999999,
+        "train.eval": 0.001107,
+        "train.clear_batches": 0.34640299999999996,
+        "train.log_stats": 0.432178,
+        "train.wait_previous_tail": 7.368145999999999
+      }
+    }
+  },
+  {
+    "variant": "idle-overlap-20261024",
+    "workspace": "/root/areal-development/idle-overlap-20261024/comparison/20261024-012354-0700_code_fsdp_c16_b6_8c4a50/repetitions/01",
+    "loop_seconds": {
+      "fixed": 457.7740800380707,
+      "latest": 470.64661383628845
+    },
+    "reduction_percent": -2.8119839806454827,
+    "switch_seconds": 20.41390274465084,
+    "tokens": {
+      "fixed": 357213,
+      "latest": 361736
+    },
+    "phases": {
+      "fixed": {
+        "train.rollout": 66.731952,
+        "train.recompute_logp": 70.047042,
+        "train.compute_advantage": 13.258873999999999,
+        "train.ppo_update": 288.42258100000004,
+        "train.save": 11.232477,
+        "train.checkpoint": 0.000395,
+        "train.update_weights": 4.3175740000000005,
+        "train.eval": 0.001106,
+        "train.clear_batches": 0.148701,
+        "train.log_stats": 3.254141
+      },
+      "latest": {
+        "train.rollout": 58.35387,
+        "train.idle_state_single_to_multi": 6.708598,
+        "train.idle_switch_in": 7.162039,
+        "train.recompute_logp": 72.362368,
+        "train.compute_advantage": 13.588474000000001,
+        "train.ppo_update": 266.89475,
+        "train.idle_state_multi_to_single": 11.935299,
+        "train.idle_switch_out": 13.251666,
+        "train.save": 11.907395,
+        "train.checkpoint": 0.000469,
+        "train.update_weights": 16.276829,
+        "train.shared_memory_switch": 0.173199,
+        "train.background_publication": 6.819728,
+        "train.eval": 0.001109,
+        "train.clear_batches": 1.466002,
+        "train.log_stats": 0.42778299999999997,
+        "train.wait_previous_tail": 8.501213
+      }
+    }
+  },
+  {
+    "variant": "idle-directcopy-20261024",
+    "workspace": "/root/areal-development/idle-directcopy-20261024/comparison/20261024-022815-0700_code_fsdp_c16_b6_2b4739/repetitions/01",
+    "loop_seconds": {
+      "fixed": 459.49821734428406,
+      "latest": 468.16641902923584
+    },
+    "reduction_percent": -1.8864494698261236,
+    "switch_seconds": 20.689383279532194,
+    "tokens": {
+      "fixed": 361214,
+      "latest": 356513
+    },
+    "phases": {
+      "fixed": {
+        "train.rollout": 63.21261799999999,
+        "train.recompute_logp": 70.765023,
+        "train.compute_advantage": 13.002874,
+        "train.ppo_update": 292.79680599999995,
+        "train.save": 11.571452,
+        "train.checkpoint": 0.000402,
+        "train.update_weights": 4.4105550000000004,
+        "train.eval": 0.001144,
+        "train.clear_batches": 0.15176999999999996,
+        "train.log_stats": 3.243557
+      },
+      "latest": {
+        "train.rollout": 58.410022,
+        "train.idle_state_single_to_multi": 5.9032219999999995,
+        "train.idle_switch_in": 6.362183,
+        "train.recompute_logp": 72.179815,
+        "train.compute_advantage": 13.341644000000002,
+        "train.ppo_update": 265.26890499999996,
+        "train.idle_state_multi_to_single": 13.109069000000002,
+        "train.idle_switch_out": 14.327002,
+        "train.save": 15.611751,
+        "train.checkpoint": 0.000641,
+        "train.update_weights": 10.195743,
+        "train.shared_memory_switch": 0.175879,
+        "train.background_publication": 7.159453,
+        "train.eval": 0.0023089999999999994,
+        "train.clear_batches": 2.053611,
+        "train.log_stats": 0.553582,
+        "train.wait_previous_tail": 9.537163000000001
+      }
+    }
+  },
+  {
+    "variant": "idle-publish-overlap-20261024",
+    "workspace": "/root/areal-development/idle-publish-overlap-20261024/comparison/20261024-033428-0700_code_fsdp_c16_b6_ee1b57/repetitions/01",
+    "loop_seconds": {
+      "fixed": 462.2390503883362,
+      "latest": 462.56399369239807
+    },
+    "reduction_percent": -0.07029767471806725,
+    "switch_seconds": 21.17196668870747,
+    "tokens": {
+      "fixed": 356520,
+      "latest": 358695
+    },
+    "phases": {
+      "fixed": {
+        "train.rollout": 65.592771,
+        "train.recompute_logp": 71.30834999999999,
+        "train.compute_advantage": 13.022354000000002,
+        "train.ppo_update": 291.92526200000003,
+        "train.save": 11.050768999999999,
+        "train.checkpoint": 0.00041300000000000006,
+        "train.update_weights": 4.35083,
+        "train.eval": 0.0011020000000000001,
+        "train.clear_batches": 0.149444,
+        "train.log_stats": 3.230564
+      },
+      "latest": {
+        "train.rollout": 57.95438300000001,
+        "train.idle_state_single_to_multi": 7.351136,
+        "train.idle_switch_in": 7.8030349999999995,
+        "train.recompute_logp": 71.370931,
+        "train.compute_advantage": 13.82333,
+        "train.ppo_update": 263.026324,
+        "train.idle_state_multi_to_single": 12.189577,
+        "train.idle_switch_out": 13.368745,
+        "train.save": 15.041302,
+        "train.checkpoint": 0.0006360000000000001,
+        "train.update_weights": 4.348023,
+        "train.shared_memory_switch": 0.167238,
+        "train.background_publication": 6.4882349999999995,
+        "train.eval": 0.001172,
+        "train.clear_batches": 4.996955,
+        "train.log_stats": 0.496726,
+        "train.wait_previous_tail": 13.482099
+      }
+    }
+  }
+]

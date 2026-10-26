@@ -1,0 +1,20 @@
+{
+  "time": 1792846098.6820345,
+  "phase": "complete",
+  "completed": [
+    {
+      "phase": "correctness",
+      "workspace": "/root/areal-development/idle-export-prewarm-20261024/correctness/20261024-044652-0700_code_fsdp_c16_b2_fea9b1/repetitions/01",
+      "selections": 2,
+      "verified_imports": 6
+    },
+    {
+      "phase": "comparison",
+      "workspace": "/root/areal-development/idle-export-prewarm-20261024/comparison/20261024-051310-0700_code_fsdp_c16_b6_34b69c/repetitions/01",
+      "selections": 2,
+      "verified_imports": 6
+    }
+  ],
+  "error": null,
+  "busy_running": true
+}

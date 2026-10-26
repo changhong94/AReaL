@@ -40,7 +40,9 @@ extern "C" {
 size_t dkv_granularity(int device) { return granularity(device); }
 int dkv_error() { return last_error; }
 int dkv_copy(uintptr_t dst, uintptr_t src, size_t size, int kind) {
-  if (kind != ACL_MEMCPY_HOST_TO_DEVICE && kind != ACL_MEMCPY_DEVICE_TO_HOST) return -1;
+  if (kind != ACL_MEMCPY_HOST_TO_DEVICE && kind != ACL_MEMCPY_DEVICE_TO_HOST
+      && kind != ACL_MEMCPY_DEVICE_TO_DEVICE)
+    return -1;
   return aclrtMemcpy(reinterpret_cast<void *>(dst), size, reinterpret_cast<void *>(src), size,
                      static_cast<aclrtMemcpyKind>(kind));
 }

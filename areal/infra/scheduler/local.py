@@ -1680,8 +1680,18 @@ class LocalScheduler(Scheduler):
         # Standard engine method call
         url = f"http://{format_hostport(worker_info.worker.ip, port)}/call"
         # Serialize args and kwargs
+        save_started = time.monotonic()
         serialized_args = serialize_value(list(args))
         serialized_kwargs = serialize_value(kwargs)
+        if method == "save_async":
+            from areal.utils import request_trace
+
+            request_trace.emit(
+                "hf_save_detail_end",
+                stage="controller_serialize",
+                worker=worker_id,
+                seconds=time.monotonic() - save_started,
+            )
         payload = {
             "method": method,
             "engine_name": engine_name,

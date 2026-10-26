@@ -141,3 +141,76 @@ def test_live_unpaused_budget_is_rejected():
     pool.reconcile({8})
     with pytest.raises(RuntimeError, match="preserved-paused"):
         pool.set_budget(96)
+
+
+def test_retained_export_mixed_hbm_dram_preserves_bytes_and_mappings():
+    import ctypes
+
+    page = 16
+    buffers = [ctypes.create_string_buffer(bytes(range(i, i + 80))) for i in (0, 80)]
+
+    class CopyBackend(Backend):
+        def copy_to_device(self, dst, src, size, *, host):
+            self.events.append(("copy", host))
+            ctypes.memmove(dst, src, size)
+
+    backend = CopyBackend()
+    # Use aligned storage, as required by the production allocator.
+    storage = [ctypes.create_string_buffer(128) for _ in buffers]
+    addresses = [(ctypes.addressof(b) + page - 1) // page * page for b in storage]
+    for address, content in zip(addresses, buffers, strict=True):
+        ctypes.memmove(address, content, 80)
+    tensors = [SimpleNamespace(data_ptr=lambda a=a: a) for a in addresses]
+    pool = SparseKVPages(backend, tensors, 4, 20, 0)
+    pool.reconcile({1, 5, 6})
+    pool.pause_preserved()
+    backups = [
+        ctypes.create_string_buffer(ctypes.string_at(a + page, page)) for a in addresses
+    ]
+    pool.swapped[1] = [
+        SimpleNamespace(data_ptr=lambda b=b: ctypes.addressof(b)) for b in backups
+    ]
+    pool.mapped.remove(1)
+    # Poison unmapped memory: reading tensor views would give incorrect bytes.
+    for address in addresses:
+        ctypes.memset(address + page, 255, page)
+    destination = ctypes.create_string_buffer(24)
+    mapped, live = set(pool.mapped), set(pool.live)
+    pool.copy_retained_blocks([6, 1, 5], ctypes.addressof(destination))
+    expected = b"".join(
+        bytes(range(base + block * 4, base + block * 4 + 4))
+        for base in (0, 80)
+        for block in (6, 1, 5)
+    )
+    assert destination.raw == expected
+    assert pool.mapped == mapped and pool.live == live and pool.paused
+    assert len(pool.swapped) == 1
+    assert [e for e in backend.events if isinstance(e, tuple) and e[0] == "copy"] == [
+        ("copy", True),
+        ("copy", False),
+        ("copy", True),
+    ] * 2
+
+
+def test_retained_export_rejects_unpaused_or_missing_backing_before_copy():
+    backend, pool = make()
+    with pytest.raises(RuntimeError, match="pause"):
+        pool.copy_retained_blocks([1], 0)
+    pool.reconcile({5})
+    pool.pause_preserved()
+    pool.mapped.remove(1)
+    with pytest.raises(RuntimeError, match="backing"):
+        pool.copy_retained_blocks([5], 0)
+    assert pool.paused
+
+
+def test_reclaim_succeeds_below_reserve_without_new_mapping():
+    backend, pool = make(keep_idle_pages=0)
+    pool.reconcile({4, 8})
+    backend.free = 0
+    backend.events.clear()
+    pool.reconcile({0}, trim=True)
+    assert pool.mapped == {0}
+    assert pool.live == {0}
+    assert not pool.broken
+    assert not any(isinstance(e, tuple) and e[0] == "map" for e in backend.events)

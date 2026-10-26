@@ -222,3 +222,36 @@ def test_training_ready_includes_executor_tail_and_excludes_idle(monkeypatch):
     c._batch_publish_seconds = 1.5
     c.record_training_ready(2.5, idle_seconds=5.0)
     assert c._batch_handoffs == [5.0]  # Includes the additional one-second tail.
+
+
+def test_publication_cycles_reset_handoff_even_without_drain(monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    from areal.infra.controller.rollout_controller import RolloutController
+
+    monkeypatch.setenv("AREAL_BATCH_DRAIN_METRICS", "1")
+    now = [0.0]
+    monkeypatch.setattr(
+        "areal.infra.controller.rollout_controller.time.monotonic", lambda: now[0]
+    )
+    c = object.__new__(RolloutController)
+    c._borrowed_pool = Mock()
+    c._request_pool = None
+    c._borrowed_replica_count = 1
+    c.rollout_alloc = SimpleNamespace(parallel=SimpleNamespace(dp_size=2))
+    c.wait_shared_publication = Mock()
+    c.wait_running_rebalance = Mock()
+    c._group_rpc = Mock()
+    c._pool_event = Mock()
+    c.get_version = Mock(return_value=1)
+    c.config = SimpleNamespace()
+    for start in [10.0, 30.0, 50.0]:
+        now[0] = start
+        c.prepare_fixed_publication()
+        assert c._batch_transition_started == start
+        c._batch_publish_seconds = 1.5
+        now[0] += 4.0
+        c.record_training_ready(1.0, idle_seconds=1.0)
+        assert c._batch_transition_started is None
+    assert c._batch_handoffs == [3.0, 3.0, 3.0]

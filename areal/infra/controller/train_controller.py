@@ -696,6 +696,22 @@ class TrainController:
         """
         self._custom_function_call("save", meta)
 
+    def save_async(self, meta: SaveLoadMeta):
+        """Stage model state on workers; return before CPU serialization completes."""
+        from dataclasses import replace
+
+        from areal.engine.async_hf_save import capture_save_assets, save_timing
+
+        # Preserve the caller's exact metadata without per-rank tokenizer reload.
+        assets = capture_save_assets(meta.tokenizer, meta.processor)
+        lightweight = replace(meta, tokenizer=None, processor=None)
+        with save_timing("controller_rpc", path=meta.path):
+            self._custom_function_call("save_async", lightweight, assets=assets)
+
+    def wait_async_save(self, finalize=False):
+        """Join asynchronous worker writes and surface failures."""
+        self._custom_function_call("wait_async_save", finalize=finalize)
+
     def load(self, meta: SaveLoadMeta):
         """Load model weights and optimizer states from a file.
 
@@ -721,6 +737,15 @@ class TrainController:
 
     def wait_shared_snapshot(self, version: int):
         self._custom_function_call("wait_shared_snapshot", version=version)
+
+    def idle_handoff(self, action: str, path: str | None = None) -> list[dict]:
+        """Run rank-local handoff work, joining every rank only at completion."""
+        dp_args, dp_kwargs, _ = self._replicate_inputs(action, path)
+        return run_async_task(self._call_workers, "idle_handoff", dp_args, dp_kwargs)
+
+    def idle_training_state(self, action: str, path: str | None = None) -> dict:
+        """Transfer model, optimizer and progress across preinitialized DP engines."""
+        return self._custom_function_call("idle_training_state", action, path)
 
     def offload(self) -> None:
         """Offload model parameters to CPU across all train workers."""

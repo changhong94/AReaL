@@ -1,0 +1,20 @@
+{
+  "time": 1792832328.116257,
+  "phase": "complete",
+  "completed": [
+    {
+      "phase": "correctness",
+      "workspace": "/root/areal-development/idle-overlap-20261024/correctness/20261024-005700-0700_code_fsdp_c16_b2_59b9b3/repetitions/01",
+      "selections": 2,
+      "verified_imports": 6
+    },
+    {
+      "phase": "comparison",
+      "workspace": "/root/areal-development/idle-overlap-20261024/comparison/20261024-012354-0700_code_fsdp_c16_b6_8c4a50/repetitions/01",
+      "selections": 2,
+      "verified_imports": 6
+    }
+  ],
+  "error": null,
+  "busy_running": true
+}

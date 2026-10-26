@@ -270,3 +270,86 @@ def test_handoff_failure_prevents_native_pause(monkeypatch):
     with pytest.raises(RuntimeError, match="Handoff failed"):
         controller.borrow_for_training()
     controller._worker_rpc.assert_not_called()
+
+
+def test_multi_pair_sweep_is_serial_and_training_waits_for_the_last_pair(monkeypatch):
+    """A recovery sweep cannot overlap another sweep or a training transition."""
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    monkeypatch.setenv("AREAL_QUEUE_REBALANCE", "1")
+    monkeypatch.setenv("AREAL_BATCH_DRAIN_METRICS", "1")
+    monkeypatch.setenv("AREAL_RUNNING_REBALANCE", "kv")
+    controller = object.__new__(RolloutController)
+    controller.rollout_alloc = ModelAllocation.from_str("vllm:d4p1t1")
+    at_last, release, waiter_started = Event(), Event(), Event()
+    calls = []
+
+    def pair(version, source, target):
+        calls.append((source, target))
+        if (source, target) == (3, 1):
+            at_last.set()
+            assert release.wait(5)
+
+    controller._rebalance_pair = pair
+
+    def transition():
+        waiter_started.set()
+        controller.wait_running_rebalance()
+
+    with (
+        ThreadPoolExecutor(max_workers=1) as sweep,
+        ThreadPoolExecutor(max_workers=1) as waiter,
+    ):
+        monkeypatch.setattr(
+            "areal.infra.controller.rollout_controller.get_executor",
+            lambda *args, **kwargs: sweep,
+        )
+        try:
+            controller._schedule_queue_rebalance(1)
+            assert at_last.wait(5)
+            first = controller._queue_rebalance_future
+            controller._schedule_queue_rebalance(1)
+            assert controller._queue_rebalance_future is first
+            pending = waiter.submit(transition)
+            assert waiter_started.wait(5)
+            assert not pending.done()
+        finally:
+            release.set()
+        pending.result(timeout=5)
+    assert calls == [(2, 0), (3, 0), (2, 1), (3, 1)]
+
+
+@pytest.mark.parametrize("total,borrowed", [(3, 1), (4, 1), (6, 2), (4, 3)])
+def test_unequal_groups_route_and_withdraw(total, borrowed):
+    pool = BorrowedRolloutPool(
+        16, replicas_per_group=borrowed, fixed_replicas=total - borrowed
+    )
+    assert {pool.choose(0)[0] for _ in range(total)} == set(range(total))
+    assert {pool.choose(15)[0] for _ in range(total)} == set(range(borrowed, total))
+    controller = RolloutController(
+        Mock, InferenceEngineConfig(backend=f"vllm:d{total}p1t1"), Mock()
+    )
+    controller.enable_npu_share_pool(borrowed_replicas=borrowed)
+    assert controller.borrowed_ranks == tuple(range(borrowed))
+    assert controller.fixed_ranks == tuple(range(borrowed, total))
+    from areal.infra.rolling_drain import RollingBatchCalibration
+
+    calibration = RollingBatchCalibration(replicas=total, borrowed_replicas=borrowed)
+    assert calibration.borrowed == set(controller.borrowed_ranks)
+    assert calibration.fixed == controller.fixed_ranks
+
+
+def test_choose_prefers_available_worker_over_full_worker():
+    pool = BorrowedRolloutPool(batch_size=32)
+    assert pool.choose(0, {0: 16, 1: 15})[0] == 1
+    assert pool.choose(0, {0: 0, 1: 16})[0] == 0
+    # A withdrawn worker is ineligible even when it has no generation load.
+    rank, withdrawn = pool.choose(31, {0: 0, 1: 16})
+    assert rank == 1
+    assert withdrawn
+
+
+def test_choose_balances_multiple_fixed_workers_after_withdrawal():
+    pool = BorrowedRolloutPool(batch_size=32, replicas_per_group=2, fixed_replicas=2)
+    assert pool.choose(31, {0: 0, 1: 0, 2: 8, 3: 3})[0] == 3

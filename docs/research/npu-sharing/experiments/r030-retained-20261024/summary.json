@@ -1,0 +1,54 @@
+{
+  "correctness": {
+    "workspace": "/root/areal-development/idle-retained-v2-20261024/correctness/20261024-151511-0700_code_fsdp_c16_b3_d082c6/repetitions/01",
+    "summary": {
+      "loop_seconds": null,
+      "reduction_percent": null,
+      "token_audit": null
+    },
+    "arms": {
+      "fixed": {
+        "switch_seconds": 0,
+        "upload_retries": 0,
+        "verified_imports": 0
+      },
+      "latest": {
+        "switch_seconds": 270.11521328240633,
+        "upload_retries": 0,
+        "verified_imports": 9
+      }
+    }
+  },
+  "comparison": {
+    "workspace": "/root/areal-development/idle-retained-v2-20261024/comparison/20261024-153837-0700_code_fsdp_c16_b6_66760f/repetitions/01",
+    "summary": {
+      "loop_seconds": {
+        "fixed": 456.48073291778564,
+        "latest": 484.17151045799255
+      },
+      "reduction_percent": -6.066143769795018,
+      "token_audit": {
+        "fixed": {
+          "reconstructed": 360984,
+          "reported": 361000
+        },
+        "latest": {
+          "reconstructed": 364028,
+          "reported": 364037
+        }
+      }
+    },
+    "arms": {
+      "fixed": {
+        "switch_seconds": 0,
+        "upload_retries": 0,
+        "verified_imports": 0
+      },
+      "latest": {
+        "switch_seconds": 62.51845084875822,
+        "upload_retries": 0,
+        "verified_imports": 18
+      }
+    }
+  }
+}

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import aiohttp
 import httpx
 
+from areal.infra.generation_admission import GenerationCompletion
 from areal.infra.processor_cache import ProcessorCallCache
 from areal.infra.utils.concurrent import register_loop_cleanup
 from areal.infra.utils.http import (
@@ -40,6 +41,8 @@ class WorkflowContext:
         Number of samples in the current rollout group.
     processor_cache : ProcessorCallCache | None
         Group-scoped cache shared by candidate workflows in the same process.
+    generation_completion : GenerationCompletion | None
+        Optional group coordinator for explicit terminal generation signals.
     """
 
     is_eval: bool = False
@@ -47,6 +50,7 @@ class WorkflowContext:
     sample_idx: int | None = None
     group_size: int = 1
     processor_cache: ProcessorCallCache | None = None
+    generation_completion: GenerationCompletion | None = None
 
 
 _current_context: ContextVar[WorkflowContext] = ContextVar(
@@ -62,6 +66,17 @@ def set(ctx: WorkflowContext) -> None:
 def get() -> WorkflowContext:
     """Get the current workflow context."""
     return _current_context.get()
+
+
+async def notify_generation_complete() -> None:
+    """Declare that this sample will make no more model-generation calls.
+
+    Only workflows with a known terminal generation boundary should call this.
+    Workflows without a coordinator retain their original admission behavior.
+    """
+    ctx = get()
+    if ctx.generation_completion is not None:
+        await ctx.generation_completion.notify(ctx.sample_idx)
 
 
 def stat_scope() -> str:

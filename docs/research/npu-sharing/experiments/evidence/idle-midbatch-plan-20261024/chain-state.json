@@ -1,0 +1,20 @@
+{
+  "time": 1792876443.7681386,
+  "phase": "complete",
+  "completed": [
+    {
+      "phase": "correctness",
+      "workspace": "/root/areal-development/idle-midbatch-plan-v2-20261024/correctness/20261024-131526-0700_code_fsdp_c16_b3_56cf39/repetitions/01",
+      "selections": 2,
+      "verified_imports": 9
+    },
+    {
+      "phase": "comparison",
+      "workspace": "/root/areal-development/idle-midbatch-plan-v2-20261024/comparison/20261024-133821-0700_code_fsdp_c16_b6_53cd47/repetitions/01",
+      "selections": 2,
+      "verified_imports": 18
+    }
+  ],
+  "error": null,
+  "busy_running": true
+}

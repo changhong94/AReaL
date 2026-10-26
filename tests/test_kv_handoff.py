@@ -149,3 +149,80 @@ def test_runtime_vendor_scheduler_override_is_frozen(classes):
     assert scheduler.schedule() == []
     assert scheduler.running == [request]
     assert scheduler.max_num_running_reqs == 4
+
+
+@pytest.mark.parametrize("width", [1, 2, 4])
+def test_tp_acknowledgements_sum_bytes_and_take_slowest_rank(width):
+    from areal.engine.vllm_ext.kv_handoff import aggregate_worker_results
+
+    rows = [
+        dict(
+            tp_size=width,
+            tp_rank=i,
+            tensors=2,
+            block_bytes=128,
+            block_tokens=16,
+            bytes=256,
+            worker_s=0.1 * (i + 1),
+        )
+        for i in range(width)
+    ]
+    result = aggregate_worker_results(rows)
+    assert result["bytes"] == 256 * width
+    assert result["worker_s"] == 0.1 * width
+    assert "tp_rank" not in result
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        [dict(tp_size=2, tp_rank=0)],
+        [
+            dict(tp_size=2, tp_rank=0, model_layout="a"),
+            dict(tp_size=2, tp_rank=1, model_layout="b"),
+        ],
+        [dict(tp_size=2, tp_rank=0), dict(tp_size=2, tp_rank=0)],
+        [
+            dict(tp_size=2, tp_rank=0, block_bytes=128),
+            dict(tp_size=2, tp_rank=1, block_bytes=256),
+        ],
+    ],
+)
+def test_tp_partial_duplicate_or_incompatible_ack_is_rejected(rows):
+    from areal.engine.vllm_ext.kv_handoff import aggregate_worker_results
+
+    with pytest.raises(RuntimeError):
+        aggregate_worker_results(rows)
+
+
+def test_multi_peer_transfer_selects_the_correct_group_and_direction():
+    """Multiple donors must not overwrite each other's receive channels."""
+    from areal.engine.vllm_ext.kv_handoff import transfer_group
+
+    first, second = object(), object()
+    worker = SimpleNamespace(
+        _areal_kv_groups={
+            "a-to-c": dict(group=first, source=False),
+            "b-to-c": dict(group=second, source=False),
+        }
+    )
+    assert transfer_group(worker, dict(pair_id="a-to-c", source=False)) is first
+    assert transfer_group(worker, dict(pair_id="b-to-c", source=False)) is second
+    for data in [
+        dict(pair_id="missing", source=False),
+        dict(pair_id="a-to-c", source=True),
+    ]:
+        with pytest.raises(ValueError, match="peer|direction"):
+            transfer_group(worker, data)
+
+
+def test_one_tp_member_rejecting_staging_blocks_collective_transfer():
+    from areal.engine.vllm_ext.kv_handoff import aggregate_worker_results
+
+    result = aggregate_worker_results(
+        [
+            dict(tp_size=2, tp_rank=0, worker_s=0.01),
+            dict(tp_size=2, tp_rank=1, rejected="insufficient_target_staging_headroom"),
+        ]
+    )
+    assert "rejected" in result

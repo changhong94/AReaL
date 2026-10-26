@@ -1,0 +1,26 @@
+{
+  "fixed": {
+    "seconds": 461.80685210227966,
+    "initialization_seconds": 179.68732357025146,
+    "tokens": 361789,
+    "tokens_per_second": 783.4205974922867,
+    "save_seconds": 10.869007,
+    "final_save_join_seconds": 1e-05,
+    "reward_mean": 0.08723958333333333
+  },
+  "shared": {
+    "seconds": 429.9811854362488,
+    "initialization_seconds": 411.6511342525482,
+    "tokens": 371932,
+    "tokens_per_second": 864.9959872608067,
+    "save_seconds": 4.061682,
+    "final_save_join_seconds": 3.032715,
+    "reward_mean": 0.08854166666666667
+  },
+  "saving_seconds": 31.825666666030884,
+  "saving_percent": 6.891553583744189,
+  "tokens_per_second_gain_percent": 10.412719556983973,
+  "workspace": "/tmp/huawei/areal-development/save-fixed-shared-20261026/comparison/20261026-144007-0700_code_fsdp_c16_b6_3fca1c/repetitions/01",
+  "correctness": "Both arms completed 1536 answers and scores without scoring exceptions; all six performance checkpoint tokenizers match the input; prior full-state/gradient/HF gate passed.",
+  "scope": "Single warm reusable-vLLM development comparison. Training-engine initialization excluded from loop and reported separately. Different generated content and shared scoring service may affect timings."
+}

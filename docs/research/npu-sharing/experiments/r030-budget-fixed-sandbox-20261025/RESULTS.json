@@ -1,0 +1,131 @@
+{
+  "workspace": "/root/areal-development/idle-budget-20261025/sandbox-fix/rerun/comparison/20261025-150929-0700_code_fsdp_c16_b6_6169dc/repetitions/01",
+  "timing": {
+    "workspace": "/root/areal-development/idle-budget-20261025/sandbox-fix/rerun/comparison/20261025-150929-0700_code_fsdp_c16_b6_6169dc/repetitions/01",
+    "arms": {
+      "fixed": {
+        "loop_seconds": 462.48675298690796,
+        "initialization_seconds": 197.43155765533447,
+        "scopes": {
+          "train.rollout": 62.888154,
+          "train.recompute_logp": 72.049124,
+          "train.compute_advantage": 13.446614000000002,
+          "train.ppo_update": 294.825,
+          "train.save": 11.162022,
+          "train.checkpoint": 0.000448,
+          "train.update_weights": 4.446498,
+          "train.eval": 0.00114,
+          "train.clear_batches": 0.14945000000000003,
+          "train.log_stats": 3.162437
+        },
+        "ppo_batches": [
+          {
+            "batch": 1,
+            "seconds": 47.725896
+          },
+          {
+            "batch": 2,
+            "seconds": 49.641509
+          },
+          {
+            "batch": 3,
+            "seconds": 49.292051
+          },
+          {
+            "batch": 4,
+            "seconds": 48.348693
+          },
+          {
+            "batch": 5,
+            "seconds": 50.915828
+          },
+          {
+            "batch": 6,
+            "seconds": 48.901023
+          }
+        ],
+        "mid_batch_switches": [],
+        "switch_seconds": 0,
+        "ppo_excluding_nested_switch_seconds": 294.825,
+        "upload_retries": 0,
+        "gradient_diagnostic_events": 0
+      },
+      "latest": {
+        "loop_seconds": 475.84837770462036,
+        "initialization_seconds": 307.2967746257782,
+        "scopes": {
+          "train.rollout": 57.42088299999999,
+          "train.idle_state_single_to_multi": 4.370794,
+          "train.idle_switch_in": 4.702153,
+          "train.recompute_logp": 73.012979,
+          "train.compute_advantage": 13.054752999999998,
+          "train.ppo_update": 284.299801,
+          "train.idle_state_multi_to_single": 9.530789,
+          "train.idle_switch_out": 12.025472,
+          "train.save": 12.117021999999999,
+          "train.checkpoint": 0.0006039999999999999,
+          "train.update_weights": 8.900549,
+          "train.shared_memory_switch": 0.178739,
+          "train.background_publication": 6.65386,
+          "train.eval": 0.0024860000000000004,
+          "train.clear_batches": 0.388463,
+          "train.log_stats": 0.40860399999999997,
+          "train.wait_previous_tail": 7.039632
+        },
+        "ppo_batches": [
+          {
+            "batch": 1,
+            "seconds": 32.591527
+          },
+          {
+            "batch": 2,
+            "seconds": 57.911573
+          },
+          {
+            "batch": 3,
+            "seconds": 54.50405
+          },
+          {
+            "batch": 4,
+            "seconds": 53.769926
+          },
+          {
+            "batch": 5,
+            "seconds": 55.772812
+          },
+          {
+            "batch": 6,
+            "seconds": 29.749913
+          }
+        ],
+        "mid_batch_switches": [],
+        "switch_seconds": 16.728052189573646,
+        "ppo_excluding_nested_switch_seconds": 284.299801,
+        "upload_retries": 0,
+        "gradient_diagnostic_events": 0
+      }
+    },
+    "saved_seconds": -13.361624717712402,
+    "reduction_percent": -2.8890826886214924
+  },
+  "reported_tokens": {
+    "fixed": 368059,
+    "latest": 351704
+  },
+  "budget_decisions": 28,
+  "budget_rejected": 27,
+  "budget_allowed": 1,
+  "actual_mid_batch_switches": 0,
+  "rejected_followed_by_single_rank_segment": true,
+  "sandbox_upload_retries": 0,
+  "sandbox_probe_passed": 32,
+  "sandbox_probe_concurrency": 16,
+  "busy_running": true,
+  "limitations": [
+    "one development reused-vLLM pair, not formal confirmation",
+    "generated answers and token counts differ",
+    "prior shared comparison also predates sandbox fix",
+    "DP2 suffix rate and mid-update cost remained priors because no performance mid-update switch occurred",
+    "individual budget calculation duration not separately sampled; all included in PPO and RL wall time"
+  ]
+}

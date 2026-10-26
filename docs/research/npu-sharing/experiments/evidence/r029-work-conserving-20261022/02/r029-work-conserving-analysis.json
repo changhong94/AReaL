@@ -1,0 +1,96 @@
+{
+  "fixed": {
+    "loop_seconds": 543.316260099411,
+    "scores": 768,
+    "completed_questions": 96,
+    "reward_errors": 0,
+    "milestones": [
+      {
+        "questions": 32,
+        "scores": 306,
+        "seconds": 192.9360795021057
+      },
+      {
+        "questions": 64,
+        "scores": 537,
+        "seconds": 320.2406585216522
+      },
+      {
+        "questions": 96,
+        "scores": 768,
+        "seconds": 465.4614026546478
+      }
+    ],
+    "training_begin": [
+      192.97538542747498,
+      320.2842493057251,
+      465.50626826286316
+    ],
+    "first_score_start": 3.444662094116211,
+    "last_score_end": 465.4614026546478,
+    "all_generation_end": 81.48378014564514,
+    "mean_score_seconds": 2.395807694333295,
+    "scoring_span_seconds": 462.0167405605316,
+    "service_work_div_four": 459.99507731199265,
+    "idle_equivalent_seconds": 2.021663248538971,
+    "slot_occupancy": 0.9956242640773444,
+    "cross_question_overlap_seconds": 457.28798484802246,
+    "observed_peak_scoring": 4,
+    "occupancy_seconds": {
+      "0": 0.0,
+      "1": 1.472745418548584,
+      "2": 0.8440823554992676,
+      "3": 1.967597484588623,
+      "4": 457.7323408126831
+    },
+    "successful_answers": 75,
+    "output_tokens": 178843
+  },
+  "latest": {
+    "loop_seconds": 538.702978849411,
+    "scores": 768,
+    "completed_questions": 96,
+    "reward_errors": 0,
+    "milestones": [
+      {
+        "questions": 32,
+        "scores": 257,
+        "seconds": 161.54253768920898
+      },
+      {
+        "questions": 64,
+        "scores": 512,
+        "seconds": 322.35394525527954
+      },
+      {
+        "questions": 96,
+        "scores": 768,
+        "seconds": 462.8995826244354
+      }
+    ],
+    "training_begin": [
+      161.7033839225769,
+      322.508695602417,
+      463.0431549549103
+    ],
+    "first_score_start": 4.2670981884002686,
+    "last_score_end": 462.8995826244354,
+    "all_generation_end": 49.585125207901,
+    "mean_score_seconds": 2.3716389102240405,
+    "scoring_span_seconds": 458.63248443603516,
+    "service_work_div_four": 455.35467076301575,
+    "idle_equivalent_seconds": 3.277813673019409,
+    "slot_occupancy": 0.9928530712841895,
+    "cross_question_overlap_seconds": 181.53768134117126,
+    "observed_peak_scoring": 4,
+    "occupancy_seconds": {
+      "0": 0.0,
+      "1": 0.42771029472351074,
+      "2": 2.3050951957702637,
+      "3": 7.202424764633179,
+      "4": 448.6973066329956
+    },
+    "successful_answers": 75,
+    "output_tokens": 181994
+  }
+}

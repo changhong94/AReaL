@@ -1,0 +1,124 @@
+{
+  "fixed": {
+    "train_s": 101.96174716949463,
+    "initialization_s": 280.7459261417389,
+    "answers": 288,
+    "output_tokens": 67669,
+    "imports": {},
+    "handoffs": [],
+    "transition_wait_s": 0,
+    "batch_end_elapsed_s": [
+      46.08841419219971,
+      72.35457015037537,
+      101.96115732192993
+    ]
+  },
+  "latest": {
+    "train_s": 98.19803595542908,
+    "initialization_s": 301.00126814842224,
+    "answers": 288,
+    "output_tokens": 66643,
+    "imports": {
+      "import_applied": 3
+    },
+    "handoffs": [
+      {
+        "event": "kv_rebalance_handoff",
+        "time": 1792452952.13539,
+        "pid": 1,
+        "request_ids": [
+          "4404945f12264e0fa3d3565e7a610f2d",
+          "86400350a1a44d77a4bf2a9474ae719c"
+        ],
+        "seconds": 1.2059318032115698,
+        "policy": "exploratory",
+        "planning_seconds": 0.046325091272592545,
+        "staging_seconds": 0.996905479580164,
+        "source_stalls": [
+          0.00897977314889431,
+          0.003342077136039734
+        ],
+        "target_stalls": [
+          0.173890832811594,
+          0.11570309475064278
+        ],
+        "version": 1
+      },
+      {
+        "event": "kv_rebalance_handoff",
+        "time": 1792452963.5817568,
+        "pid": 1,
+        "request_ids": [
+          "ffa9005c6bb54ce7a7b5cfa1b92d9e5e"
+        ],
+        "seconds": 0.512461518868804,
+        "policy": "exploratory",
+        "planning_seconds": 0.026992572471499443,
+        "staging_seconds": 0.3973332401365042,
+        "source_stalls": [
+          0.004184389486908913
+        ],
+        "target_stalls": [
+          0.11442262306809425
+        ],
+        "version": 2
+      }
+    ],
+    "transition_wait_s": 0.578333081677556,
+    "batch_end_elapsed_s": [
+      59.547558307647705,
+      71.46503281593323,
+      98.19711184501648
+    ]
+  },
+  "workspace": "/root/areal-benchmarks/20261019-162055-0700_math_megatron_c16_b3_67e4f4",
+  "settings": {
+    "rl": "math",
+    "engine": "megatron",
+    "concurrency": 16,
+    "max_head_offpolicyness": 2,
+    "batches": 3,
+    "running_rebalance": "kv",
+    "batch_size": 16,
+    "answers": 6,
+    "questions": 48,
+    "seed": 1,
+    "max_new_tokens": 1024,
+    "timezone": "America/Vancouver",
+    "created": "20261019-162055-0700",
+    "timeout": 3600,
+    "container_prefix": "areal-bench-908c3e4a57c9",
+    "image": "areal-timeshare:megatron-v0.18-a2-dev1",
+    "devices": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "npu_count": 4,
+    "inference_tp": 2,
+    "allocation": {
+      "total": 4,
+      "training": 2,
+      "dedicated_inference": 2,
+      "shared_inference_max": 4
+    },
+    "inference_replicas": 1,
+    "image_id": "sha256:ece82abbdc0981f2d20d8748e56c7db4d9ef660a3ccb621684bc98667de83dd5"
+  },
+  "state": {
+    "phase": "complete",
+    "completed": [
+      "fixed",
+      "latest"
+    ],
+    "workspace": "/root/areal-benchmarks/20261019-162055-0700_math_megatron_c16_b3_67e4f4",
+    "current": "latest",
+    "ended": 1792453054.6736162
+  },
+  "exit_codes": {
+    "fixed": 0,
+    "latest": 0
+  },
+  "npu_processes_after_completion": 0
+}

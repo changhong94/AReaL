@@ -1,0 +1,270 @@
+{
+  "workspace": "/root/areal-development/20261019-160617-0700_math_fsdp_c16_b3_dd9c7c",
+  "purpose": "TP=2 correctness and multi-batch integration; not a performance comparison",
+  "npu_count": 4,
+  "inference_tp": 2,
+  "batches": 3,
+  "questions": 48,
+  "answers_per_question": 6,
+  "answers_completed": 288,
+  "output_tokens": 68909,
+  "imports": [
+    {
+      "event": "kv_import_result",
+      "time": 1792451681.1004126,
+      "pid": 1103,
+      "ticket": "58f5927ddb2c4125af13cea76a448c64",
+      "outcome": "import_applied",
+      "import_s": 0.04508133605122566,
+      "computed": 117,
+      "request_id": "generate-tokens-23cf23a51f3a406d862b92482032a981-adf9f32c"
+    },
+    {
+      "event": "kv_import_result",
+      "time": 1792451681.1043608,
+      "pid": 1103,
+      "ticket": "fb6f549b69bd44b3bed4e698131094bc",
+      "outcome": "import_applied",
+      "import_s": 0.003169868141412735,
+      "computed": 124,
+      "request_id": "generate-tokens-5473be0e0d6e448ca8e631afb09fdf6a-987669bd"
+    },
+    {
+      "event": "kv_import_result",
+      "time": 1792451681.1108358,
+      "pid": 1103,
+      "ticket": "372f3ea55b1f494c88eed481dd9cfc03",
+      "outcome": "import_applied",
+      "import_s": 0.005958326160907745,
+      "computed": 139,
+      "request_id": "generate-tokens-0772e196c57d47e989ffeb3d546cd3d1-a8218178"
+    },
+    {
+      "event": "kv_import_result",
+      "time": 1792451681.2531917,
+      "pid": 1103,
+      "ticket": "150d9693660147eb90abbcef9df22cdb",
+      "outcome": "import_applied",
+      "import_s": 0.07130752690136433,
+      "computed": 146,
+      "request_id": "generate-tokens-b59206d9775a4a64a17946646578f508-b34ef6bb"
+    },
+    {
+      "event": "kv_import_result",
+      "time": 1792451681.2572634,
+      "pid": 1103,
+      "ticket": "35dad374ba27476a84e687a2efa46d21",
+      "outcome": "import_applied",
+      "import_s": 0.0035797394812107086,
+      "computed": 131,
+      "request_id": "generate-tokens-16433a27bc884878a48b3296ed57e6e4-a4197943"
+    }
+  ],
+  "handoffs": [
+    {
+      "event": "kv_rebalance_handoff",
+      "time": 1792451681.2597356,
+      "pid": 1,
+      "request_ids": [
+        "23cf23a51f3a406d862b92482032a981",
+        "5473be0e0d6e448ca8e631afb09fdf6a",
+        "16433a27bc884878a48b3296ed57e6e4",
+        "0772e196c57d47e989ffeb3d546cd3d1",
+        "b59206d9775a4a64a17946646578f508"
+      ],
+      "seconds": 3.0891805589199066,
+      "policy": "exploratory",
+      "planning_seconds": 0.06722503155469894,
+      "staging_seconds": 2.7109518256038427,
+      "source_stalls": [
+        0.01780816726386547,
+        0.0035662781447172165,
+        0.003888089209794998,
+        0.003591589629650116,
+        0.0036254096776247025
+      ],
+      "target_stalls": [
+        0.17302918806672096,
+        0.12840263731777668,
+        0.12573379836976528,
+        0.13090966641902924,
+        0.1962384469807148
+      ],
+      "version": 1
+    }
+  ],
+  "phases": [
+    {
+      "time": 1792451256.876185,
+      "event": "python",
+      "version": "3.11.10 (main, Apr  1 2026, 14:55:40) [GCC 12.3.1 (openEuler 12.3.1-105.oe2403sp3)]",
+      "executable": "/usr/local/python3.11.10/bin/python3"
+    },
+    {
+      "time": 1792451257.2792046,
+      "event": "settings",
+      "batch_drain": "1",
+      "adaptive_drain": "1",
+      "drain_metrics": "1",
+      "shared_drain_seconds": 0.0,
+      "training_priority_inference": true,
+      "n_samples": 6,
+      "total_batches": 3,
+      "npu_share": true,
+      "concurrency": 16,
+      "npu_device_trace": true,
+      "periodic_npu_sampling": true
+    },
+    {
+      "time": 1792451257.9481091,
+      "event": "dataset",
+      "train": 48,
+      "test": 16,
+      "npu_share": true
+    },
+    {
+      "time": 1792451257.948301,
+      "event": "initialize.begin"
+    },
+    {
+      "time": 1792451613.9736695,
+      "event": "initialize.end"
+    },
+    {
+      "time": 1792451613.975649,
+      "event": "train.begin"
+    },
+    {
+      "time": 1792451654.1831949,
+      "event": "_offload_rollout.begin",
+      "args": "()"
+    },
+    {
+      "time": 1792451654.7833164,
+      "event": "_offload_rollout.end"
+    },
+    {
+      "time": 1792451663.6329706,
+      "event": "_publish_fixed_weights.begin",
+      "args": "(1,)"
+    },
+    {
+      "time": 1792451665.6158416,
+      "event": "_publish_fixed_weights.end"
+    },
+    {
+      "time": 1792451665.6183817,
+      "event": "_finish_shared_weights.begin",
+      "args": "(1,)"
+    },
+    {
+      "time": 1792451676.978195,
+      "event": "_finish_shared_weights.end"
+    },
+    {
+      "time": 1792451679.320014,
+      "event": "_finish_step.begin",
+      "args": "()"
+    },
+    {
+      "time": 1792451679.3202019,
+      "event": "_evaluate.begin",
+      "args": "()"
+    },
+    {
+      "time": 1792451679.3203077,
+      "event": "_evaluate.end"
+    },
+    {
+      "time": 1792451679.44616,
+      "event": "_finish_step.end"
+    },
+    {
+      "time": 1792451679.446579,
+      "event": "_offload_rollout.begin",
+      "args": "()"
+    },
+    {
+      "time": 1792451683.8657508,
+      "event": "_offload_rollout.end"
+    },
+    {
+      "time": 1792451689.6946301,
+      "event": "_publish_fixed_weights.begin",
+      "args": "(2,)"
+    },
+    {
+      "time": 1792451691.4259021,
+      "event": "_publish_fixed_weights.end"
+    },
+    {
+      "time": 1792451691.4424317,
+      "event": "_finish_shared_weights.begin",
+      "args": "(2,)"
+    },
+    {
+      "time": 1792451693.7179952,
+      "event": "_finish_shared_weights.end"
+    },
+    {
+      "time": 1792451695.2908096,
+      "event": "_finish_step.begin",
+      "args": "()"
+    },
+    {
+      "time": 1792451695.291096,
+      "event": "_evaluate.begin",
+      "args": "()"
+    },
+    {
+      "time": 1792451695.2913094,
+      "event": "_evaluate.end"
+    },
+    {
+      "time": 1792451695.3940265,
+      "event": "_finish_step.end"
+    },
+    {
+      "time": 1792451706.2656155,
+      "event": "_offload_rollout.begin",
+      "args": "()"
+    },
+    {
+      "time": 1792451707.058832,
+      "event": "_offload_rollout.end"
+    },
+    {
+      "time": 1792451728.6934924,
+      "event": "_finish_step.begin",
+      "args": "()"
+    },
+    {
+      "time": 1792451728.6936674,
+      "event": "_evaluate.begin",
+      "args": "()"
+    },
+    {
+      "time": 1792451728.6937659,
+      "event": "_evaluate.end"
+    },
+    {
+      "time": 1792451728.8005967,
+      "event": "_finish_step.end"
+    },
+    {
+      "time": 1792451728.802114,
+      "event": "train.end"
+    },
+    {
+      "time": 1792451753.6351044,
+      "event": "closed"
+    }
+  ],
+  "process_exit_code": 0,
+  "npu_processes_after_completion": 0,
+  "source_files": {
+    "areal/engine/vllm_ext/kv_handoff.py": "b99f81990ffe6ffe6ec124623d18a57c886afdbe5e9d78f7d4fa998c4e88691c",
+    "areal/infra/kv_rebalance.py": "4c707299d3f7c7e173fd6a788c0a7dc804ab1482123dff3536cf2feec98ddc92",
+    "areal/infra/controller/rollout_controller.py": "d6923ca516ff3a9fc7908dc0c8992c15a5c10a3af0fc8ef4a01ecd5af0440bb2"
+  }
+}

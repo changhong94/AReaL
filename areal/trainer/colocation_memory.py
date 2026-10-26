@@ -140,7 +140,7 @@ class ColocationMemoryPolicy:
             decisions.append("actor_cpu")
         self._check(actor, needed, "initial_inference", decisions)
 
-    def train(self):
+    def train(self, resident=False):
         actor = self._actor()
         needed = self.required(
             self.config.train_workspace_gib,
@@ -149,6 +149,42 @@ class ColocationMemoryPolicy:
             + actor["gradient_bytes"]
             + actor.get("publication_workspace_bytes", 0),
         )
+        if resident and os.getenv("AREAL_RESIDENT_BUDGET", "1") == "1":
+            backward_credit = min(
+                actor["gradient_bytes"],
+                max(0, actor.get("reusable_workspace_bytes", 0)),
+            )
+            forward_credit = min(
+                int(self.config.train_workspace_gib * GIB),
+                max(0, actor.get("reusable_forward_bytes", 0)),
+            )
+            incremental = needed - backward_credit - forward_credit
+            if (
+                not actor["restore_bytes"]
+                and not actor.get("workspace_parked_bytes", 0)
+                and self.free(actor) >= incremental
+                and (
+                    self.config.device_budget_gib is None
+                    or actor["total_bytes"] - actor["free_bytes"]
+                    <= int(self.config.device_budget_gib * GIB)
+                )
+            ):
+                self._check(
+                    actor, incremental, "resident_train", ["verified_allocator_reuse"]
+                )
+                self.log(
+                    "RESIDENT_MEMORY "
+                    + json.dumps(
+                        dict(
+                            forward_credit_bytes=forward_credit,
+                            backward_credit_bytes=backward_credit,
+                            gross_required_bytes=needed,
+                            incremental_required_bytes=incremental,
+                            available_bytes=self.free(actor),
+                        )
+                    )
+                )
+                return
         status = self._rollout()
         if self._pressure_enabled(actor) and self._pressure_enabled(status):
             # Ordinary actor caches cannot always be reused by the training pool.
@@ -163,6 +199,28 @@ class ColocationMemoryPolicy:
             status = self._reclaim_shortfall(
                 self._rollout, status, needed, "train", check=False
             )
+            # Reclaim may make the incremental resident budget fit. Re-read
+            # allocator evidence: release_cache can invalidate earlier credits.
+            if resident and os.getenv("AREAL_RESIDENT_BUDGET", "1") == "1":
+                refreshed = self._actor()
+                if not refreshed["restore_bytes"] and not refreshed.get(
+                    "workspace_parked_bytes", 0
+                ):
+                    credit = min(
+                        refreshed["gradient_bytes"],
+                        max(0, refreshed.get("reusable_workspace_bytes", 0)),
+                    )
+                    credit += min(
+                        int(self.config.train_workspace_gib * GIB),
+                        max(0, refreshed.get("reusable_forward_bytes", 0)),
+                    )
+                    self._check(
+                        refreshed,
+                        needed - credit,
+                        "resident_train",
+                        ["post_reclaim_verified_allocator_reuse"],
+                    )
+                    return
             self._check(status, needed, "train", ["pressure_budget_verified"])
             self._actor("restore")
             return
@@ -188,10 +246,21 @@ class ColocationMemoryPolicy:
             return False
         if not rollout.get("dynamic_kv"):
             return False
+        training_reserve = (
+            int(self.config.train_workspace_gib * GIB) + actor["gradient_bytes"]
+        )
+        # Existing inactive private-pool segments already consume device HBM.
+        # Credit only verified reusable storage, never live tensors or unmapped
+        # addresses. Only backward uses this pool: retain the configured forward
+        # workspace reserve. Other backends retain the zero-credit fallback.
+        reusable = min(
+            actor["gradient_bytes"], max(0, actor.get("reusable_workspace_bytes", 0))
+        )
         needed = self.required(
-            self.config.train_workspace_gib + self.config.inference_workspace_gib,
-            actor["future_optimizer_bytes"]
-            + actor["gradient_bytes"]
+            self.config.inference_workspace_gib,
+            training_reserve
+            - reusable
+            + actor["future_optimizer_bytes"]
             + actor.get("publication_workspace_bytes", 0),
         )
         # Existing mapped KV is counted in free-memory usage; credit it once.
@@ -207,6 +276,8 @@ class ColocationMemoryPolicy:
                     admitted=admitted,
                     kv_budget_bytes=budget,
                     reserved_growth_bytes=needed,
+                    reusable_workspace_bytes=reusable,
+                    training_reserve_bytes=training_reserve,
                     capacity_blocks=status["capacity_blocks"],
                 )
             )
@@ -290,9 +361,9 @@ class GroupColocationMemoryPolicy:
         for policy in self.policies:
             policy.initial_inference(memory_fraction)
 
-    def train(self):
+    def train(self, resident=False):
         for policy in self.policies:
-            policy.train()
+            policy.train(resident=resident)
 
     def inference(self):
         for policy in self.policies:

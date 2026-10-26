@@ -1,0 +1,238 @@
+{
+  "settings": {
+    "rl": "code",
+    "code_reward_scheduling": "question",
+    "code_reward_scheduling_by_arm": {
+      "fixed": "answer",
+      "latest": "question"
+    },
+    "engine": "fsdp",
+    "concurrency": 16,
+    "max_head_offpolicyness": 1,
+    "batches": 6,
+    "running_rebalance": "kv",
+    "adaptive_concurrency": "capacity",
+    "inference_mode": "graph",
+    "batch_size": 32,
+    "answers": 8,
+    "questions": 192,
+    "seed": 1,
+    "max_new_tokens": 1024,
+    "timezone": "America/Vancouver",
+    "created": "20261024-022815-0700",
+    "timeout": 7200,
+    "container_prefix": "areal-bench-e9f99128e454-r1",
+    "image": "areal-timeshare:ascend-v0.26-a2-dev1",
+    "devices": [
+      1,
+      2
+    ],
+    "npu_count": 2,
+    "inference_tp": 1,
+    "allocation": {
+      "total": 2,
+      "training": 1,
+      "dedicated_inference": 1,
+      "shared_inference_max": 2
+    },
+    "inference_training_ratio": "1:1",
+    "inference_replicas": 1,
+    "image_id": "sha256:6deffddcf7fec443c62c27863432120e3a194a447d57a9a748ec232724865be3",
+    "repetitions": 1,
+    "reuse_vllm": true,
+    "kv_policy": "exploratory",
+    "evidence_class": "development_only_not_formal_benchmark"
+  },
+  "questions": 192,
+  "answers": 1536,
+  "batches": 6,
+  "loop_seconds": {
+    "fixed": 459.49821734428406,
+    "latest": 468.16641902923584
+  },
+  "reduction_percent": -1.8864494698261236,
+  "batch_step_timing": {
+    "fixed": [
+      {
+        "batch": 1,
+        "start": 0.027626752853393555,
+        "end": 129.15443468093872,
+        "duration": 129.12680792808533,
+        "answers_ready": 63.21212148666382,
+        "last_answer": 33.92680811882019
+      },
+      {
+        "batch": 2,
+        "start": 129.15454769134521,
+        "end": 194.4636046886444,
+        "duration": 65.3090569972992,
+        "answers_ready": 129.16190576553345,
+        "last_answer": 60.254106760025024
+      },
+      {
+        "batch": 3,
+        "start": 194.46369862556458,
+        "end": 257.40625524520874,
+        "duration": 62.942556619644165,
+        "answers_ready": 194.47607159614563,
+        "last_answer": 163.12768483161926
+      },
+      {
+        "batch": 4,
+        "start": 257.40635657310486,
+        "end": 321.1255376338959,
+        "duration": 63.719181060791016,
+        "answers_ready": 257.41414046287537,
+        "last_answer": 228.7854826450348
+      },
+      {
+        "batch": 5,
+        "start": 321.12562465667725,
+        "end": 385.29579854011536,
+        "duration": 64.17017388343811,
+        "answers_ready": 321.1259970664978,
+        "last_answer": 289.3995554447174
+      },
+      {
+        "batch": 6,
+        "start": 385.29591274261475,
+        "end": 459.4972629547119,
+        "duration": 74.20135021209717,
+        "answers_ready": 385.29626059532166,
+        "last_answer": 354.45970702171326
+      }
+    ],
+    "latest": [
+      {
+        "batch": 1,
+        "start": 0.030994415283203125,
+        "end": 124.67397475242615,
+        "duration": 124.64298033714294,
+        "answers_ready": 57.857317209243774,
+        "last_answer": 30.653254985809326
+      },
+      {
+        "batch": 2,
+        "start": 119.67844247817993,
+        "end": 198.53144764900208,
+        "duration": 78.85300517082214,
+        "answers_ready": 120.21963953971863,
+        "last_answer": 38.83944320678711
+      },
+      {
+        "batch": 3,
+        "start": 197.25137734413147,
+        "end": 265.08430552482605,
+        "duration": 67.83292818069458,
+        "answers_ready": 197.27323603630066,
+        "last_answer": 149.19195365905762
+      },
+      {
+        "batch": 4,
+        "start": 263.766473531723,
+        "end": 331.87939453125,
+        "duration": 68.11292099952698,
+        "answers_ready": 263.78471183776855,
+        "last_answer": 234.01922750473022
+      },
+      {
+        "batch": 5,
+        "start": 330.5370235443115,
+        "end": 400.4132835865021,
+        "duration": 69.87626004219055,
+        "answers_ready": 330.5383415222168,
+        "last_answer": 293.46552753448486
+      },
+      {
+        "batch": 6,
+        "start": 399.2363455295563,
+        "end": 468.1642529964447,
+        "duration": 68.92790746688843,
+        "answers_ready": 399.23757457733154,
+        "last_answer": 360.1099419593811
+      }
+    ]
+  },
+  "token_audit": {
+    "fixed": {
+      "reconstructed": 361193,
+      "reported": 361214,
+      "segment_differences": {
+        "generate-tokens-96481b286d014cb0b9a368d3d335ccce-b0f4746a": -1,
+        "generate-tokens-697c9e36252944f2a1d41743ff935172-b83e8603": -1,
+        "generate-tokens-4171d79236ef43789d21b002a1c88146-9884b546": 1,
+        "generate-tokens-25f6f4366e4747539189395eeb11995e-b778fbc6": -1,
+        "generate-tokens-d43f30a08e994fadab787da2a12c92ef-893e87ab": -1,
+        "generate-tokens-816115e5d62746c9b46a77841e2ec342-8ef88cfa": -1,
+        "generate-tokens-d32af12bb68d4933bab7dd02d8864ae4-9df8a138": -1,
+        "generate-tokens-8f595e1957bb42ba9901c78483f052f1-9fa0bb34": -1,
+        "generate-tokens-019bf1b14f004341bfedcc0b76798aa7-9c921c04": -1,
+        "generate-tokens-eb2ea6055663413eac7a05c0acedd135-a9036a50": -1,
+        "generate-tokens-4acdb5ccc06f40c391bae41488e13b31-b6c6077b": -1,
+        "generate-tokens-1a788c41b82449c294b0a74f2f53beb2-8d4dee46": -1,
+        "generate-tokens-a3514670bc11461a8e926df72699e8b1-a2880a1e": -1,
+        "generate-tokens-e18ddbe047f24860a0ebdbefce51ad16-bd3a5897": -1,
+        "generate-tokens-efa423b5307f4cda91d4a11119b30c7d-b56da801": -1,
+        "generate-tokens-2701e60980a640d4ae32caddb98ad945-9a9d3226": -1,
+        "generate-tokens-9ef4373ef28f4e81a4e5c6cfa571666f-a60a9058": -1,
+        "generate-tokens-f56dbd9e30224a6f90a5612da3f2765c-afd87a3d": -1,
+        "generate-tokens-6097b1639ed1476d914328d63de87d86-90c23122": -1,
+        "generate-tokens-a0d79c2977f54304bb3a89e31212efc4-93229140": -1,
+        "generate-tokens-d2690c0ee4f0460ea790b2d0b9e1f4ba-87dd7500": -1,
+        "generate-tokens-ef0107acd1454e49b9300da57f75ba56-8ee30a9a": -1,
+        "generate-tokens-20e175693cb44baeb362cab0e2e8814b-98526010": -1
+      }
+    },
+    "latest": {
+      "reconstructed": 356499,
+      "reported": 356513,
+      "segment_differences": {
+        "generate-tokens-93ab99948a424835bca759defd9f3b14-acb03909": -1,
+        "generate-tokens-27e16de41c984f198c943d6d30955cfa-88fa3e15": -1,
+        "generate-tokens-8c7349db847249a196232da3cb8f5db1-beaeb5d3": 1,
+        "generate-tokens-834f7ead83dd4b95af3029bccda4054d-b1c87bbe": -1,
+        "generate-tokens-36c2d5f6e25e48bb9efcd0613c296fa0-bc26cf94": -1,
+        "generate-tokens-0b478d875ca84a84bfc27fde94b3aa2f-92cc97e5": -1,
+        "generate-tokens-1c3e95b03ce34dd5be530fd324e457b4-81a5c697": -1,
+        "generate-tokens-cdf70eb29d944820a51961bff9675b76-bf62b2d7": -1,
+        "generate-tokens-10005dae57e04ca0b996d68e3f32b14a-88bdca41": -1,
+        "generate-tokens-c698fee04334465c9931beed77e6e1db-af21cf63": -1,
+        "generate-tokens-aeb9dc524b974965be837abda27e9b2a-a4681c98": -1,
+        "generate-tokens-9861df3374574c36af11b322caf95bce-900a9ae3": -1,
+        "generate-tokens-ac82e049f43440de81d308aab591304f-8c4af2cc": -1,
+        "generate-tokens-d90a14f5d9b44f84bcd23512b34de9f6-a27985d3": -1,
+        "generate-tokens-44538a4b9b884598a582b0079d497d70-9d16178a": -1,
+        "generate-tokens-4fb5700b09af4fd59fdba5ccd3edb8cc-943ce81a": -1,
+        "generate-tokens-4f84b82968f8430692346223ab8b6503-aaa43c19": -1,
+        "generate-tokens-f333f5f6fd8848d3aa5da29bedef417e-a8126adf": 1
+      }
+    }
+  },
+  "utilization_sample_means": {
+    "fixed": {
+      "1_aicore": 59.94347826086957,
+      "1_hbm_used_pct": 55.11768506920856,
+      "2_aicore": 24.56086956521739,
+      "2_hbm_used_pct": 48.88669221297555
+    },
+    "latest": {
+      "1_aicore": 55.93162393162393,
+      "1_hbm_used_pct": 69.63669214493189,
+      "2_aicore": 29.17948717948718,
+      "2_hbm_used_pct": 29.31148170405983
+    }
+  },
+  "figures": [
+    "figures/2026-10-24_phases/overview.png",
+    "figures/2026-10-24_phases/overview.zh.png",
+    "figures/2026-10-24_requests/fixed_001.png",
+    "figures/2026-10-24_requests/fixed_002.png",
+    "figures/2026-10-24_requests/fixed_003.png",
+    "figures/2026-10-24_requests/latest_001.png",
+    "figures/2026-10-24_requests/latest_002.png",
+    "figures/2026-10-24_requests/latest_003.png",
+    "figures/2026-10-24_utilization/overview.png",
+    "figures/2026-10-24_utilization/total.png",
+    "figures/2026-10-24_tokens/overview.png"
+  ]
+}

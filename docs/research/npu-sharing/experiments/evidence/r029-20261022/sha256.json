@@ -1,0 +1,12 @@
+{
+  "coupled/dispatch-latency.json": "dab275027005df9f9b741690c3749c35e2175ae908e7ae78d81463e270102edb",
+  "coupled/idle-analysis.json": "ffff4fb0bd3ef483793ef01b6f5f21e0f998a7e08b11f2b66f3210c1ce69e989",
+  "coupled/settings.json": "112038c1da967fd2a14aed31559234cf28a6bb9f787525cf35216030295bce20",
+  "coupled/source-manifest.json": "afe50cdd03986ae7cde7ea63843e8d598f67c1fe2ef4c2eabeb58dfe6702750c",
+  "coupled/summary.json": "46cca49a02f0c409826281546b88c494aa4279c4061c93ecee2d07d8387cac4d",
+  "decoupled/admission-analysis.json": "6fcb1e9e2024403259d088750a10c13f7aa2de1f63325636693e873493beafcf",
+  "decoupled/dispatch-latency.json": "7d1250924c7a0f2f83bcfaaa407ceb9802e5a3e435dd2770f3916da0db85cdb7",
+  "decoupled/settings.json": "105ce5dc6f9224f7c2a2c03be48c534fdf77af9036122c05a4c454487e44d089",
+  "decoupled/source-manifest.json": "39d757d1545734fbe5d9bcfd6b686b9aa23c28c3f72d17b155119b773b57a6bd",
+  "decoupled/summary.json": "b8cf184d50863310f73309c02bc3bef6ecf92d779a4f5abfe102937debe07445"
+}

@@ -119,3 +119,46 @@ async def test_grouped_vision_rollouts_share_images_only_within_group(monkeypatc
         is not second["multi_modal_input"][0]["pixel_values"]
     )
     torch.testing.assert_close(first["input_ids"], second["input_ids"], rtol=0, atol=0)
+
+
+@pytest.mark.asyncio
+async def test_group_releases_generation_before_rewards_finish():
+    """All sample contexts share one generation gate, not the reward barrier."""
+    from areal.infra.generation_admission import GenerationCompletion
+    from areal.infra.workflow_context import WorkflowContext
+
+    released = asyncio.Event()
+    finish_rewards = asyncio.Event()
+    samples = set()
+    calls = []
+
+    async def release():
+        calls.append(set(samples))
+        released.set()
+
+    class RewardWaitingWorkflow(RolloutWorkflow):
+        async def arun_episode(self, engine, data):
+            samples.add(workflow_context.get().sample_idx)
+            await workflow_context.notify_generation_complete()
+            await finish_rewards.wait()
+            return None
+
+    previous = workflow_context.get()
+    workflow_context.set(
+        WorkflowContext(
+            task_id=42, generation_completion=GenerationCompletion(8, release)
+        )
+    )
+    group = GroupedRolloutWorkflow(RewardWaitingWorkflow(), 8, Mock())
+    task = asyncio.create_task(group.arun_episode(None, {}))
+    try:
+        await asyncio.wait_for(released.wait(), 1)
+        assert not task.done()
+        assert calls == [set(range(8))]
+        finish_rewards.set()
+        assert await asyncio.wait_for(task, 1) is None
+        assert len(calls) == 1
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        workflow_context.set(previous)

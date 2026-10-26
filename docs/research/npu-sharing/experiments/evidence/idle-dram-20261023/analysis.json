@@ -1,0 +1,648 @@
+{
+  "correctness": {
+    "workspace": "/root/areal-development/idle-dram-20261023-retry/correctness/20261023-214334-0700_code_fsdp_c16_b2_2ebedc/repetitions/01",
+    "arms": {
+      "fixed": {
+        "events": [],
+        "switch_seconds": 0,
+        "upload_retries": 0,
+        "verified_imports": 0
+      },
+      "latest": {
+        "events": [
+          {
+            "event": "idle_training_initialized",
+            "time": 1792818169.8192754,
+            "pid": 1,
+            "single_world_size": 1,
+            "multi_world_size": 2
+          },
+          {
+            "event": "idle_dram_wait",
+            "time": 1792818287.496518,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "seconds": 0.02871127985417843,
+            "copy_seconds": 3.177119765430689,
+            "copied_bytes": 18524573512
+          },
+          {
+            "event": "idle_dram_import_verified",
+            "time": 1792818311.6140628,
+            "pid": 609,
+            "rank": 0,
+            "verified_bytes": 9262287688,
+            "shard_sha256": "d488918e0d032c10c853e3e929b54df41fd8f331fddbaac649a0078f782fef0c",
+            "version": 0,
+            "scheduler_epoch": 0
+          },
+          {
+            "event": "idle_dram_import_verified",
+            "time": 1792818312.9065444,
+            "pid": 614,
+            "rank": 1,
+            "verified_bytes": 9262287688,
+            "shard_sha256": "24057990c77ff1cc6a2d7c09d91fb911e91fb08bbead3a58091ee33adf2c1442",
+            "version": 0,
+            "scheduler_epoch": 0
+          },
+          {
+            "event": "idle_training_state_transferred",
+            "time": 1792818312.9408743,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "before": {
+              "optimizer_step_max": 0.0,
+              "optimizer_step_min": 0.0,
+              "sampled_state_sha256": "0c653f8d81836973a3c442ea833279836b22992004ee66d848dd6d09805ca68a",
+              "scheduler_epoch": 0,
+              "version": 0,
+              "world_size": 1
+            },
+            "after": {
+              "optimizer_step_max": 0.0,
+              "optimizer_step_min": 0.0,
+              "sampled_state_sha256": "0c653f8d81836973a3c442ea833279836b22992004ee66d848dd6d09805ca68a",
+              "scheduler_epoch": 0,
+              "version": 0,
+              "world_size": 2
+            }
+          },
+          {
+            "event": "idle_training_selected",
+            "time": 1792818312.9412823,
+            "pid": 1,
+            "batch": 1,
+            "world_size": 2,
+            "reason": "inference_idle",
+            "switch_seconds": 25.706562291830778
+          },
+          {
+            "event": "idle_dram_sync_started",
+            "time": 1792818359.457658,
+            "pid": 1,
+            "batch": 1,
+            "dual": true
+          },
+          {
+            "event": "idle_dram_wait",
+            "time": 1792818362.2432685,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "seconds": 2.334613585844636,
+            "copy_seconds": 2.7480727955698967,
+            "copied_bytes": 9262287688
+          },
+          {
+            "event": "idle_dram_import_verified",
+            "time": 1792818412.3027773,
+            "pid": 530,
+            "rank": 0,
+            "verified_bytes": 18524573512,
+            "shard_sha256": "f674329f652cda8355353e26178db4c07e7ebf2a0f5a286dedd472f6d5866a61",
+            "version": 0,
+            "scheduler_epoch": 1
+          },
+          {
+            "event": "idle_training_state_transferred",
+            "time": 1792818412.3265033,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "before": {
+              "optimizer_step_max": 1.0,
+              "optimizer_step_min": 1.0,
+              "sampled_state_sha256": "f4258dc0c785e8c3e06811e6ffb236b51422cad8e343b857508dd18ea1672c6b",
+              "scheduler_epoch": 1,
+              "version": 0,
+              "world_size": 2
+            },
+            "after": {
+              "optimizer_step_max": 1.0,
+              "optimizer_step_min": 1.0,
+              "sampled_state_sha256": "f4258dc0c785e8c3e06811e6ffb236b51422cad8e343b857508dd18ea1672c6b",
+              "scheduler_epoch": 1,
+              "version": 0,
+              "world_size": 1
+            }
+          },
+          {
+            "event": "idle_training_returned",
+            "time": 1792818412.4963372,
+            "pid": 1,
+            "batch": 1,
+            "switch_seconds": 53.038404984399676
+          },
+          {
+            "event": "idle_dram_wait",
+            "time": 1792818418.2166288,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "seconds": 0.028755472972989082,
+            "copy_seconds": 2.7480727955698967,
+            "copied_bytes": 9262287688
+          },
+          {
+            "event": "idle_dram_import_verified",
+            "time": 1792818440.883493,
+            "pid": 614,
+            "rank": 1,
+            "verified_bytes": 9262287688,
+            "shard_sha256": "5569ebfe79b0a25bf9c30450b288d0342d7525aff7cc697bee0d98805b285366",
+            "version": 1,
+            "scheduler_epoch": 1
+          },
+          {
+            "event": "idle_dram_import_verified",
+            "time": 1792818445.3728309,
+            "pid": 609,
+            "rank": 0,
+            "verified_bytes": 9262287688,
+            "shard_sha256": "abca850de40f1c2d52c9c98d358c5cdca08ec70296875e86f22d6db27dd61e2c",
+            "version": 1,
+            "scheduler_epoch": 1
+          },
+          {
+            "event": "idle_training_state_transferred",
+            "time": 1792818445.4002693,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "before": {
+              "optimizer_step_max": 1.0,
+              "optimizer_step_min": 1.0,
+              "sampled_state_sha256": "f4258dc0c785e8c3e06811e6ffb236b51422cad8e343b857508dd18ea1672c6b",
+              "scheduler_epoch": 1,
+              "version": 1,
+              "world_size": 1
+            },
+            "after": {
+              "optimizer_step_max": 1.0,
+              "optimizer_step_min": 1.0,
+              "sampled_state_sha256": "f4258dc0c785e8c3e06811e6ffb236b51422cad8e343b857508dd18ea1672c6b",
+              "scheduler_epoch": 1,
+              "version": 1,
+              "world_size": 2
+            }
+          },
+          {
+            "event": "idle_training_selected",
+            "time": 1792818445.4005587,
+            "pid": 1,
+            "batch": 2,
+            "world_size": 2,
+            "reason": "inference_idle",
+            "switch_seconds": 27.42303968220949
+          },
+          {
+            "event": "idle_dram_sync_started",
+            "time": 1792818490.9979527,
+            "pid": 1,
+            "batch": 2,
+            "dual": true
+          },
+          {
+            "event": "idle_dram_wait",
+            "time": 1792818493.0497456,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "seconds": 1.5410884879529476,
+            "copy_seconds": 2.019355783239007,
+            "copied_bytes": 9262287688
+          },
+          {
+            "event": "idle_dram_import_verified",
+            "time": 1792818542.043343,
+            "pid": 530,
+            "rank": 0,
+            "verified_bytes": 18524573512,
+            "shard_sha256": "ee4e8082392152d759b3cda720e6bdf899cdcd8010e318e4073bc3b0cda9bc5b",
+            "version": 1,
+            "scheduler_epoch": 2
+          },
+          {
+            "event": "idle_training_state_transferred",
+            "time": 1792818542.0678103,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "before": {
+              "optimizer_step_max": 2.0,
+              "optimizer_step_min": 2.0,
+              "sampled_state_sha256": "a1554770763ff74e06f81b25e6f3632e5a08fa2e4fb7d39cb81a2b8f3b24ccb9",
+              "scheduler_epoch": 2,
+              "version": 1,
+              "world_size": 2
+            },
+            "after": {
+              "optimizer_step_max": 2.0,
+              "optimizer_step_min": 2.0,
+              "sampled_state_sha256": "a1554770763ff74e06f81b25e6f3632e5a08fa2e4fb7d39cb81a2b8f3b24ccb9",
+              "scheduler_epoch": 2,
+              "version": 1,
+              "world_size": 1
+            }
+          },
+          {
+            "event": "idle_training_returned",
+            "time": 1792818542.2428966,
+            "pid": 1,
+            "batch": 2,
+            "switch_seconds": 51.24466465227306
+          }
+        ],
+        "switch_seconds": 157.412671610713,
+        "upload_retries": 0,
+        "verified_imports": 6
+      }
+    },
+    "summary": {
+      "loop_seconds": {
+        "fixed": 204.23931407928467,
+        "latest": 325.1279561519623
+      },
+      "reduction_percent": -59.18970234386376,
+      "token_audit": {
+        "fixed": {
+          "reconstructed": 123182,
+          "reported": 123183,
+          "segment_differences": {
+            "generate-tokens-dbedd477ab124b2fadb6d85d2f65cb46-af883550": -1
+          }
+        },
+        "latest": {
+          "reconstructed": 121184,
+          "reported": 121188,
+          "segment_differences": {
+            "generate-tokens-4464493adab941c88a52efcdac5136c3-8020f82d": -1,
+            "generate-tokens-bf17710c2d774d83a295c61f304954ab-9b0aa8c0": -1,
+            "generate-tokens-08ce8121911f419c9034f52e21000460-b1a9df49": -1,
+            "generate-tokens-81152282bf3f4680a25bbfb9afb984f9-b9d72068": -1
+          }
+        }
+      }
+    }
+  },
+  "comparison": {
+    "workspace": "/root/areal-development/idle-dram-20261023-retry/comparison/20261023-221040-0700_code_fsdp_c16_b6_12e8c8/repetitions/01",
+    "arms": {
+      "fixed": {
+        "events": [],
+        "switch_seconds": 0,
+        "upload_retries": 0,
+        "verified_imports": 0
+      },
+      "latest": {
+        "events": [
+          {
+            "event": "idle_training_initialized",
+            "time": 1792820046.4225874,
+            "pid": 1,
+            "single_world_size": 1,
+            "multi_world_size": 2
+          },
+          {
+            "event": "idle_dram_wait",
+            "time": 1792820163.2612917,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "seconds": 0.028454676270484924,
+            "copy_seconds": 3.579022441059351,
+            "copied_bytes": 18524573512
+          },
+          {
+            "event": "idle_dram_import_verified",
+            "time": 1792820187.0874076,
+            "pid": 614,
+            "rank": 1,
+            "verified_bytes": 9262287688,
+            "shard_sha256": "24057990c77ff1cc6a2d7c09d91fb911e91fb08bbead3a58091ee33adf2c1442",
+            "version": 0,
+            "scheduler_epoch": 0
+          },
+          {
+            "event": "idle_dram_import_verified",
+            "time": 1792820189.711006,
+            "pid": 609,
+            "rank": 0,
+            "verified_bytes": 9262287688,
+            "shard_sha256": "d488918e0d032c10c853e3e929b54df41fd8f331fddbaac649a0078f782fef0c",
+            "version": 0,
+            "scheduler_epoch": 0
+          },
+          {
+            "event": "idle_training_state_transferred",
+            "time": 1792820189.752271,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "before": {
+              "optimizer_step_max": 0.0,
+              "optimizer_step_min": 0.0,
+              "sampled_state_sha256": "0c653f8d81836973a3c442ea833279836b22992004ee66d848dd6d09805ca68a",
+              "scheduler_epoch": 0,
+              "version": 0,
+              "world_size": 1
+            },
+            "after": {
+              "optimizer_step_max": 0.0,
+              "optimizer_step_min": 0.0,
+              "sampled_state_sha256": "0c653f8d81836973a3c442ea833279836b22992004ee66d848dd6d09805ca68a",
+              "scheduler_epoch": 0,
+              "version": 0,
+              "world_size": 2
+            }
+          },
+          {
+            "event": "idle_training_selected",
+            "time": 1792820189.752615,
+            "pid": 1,
+            "batch": 1,
+            "world_size": 2,
+            "reason": "inference_idle",
+            "switch_seconds": 26.74958325922489
+          },
+          {
+            "event": "idle_dram_sync_started",
+            "time": 1792820237.2723978,
+            "pid": 1,
+            "batch": 1,
+            "dual": true
+          },
+          {
+            "event": "idle_dram_wait",
+            "time": 1792820239.240312,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "seconds": 1.4978465214371681,
+            "copy_seconds": 1.7972357086837292,
+            "copied_bytes": 9262287688
+          },
+          {
+            "event": "idle_dram_import_verified",
+            "time": 1792820288.3239334,
+            "pid": 530,
+            "rank": 0,
+            "verified_bytes": 18524573512,
+            "shard_sha256": "2f82e63b50caf85d7b5177acae16dd64eeabe78ffbc4f4bc6a90621c22b0311d",
+            "version": 0,
+            "scheduler_epoch": 1
+          },
+          {
+            "event": "idle_training_state_transferred",
+            "time": 1792820288.3470676,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "before": {
+              "optimizer_step_max": 1.0,
+              "optimizer_step_min": 1.0,
+              "sampled_state_sha256": "6d84211aefe2f5aa065292385537aacedc58dec40901f140951bd9d1d4a82886",
+              "scheduler_epoch": 1,
+              "version": 0,
+              "world_size": 2
+            },
+            "after": {
+              "optimizer_step_max": 1.0,
+              "optimizer_step_min": 1.0,
+              "sampled_state_sha256": "6d84211aefe2f5aa065292385537aacedc58dec40901f140951bd9d1d4a82886",
+              "scheduler_epoch": 1,
+              "version": 0,
+              "world_size": 1
+            }
+          },
+          {
+            "event": "idle_training_returned",
+            "time": 1792820288.515974,
+            "pid": 1,
+            "batch": 1,
+            "switch_seconds": 51.241643127053976
+          },
+          {
+            "event": "idle_training_selected",
+            "time": 1792820294.80683,
+            "pid": 1,
+            "batch": 2,
+            "world_size": 1,
+            "reason": "inference_not_idle"
+          },
+          {
+            "event": "idle_dram_sync_started",
+            "time": 1792820363.9163477,
+            "pid": 1,
+            "batch": 2,
+            "dual": false
+          },
+          {
+            "event": "idle_training_selected",
+            "time": 1792820368.9736645,
+            "pid": 1,
+            "batch": 3,
+            "world_size": 1,
+            "reason": "inference_not_idle"
+          },
+          {
+            "event": "idle_dram_sync_started",
+            "time": 1792820430.9442985,
+            "pid": 1,
+            "batch": 3,
+            "dual": false
+          },
+          {
+            "event": "idle_training_selected",
+            "time": 1792820436.0845335,
+            "pid": 1,
+            "batch": 4,
+            "world_size": 1,
+            "reason": "inference_not_idle"
+          },
+          {
+            "event": "idle_dram_sync_started",
+            "time": 1792820499.0102441,
+            "pid": 1,
+            "batch": 4,
+            "dual": false
+          },
+          {
+            "event": "idle_training_selected",
+            "time": 1792820503.124742,
+            "pid": 1,
+            "batch": 5,
+            "world_size": 1,
+            "reason": "inference_not_idle"
+          },
+          {
+            "event": "idle_dram_sync_started",
+            "time": 1792820567.4108114,
+            "pid": 1,
+            "batch": 5,
+            "dual": false
+          },
+          {
+            "event": "idle_dram_wait",
+            "time": 1792820572.9591794,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "seconds": 0.0271284282207489,
+            "copy_seconds": 3.9128302950412035,
+            "copied_bytes": 18524573512
+          },
+          {
+            "event": "idle_dram_import_verified",
+            "time": 1792820596.9048805,
+            "pid": 614,
+            "rank": 1,
+            "verified_bytes": 9262287688,
+            "shard_sha256": "f7139741ea836c1cc126e0b4775b513c72dce24ff26b9d163401afaf4cc773e1",
+            "version": 5,
+            "scheduler_epoch": 5
+          },
+          {
+            "event": "idle_dram_import_verified",
+            "time": 1792820602.6845567,
+            "pid": 609,
+            "rank": 0,
+            "verified_bytes": 9262287688,
+            "shard_sha256": "94cbe75ecc311bdcab68aa59f7787c0295208991e6c0f3c72327a45382e5901d",
+            "version": 5,
+            "scheduler_epoch": 5
+          },
+          {
+            "event": "idle_training_state_transferred",
+            "time": 1792820602.7133832,
+            "pid": 1,
+            "direction": "single_to_multi",
+            "before": {
+              "optimizer_step_max": 5.0,
+              "optimizer_step_min": 5.0,
+              "sampled_state_sha256": "7d37c12e19a7ee5325afbe2b8ebe5a5794427ce5164f19260058be2f4cb2c96d",
+              "scheduler_epoch": 5,
+              "version": 5,
+              "world_size": 1
+            },
+            "after": {
+              "optimizer_step_max": 5.0,
+              "optimizer_step_min": 5.0,
+              "sampled_state_sha256": "7d37c12e19a7ee5325afbe2b8ebe5a5794427ce5164f19260058be2f4cb2c96d",
+              "scheduler_epoch": 5,
+              "version": 5,
+              "world_size": 2
+            }
+          },
+          {
+            "event": "idle_training_selected",
+            "time": 1792820602.7137175,
+            "pid": 1,
+            "batch": 6,
+            "world_size": 2,
+            "reason": "inference_idle",
+            "switch_seconds": 30.005055647343397
+          },
+          {
+            "event": "idle_dram_sync_started",
+            "time": 1792820645.1294143,
+            "pid": 1,
+            "batch": 6,
+            "dual": true
+          },
+          {
+            "event": "idle_dram_wait",
+            "time": 1792820646.6568763,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "seconds": 1.070360653102398,
+            "copy_seconds": 1.5003222599625587,
+            "copied_bytes": 9262287688
+          },
+          {
+            "event": "idle_dram_import_verified",
+            "time": 1792820695.4033222,
+            "pid": 530,
+            "rank": 0,
+            "verified_bytes": 18524573512,
+            "shard_sha256": "a72fa202264cfc49a1f4c4dcd2628cd6aa5dd5790c4afab41385821dc9306e7e",
+            "version": 5,
+            "scheduler_epoch": 6
+          },
+          {
+            "event": "idle_training_state_transferred",
+            "time": 1792820695.4314222,
+            "pid": 1,
+            "direction": "multi_to_single",
+            "before": {
+              "optimizer_step_max": 6.0,
+              "optimizer_step_min": 6.0,
+              "sampled_state_sha256": "96e405e45f494c60a1116f6cd9875586405cf30ce3fbcbf8fcdddaf438ef29f9",
+              "scheduler_epoch": 6,
+              "version": 5,
+              "world_size": 2
+            },
+            "after": {
+              "optimizer_step_max": 6.0,
+              "optimizer_step_min": 6.0,
+              "sampled_state_sha256": "96e405e45f494c60a1116f6cd9875586405cf30ce3fbcbf8fcdddaf438ef29f9",
+              "scheduler_epoch": 6,
+              "version": 5,
+              "world_size": 1
+            }
+          },
+          {
+            "event": "idle_training_returned",
+            "time": 1792820695.6020722,
+            "pid": 1,
+            "batch": 6,
+            "switch_seconds": 50.47235709428787
+          }
+        ],
+        "switch_seconds": 158.46863912791014,
+        "upload_retries": 0,
+        "verified_imports": 6
+      }
+    },
+    "summary": {
+      "loop_seconds": {
+        "fixed": 465.9958531856537,
+        "latest": 601.4182779788971
+      },
+      "reduction_percent": -29.060864783981422,
+      "token_audit": {
+        "fixed": {
+          "reconstructed": 364492,
+          "reported": 364504,
+          "segment_differences": {
+            "generate-tokens-7a85d8b611014095aba197cfccd9d6c5-b1037193": -1,
+            "generate-tokens-4f49efa19faa46abb361ff73c159801d-83f402a7": -1,
+            "generate-tokens-2fae9efb939741d399a0924610561db7-97d72182": -1,
+            "generate-tokens-64a9a71dd9ec4802a400a839259a0f60-8a06f4ab": -1,
+            "generate-tokens-6d187444733649229ba65ea083ad7ee0-885f7c2f": -1,
+            "generate-tokens-8a3719aa8e164ae1aaee5b1e8f30c398-83602c8b": -1,
+            "generate-tokens-42a119f6d3624f09b876e37499b944ee-adafd891": -1,
+            "generate-tokens-cfd1d2836b7d42648aff7ce5d39e7a21-8a597327": -1,
+            "generate-tokens-6a891a434b1e418a861cffb2a1c75224-bc3aef16": -1,
+            "generate-tokens-01218099242047f685f5e66acf4d3068-ac85f582": -1,
+            "generate-tokens-805cc2b5f923481cb843c7bca2d4a998-a9076d49": -1,
+            "generate-tokens-4cb62579451c4bc58b0750de25c4cae0-b7a0d972": -1
+          }
+        },
+        "latest": {
+          "reconstructed": 366240,
+          "reported": 366253,
+          "segment_differences": {
+            "generate-tokens-300cc4b4b6b64be0bb1b191e820308ee-98a29c99": -1,
+            "generate-tokens-55e285a93f0945bb9ccbcb0e1ebf0a56-a1631503": -1,
+            "generate-tokens-fdf8291ef0414303a55107f628a99ed8-99a5bdaa": -1,
+            "generate-tokens-88839ac8de2c4dedac15ecb1c3b8f3f0-aa5efa6c": 1,
+            "generate-tokens-1efe22e1d680431d83da00c4595987bf-8f14b59f": -1,
+            "generate-tokens-b7bbc28ff70a46bc86867915fb11c687-b393ce39": -1,
+            "generate-tokens-b9b227e0e4de4aef85872969742a05ea-a3ba5d9e": -1,
+            "generate-tokens-eadbfa72e94f4930ba93a9c30abb52d7-b9391892": -1,
+            "generate-tokens-76528b3ddfb74f0d92eabca705b09757-87b9095a": -1,
+            "generate-tokens-c16a5487868641e8ae1d47329c888799-bf57d87d": -1,
+            "generate-tokens-72f92cf13b9445628b1de125dc905d7b-ba3e4886": -1,
+            "generate-tokens-0b62cd20a9b24626bbe84cc560926130-a7cb507b": 1,
+            "generate-tokens-3411b943ade14796a17e3c09a79149a5-a645ddf5": -1,
+            "generate-tokens-85381a2b4f1b472dad06becc6ff0c098-b8b86027": -1,
+            "generate-tokens-10a01cbfacbd4d1e86376e5259d1cb02-83f60579": -1,
+            "generate-tokens-56d6a2184f18431c9f658a2512f82aca-8689a07b": -1,
+            "generate-tokens-40a3496bfbb34be399baa63f9dd1b2d4-9a55db81": -1
+          }
+        }
+      }
+    }
+  }
+}

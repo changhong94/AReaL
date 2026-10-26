@@ -3,7 +3,35 @@
 
 import json
 import os
+import time
 from pathlib import Path
+
+
+def _write_test(sandbox, script, trace_fields):
+    """Retry only idempotent upload when a newly created route is absent."""
+    from e2b.exceptions import FileNotFoundException
+
+    from areal.utils import request_trace
+
+    delays = (0.2, 0.4, 0.8, 1.6, 2.0)
+    for attempt in range(len(delays) + 1):
+        try:
+            sandbox.files.write("/tmp/areal-test.py", script)
+            return
+        except FileNotFoundException as exc:
+            # A missing guest path or other error is not a route readiness error.
+            if str(exc).strip().lower() != "sandbox not found":
+                raise
+            request_trace.emit(
+                "code_sandbox_upload_missing",
+                sandbox_id=sandbox.sandbox_id,
+                attempt=attempt + 1,
+                exhausted=attempt == len(delays),
+                **trace_fields,
+            )
+            if attempt == len(delays):
+                raise
+            time.sleep(delays[attempt])
 
 
 def run_test(script: str, timeout: int = 10, trace_fields=None) -> tuple[bool, str]:
@@ -36,7 +64,7 @@ def run_test(script: str, timeout: int = 10, trace_fields=None) -> tuple[bool, s
         "code_sandbox_created", sandbox_id=sandbox.sandbox_id, **trace_fields
     )
     try:
-        sandbox.files.write("/tmp/areal-test.py", script)
+        _write_test(sandbox, script, trace_fields)
         # The guest shell enforces a wall-clock deadline; SDK transport has
         # a larger timeout so a test timeout is distinct from service failure.
         command = (

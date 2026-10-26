@@ -1,0 +1,106 @@
+[
+  {
+    "label": "matched-0-optimized",
+    "foreground": 2.456969166174531,
+    "total": 4.629321111366153,
+    "final_join": 2.172351945191622,
+    "staged": [
+      {
+        "staged": 0,
+        "seconds": 1.9618132393807173
+      },
+      {
+        "staged": 1,
+        "seconds": 1.8371828459203243
+      }
+    ],
+    "done": [
+      {
+        "done": 0,
+        "seconds": 4.1340909488499165
+      },
+      {
+        "done": 1,
+        "seconds": 4.010106757283211
+      }
+    ]
+  },
+  {
+    "label": "matched-1-baseline",
+    "foreground": 6.259804589673877,
+    "total": 8.565945886075497,
+    "final_join": 2.30614129640162,
+    "staged": [
+      {
+        "staged": 0,
+        "seconds": 3.6878093238919973
+      },
+      {
+        "staged": 1,
+        "seconds": 3.0713264159858227
+      }
+    ],
+    "done": [
+      {
+        "done": 0,
+        "seconds": 5.994033934548497
+      },
+      {
+        "done": 1,
+        "seconds": 5.377473283559084
+      }
+    ]
+  },
+  {
+    "label": "matched-2-baseline",
+    "foreground": 5.828325845301151,
+    "total": 8.134840101003647,
+    "final_join": 2.3065142557024956,
+    "staged": [
+      {
+        "staged": 0,
+        "seconds": 3.618558868765831
+      },
+      {
+        "staged": 1,
+        "seconds": 3.04316365160048
+      }
+    ],
+    "done": [
+      {
+        "done": 0,
+        "seconds": 5.925162019208074
+      },
+      {
+        "done": 1,
+        "seconds": 5.3496926091611385
+      }
+    ]
+  },
+  {
+    "label": "matched-3-optimized",
+    "foreground": 2.138794530183077,
+    "total": 4.280040977522731,
+    "final_join": 2.141246447339654,
+    "staged": [
+      {
+        "staged": 0,
+        "seconds": 1.6785030998289585
+      },
+      {
+        "staged": 1,
+        "seconds": 1.557577382773161
+      }
+    ],
+    "done": [
+      {
+        "done": 0,
+        "seconds": 3.819798121228814
+      },
+      {
+        "done": 1,
+        "seconds": 3.6988339219242334
+      }
+    ]
+  }
+]

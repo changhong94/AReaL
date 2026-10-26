@@ -1,0 +1,226 @@
+{
+  "fixed": {
+    "points": [
+      {
+        "t": 25,
+        "generated": 128,
+        "reward_queued": 96,
+        "reward_active": 4,
+        "reward_done": 28,
+        "questions_started": 16
+      },
+      {
+        "t": 50,
+        "generated": 142,
+        "reward_queued": 69,
+        "reward_active": 4,
+        "reward_done": 69,
+        "questions_started": 18
+      },
+      {
+        "t": 74,
+        "generated": 187,
+        "reward_queued": 73,
+        "reward_active": 4,
+        "reward_done": 110,
+        "questions_started": 24
+      },
+      {
+        "t": 165,
+        "generated": 364,
+        "reward_queued": 96,
+        "reward_active": 4,
+        "reward_done": 264,
+        "questions_started": 49
+      },
+      {
+        "t": 180,
+        "generated": 416,
+        "reward_queued": 117,
+        "reward_active": 4,
+        "reward_done": 295,
+        "questions_started": 52
+      },
+      {
+        "t": 220,
+        "generated": 488,
+        "reward_queued": 115,
+        "reward_active": 4,
+        "reward_done": 369,
+        "questions_started": 61
+      },
+      {
+        "t": 229,
+        "generated": 488,
+        "reward_queued": 100,
+        "reward_active": 4,
+        "reward_done": 384,
+        "questions_started": 61
+      },
+      {
+        "t": 234,
+        "generated": 490,
+        "reward_queued": 95,
+        "reward_active": 4,
+        "reward_done": 391,
+        "questions_started": 62
+      },
+      {
+        "t": 390,
+        "generated": 768,
+        "reward_queued": 75,
+        "reward_active": 4,
+        "reward_done": 689,
+        "questions_started": 96
+      },
+      {
+        "t": 429.6,
+        "generated": 768,
+        "reward_queued": 1,
+        "reward_active": 4,
+        "reward_done": 763,
+        "questions_started": 96
+      }
+    ],
+    "gaps": [
+      {
+        "start": 25,
+        "end": 75,
+        "npu_steps": 2145,
+        "rewards_completed": 86
+      },
+      {
+        "start": 166,
+        "end": 229,
+        "npu_steps": 3198,
+        "rewards_completed": 117
+      },
+      {
+        "start": 390,
+        "end": 429.5,
+        "npu_steps": 0,
+        "rewards_completed": 74
+      }
+    ],
+    "reward_count": 768,
+    "reward_mean": 2.219139407388866,
+    "reward_queue_mean": 51.611128680718444,
+    "slot_seconds": 1704.299064874649,
+    "ideal_four_slot_seconds": 426.07476621866226,
+    "reward_span": 427.64134645462036,
+    "slot_occupancy": 0.996336696044604,
+    "reward_final": 431.9733808040619
+  },
+  "latest": {
+    "points": [
+      {
+        "t": 25,
+        "generated": 256,
+        "reward_queued": 223,
+        "reward_active": 4,
+        "reward_done": 29,
+        "questions_started": 32
+      },
+      {
+        "t": 50,
+        "generated": 256,
+        "reward_queued": 176,
+        "reward_active": 4,
+        "reward_done": 76,
+        "questions_started": 32
+      },
+      {
+        "t": 74,
+        "generated": 256,
+        "reward_queued": 132,
+        "reward_active": 4,
+        "reward_done": 120,
+        "questions_started": 32
+      },
+      {
+        "t": 165,
+        "generated": 503,
+        "reward_queued": 224,
+        "reward_active": 4,
+        "reward_done": 275,
+        "questions_started": 63
+      },
+      {
+        "t": 180,
+        "generated": 504,
+        "reward_queued": 196,
+        "reward_active": 4,
+        "reward_done": 304,
+        "questions_started": 63
+      },
+      {
+        "t": 220,
+        "generated": 504,
+        "reward_queued": 122,
+        "reward_active": 4,
+        "reward_done": 378,
+        "questions_started": 63
+      },
+      {
+        "t": 229,
+        "generated": 504,
+        "reward_queued": 107,
+        "reward_active": 4,
+        "reward_done": 393,
+        "questions_started": 63
+      },
+      {
+        "t": 234,
+        "generated": 504,
+        "reward_queued": 98,
+        "reward_active": 4,
+        "reward_done": 402,
+        "questions_started": 63
+      },
+      {
+        "t": 390,
+        "generated": 768,
+        "reward_queued": 69,
+        "reward_active": 4,
+        "reward_done": 695,
+        "questions_started": 96
+      },
+      {
+        "t": 429.6,
+        "generated": 768,
+        "reward_queued": 0,
+        "reward_active": 0,
+        "reward_done": 768,
+        "questions_started": 96
+      }
+    ],
+    "gaps": [
+      {
+        "start": 25,
+        "end": 75,
+        "npu_steps": 0,
+        "rewards_completed": 92
+      },
+      {
+        "start": 166,
+        "end": 229,
+        "npu_steps": 0,
+        "rewards_completed": 116
+      },
+      {
+        "start": 390,
+        "end": 429.5,
+        "npu_steps": 0,
+        "rewards_completed": 73
+      }
+    ],
+    "reward_count": 768,
+    "reward_mean": 2.207544920966029,
+    "reward_queue_mean": 80.59234087200214,
+    "slot_seconds": 1695.3944993019104,
+    "ideal_four_slot_seconds": 423.8486248254776,
+    "reward_span": 426.08871698379517,
+    "slot_occupancy": 0.9947426625746516,
+    "reward_final": 429.47575759887695
+  }
+}

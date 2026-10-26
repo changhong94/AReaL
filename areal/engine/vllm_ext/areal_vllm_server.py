@@ -64,6 +64,7 @@ async def validate_slab_endpoint(request: Request):
         "/areal_update_weights_xccl",
         "/areal_pause_generation",
         "/areal_pause_generation_preserve",
+        "/areal_evacuate_retained",
         "/areal_continue_generation",
         "/areal_colocation_memory",
         "/areal_generation_progress",
@@ -98,6 +99,7 @@ _kv_budget_valid = False
 _kv_external_tickets = {}
 _trace_active_requests = set()
 _trace_paused_requests = set()
+_retained_evacuation_event = asyncio.Event()
 
 original_generate = inspect.unwrap(_decorated_generate)
 
@@ -407,6 +409,7 @@ async def areal_pause_generation_preserve(raw_request: Request):
     """Freeze the scheduler and retain request identities and live KV contents."""
     llm = raw_request.app.state.engine_client
     async with _memory_transition_lock:
+        _retained_evacuation_event.clear()
         llm._areal_preserve_pause = True
         generation_progress.registry.break_service_interval()
         _generation_run_event.clear()
@@ -425,6 +428,58 @@ async def areal_pause_generation_preserve(raw_request: Request):
             "native_pause_ack", request_ids=sorted(_trace_paused_requests), mode="keep"
         )
     return to_json_response(True, "Generation paused with live KV preserved")
+
+
+@router.post("/areal_evacuate_retained")
+async def areal_evacuate_retained(raw_request: Request):
+    """Abort staged retained requests, or finalize mandatory evacuation."""
+    body = await raw_request.json()
+    llm = raw_request.app.state.engine_client
+    async with _memory_transition_lock:
+        if _generation_run_event.is_set() or not getattr(
+            llm, "_areal_preserve_pause", False
+        ):
+            raise HTTPException(
+                status_code=409, detail="Expected retained paused source"
+            )
+        if not await llm.is_paused():
+            raise HTTPException(
+                status_code=409, detail="Scheduler pause not acknowledged"
+            )
+        if body.get("internal_ids") is not None:
+            return await llm.engine_core.call_utility_async(
+                "areal_queue_rebalance", "abort_retained_selected", body["internal_ids"]
+            )
+        # Reject late admitted requests waiting at the HTTP gate as well as
+        # aborting every scheduled/preempted request. Keep the run gate closed.
+        _retained_evacuation_event.set()
+        result = await llm.engine_core.call_utility_async(
+            "areal_queue_rebalance", "abort_retained", []
+        )
+        stats = await llm.engine_core.call_utility_async("areal_kv_slab_stats")
+        if stats["used_blocks"]:
+            raise RuntimeError("Retained evacuation did not empty the scheduler")
+        await llm.collective_rpc(
+            "areal_colocation_memory", args=("discard_preserved", True)
+        )
+        llm._areal_preserve_pause = False
+        request_trace.emit(
+            "retained_evacuation_ack", **result, transport="prefix_replay"
+        )
+        return result
+
+
+async def wait_retained_or_evacuated():
+    running = asyncio.create_task(_generation_run_event.wait())
+    evacuated = asyncio.create_task(_retained_evacuation_event.wait())
+    try:
+        await asyncio.wait([running, evacuated], return_when=asyncio.FIRST_COMPLETED)
+        if _retained_evacuation_event.is_set():
+            raise RoutingPaused("Retained request evacuated")
+    finally:
+        for task in (running, evacuated):
+            task.cancel()
+        await asyncio.gather(running, evacuated, return_exceptions=True)
 
 
 @router.post("/areal_pause_generation")
@@ -470,6 +525,12 @@ class ColocationMemoryRequest(OpenAIBaseModel):
 async def areal_generation_progress(raw_request: Request):
     body = await raw_request.json()
     result = generation_progress.registry.snapshot(rotate=body.get("rotate", False))
+    if body.get("include_internal_ids"):
+        with generation_progress.registry.lock:
+            result["internal_ids"] = {
+                row["request_id"]: internal_id
+                for internal_id, row in generation_progress.registry.active.items()
+            }
     result["budget_valid"] = _kv_budget_valid
     result["generation_running"] = _generation_run_event.is_set()
     return result
@@ -483,11 +544,34 @@ async def areal_kv_handoff(raw_request: Request):
         raise HTTPException(status_code=409, detail="KV handoff disabled")
     body = await raw_request.json()
     async with _memory_transition_lock:
-        if not _generation_run_event.is_set() and body["action"] not in {
-            "discard",
-            "unfreeze",
-            "import_status",
-        }:
+        llm = raw_request.app.state.engine_client
+        data = body.get("data", {})
+        retained_source = data.get("retained_source", False) and body["action"] in {
+            "export",
+            "prepare_transfer",
+            "transfer",
+        }
+        if retained_source:
+            if (
+                body["action"] not in {"export", "prepare_transfer", "transfer"}
+                or _generation_run_event.is_set()
+                or not getattr(llm, "_areal_preserve_pause", False)
+                or not await llm.is_paused()
+                or (body["action"] != "export" and not data.get("source"))
+            ):
+                raise HTTPException(
+                    status_code=409, detail="Invalid retained export state"
+                )
+        if (
+            not retained_source
+            and not _generation_run_event.is_set()
+            and body["action"]
+            not in {
+                "discard",
+                "unfreeze",
+                "import_status",
+            }
+        ):
             raise HTTPException(status_code=409, detail="Replica transitioning")
         result = (
             await raw_request.app.state.engine_client.engine_core.call_utility_async(
@@ -710,7 +794,7 @@ async def generate(request: GenerateRequest, raw_request: Request):
                     raw_request.app.state.engine_client, "_areal_preserve_pause", False
                 ):
                     request_trace.emit("server_gate_wait_start", request_id=rid)
-                    await _generation_run_event.wait()
+                    await wait_retained_or_evacuated()
                     request_trace.emit("server_gate_wait_end", request_id=rid)
                 else:
                     raise RoutingPaused("Replica paused")

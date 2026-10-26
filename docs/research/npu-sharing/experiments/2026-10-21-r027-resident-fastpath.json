@@ -1,0 +1,281 @@
+{
+  "workspace": "/root/areal-development/r027-resident-reuse-20261020/20261021-000848-0700_math_fsdp_c16_b6_803c48",
+  "phase": "complete",
+  "runs": [
+    {
+      "repetition": 1,
+      "arm": "fixed",
+      "seconds": 81.17599749565125,
+      "tokens": 137930,
+      "requests": 576,
+      "decisions": [],
+      "skips": [],
+      "stages": {
+        "train.rollout": 13.281471000000002,
+        "train.recompute_logp": 9.567905999999999,
+        "train.compute_advantage": 4.839879,
+        "train.ppo_update": 33.013844,
+        "train.save": 14.410202,
+        "train.checkpoint": 0.000319,
+        "train.update_weights": 4.882555,
+        "train.eval": 0.0011259999999999998,
+        "train.clear_batches": 0.120586,
+        "train.log_stats": 0.877688
+      }
+    },
+    {
+      "repetition": 1,
+      "arm": "latest",
+      "seconds": 85.19712805747986,
+      "tokens": 136935,
+      "requests": 576,
+      "decisions": [
+        {
+          "event": "inference_return_decision",
+          "time": 1792567497.2299097,
+          "pid": 1,
+          "target": 32,
+          "accepted": 48,
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "gain_seconds": 0.0
+        },
+        {
+          "event": "inference_return_decision",
+          "time": 1792567508.9666924,
+          "pid": 1,
+          "target": 48,
+          "accepted": 64,
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "gain_seconds": 0.0
+        },
+        {
+          "event": "inference_return_decision",
+          "time": 1792567517.5037866,
+          "pid": 1,
+          "target": 64,
+          "accepted": 75,
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "gain_seconds": 0.0
+        },
+        {
+          "event": "inference_return_decision",
+          "time": 1792567527.381682,
+          "pid": 1,
+          "target": 80,
+          "accepted": 92,
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "gain_seconds": 0.0
+        },
+        {
+          "event": "inference_return_decision",
+          "time": 1792567535.7992218,
+          "pid": 1,
+          "target": 96,
+          "accepted": 96,
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "gain_seconds": 0.0
+        }
+      ],
+      "skips": [
+        {
+          "event": "inference_return_skipped",
+          "time": 1792567499.1232567,
+          "pid": 1,
+          "version": 1
+        },
+        {
+          "event": "inference_return_skipped",
+          "time": 1792567509.6041806,
+          "pid": 1,
+          "version": 2
+        },
+        {
+          "event": "inference_return_skipped",
+          "time": 1792567518.3567007,
+          "pid": 1,
+          "version": 3
+        },
+        {
+          "event": "inference_return_skipped",
+          "time": 1792567528.200809,
+          "pid": 1,
+          "version": 4
+        },
+        {
+          "event": "inference_return_skipped",
+          "time": 1792567536.4172702,
+          "pid": 1,
+          "version": 5
+        }
+      ],
+      "stages": {
+        "train.rollout": 10.042697,
+        "train.recompute_logp": 9.860927,
+        "train.compute_advantage": 4.993342,
+        "train.ppo_update": 34.179414,
+        "train.save": 16.699459,
+        "train.checkpoint": 0.000444,
+        "train.update_weights": 5.1770700000000005,
+        "train.background_publication": 0.6214660000000001,
+        "train.eval": 0.0010119999999999999,
+        "train.clear_batches": 0.114837,
+        "train.log_stats": 0.385007,
+        "train.wait_previous_tail": 1.183479
+      }
+    },
+    {
+      "repetition": 2,
+      "arm": "fixed",
+      "seconds": 78.88230013847351,
+      "tokens": 135595,
+      "requests": 576,
+      "decisions": [],
+      "skips": [],
+      "stages": {
+        "train.rollout": 13.435779,
+        "train.recompute_logp": 9.294872999999999,
+        "train.compute_advantage": 5.424621,
+        "train.ppo_update": 31.264122000000004,
+        "train.save": 13.866445,
+        "train.checkpoint": 0.000328,
+        "train.update_weights": 4.451095,
+        "train.eval": 0.001064,
+        "train.clear_batches": 0.11512,
+        "train.log_stats": 0.849413
+      }
+    },
+    {
+      "repetition": 2,
+      "arm": "latest",
+      "seconds": 77.66376280784607,
+      "tokens": 140376,
+      "requests": 576,
+      "decisions": [
+        {
+          "event": "inference_return_decision",
+          "time": 1792568258.569554,
+          "pid": 1,
+          "target": 32,
+          "accepted": 48,
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "gain_seconds": 0.0
+        },
+        {
+          "event": "inference_return_decision",
+          "time": 1792568269.7363398,
+          "pid": 1,
+          "target": 48,
+          "accepted": 62,
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "gain_seconds": 0.0
+        },
+        {
+          "event": "inference_return_decision",
+          "time": 1792568278.0228593,
+          "pid": 1,
+          "target": 64,
+          "accepted": 71,
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "gain_seconds": 0.0
+        },
+        {
+          "event": "inference_return_decision",
+          "time": 1792568287.2783127,
+          "pid": 1,
+          "target": 80,
+          "accepted": 88,
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "gain_seconds": 0.0
+        },
+        {
+          "event": "inference_return_decision",
+          "time": 1792568296.2250922,
+          "pid": 1,
+          "target": 96,
+          "accepted": 96,
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "gain_seconds": 0.0
+        }
+      ],
+      "skips": [
+        {
+          "event": "inference_return_skipped",
+          "time": 1792568259.7053273,
+          "pid": 1,
+          "version": 1
+        },
+        {
+          "event": "inference_return_skipped",
+          "time": 1792568270.4545133,
+          "pid": 1,
+          "version": 2
+        },
+        {
+          "event": "inference_return_skipped",
+          "time": 1792568279.0262592,
+          "pid": 1,
+          "version": 3
+        },
+        {
+          "event": "inference_return_skipped",
+          "time": 1792568288.3321495,
+          "pid": 1,
+          "version": 4
+        },
+        {
+          "event": "inference_return_skipped",
+          "time": 1792568296.829586,
+          "pid": 1,
+          "version": 5
+        }
+      ],
+      "stages": {
+        "train.rollout": 9.752871999999998,
+        "train.recompute_logp": 9.832099,
+        "train.compute_advantage": 4.783772999999999,
+        "train.ppo_update": 33.187616000000006,
+        "train.save": 11.227021,
+        "train.checkpoint": 0.000456,
+        "train.update_weights": 4.712088,
+        "train.background_publication": 0.606106,
+        "train.eval": 0.001615,
+        "train.clear_batches": 0.11108399999999999,
+        "train.log_stats": 0.35942399999999997,
+        "train.wait_previous_tail": 1.1172689999999998
+      }
+    }
+  ],
+  "pairs": [
+    {
+      "repetition": 1,
+      "fixed_seconds": 81.17599749565125,
+      "shared_seconds": 85.19712805747986,
+      "saved_seconds": -4.021130561828613,
+      "saved_percent": -4.9535955034541335,
+      "fixed_tokens": 137930,
+      "shared_tokens": 136935,
+      "skipped_returns": 5
+    },
+    {
+      "repetition": 2,
+      "fixed_seconds": 78.88230013847351,
+      "shared_seconds": 77.66376280784607,
+      "saved_seconds": 1.2185373306274414,
+      "saved_percent": 1.5447538021690077,
+      "fixed_tokens": 135595,
+      "shared_tokens": 140376,
+      "skipped_returns": 5
+    }
+  ],
+  "evidence_class": "development_only_not_formal_benchmark"
+}

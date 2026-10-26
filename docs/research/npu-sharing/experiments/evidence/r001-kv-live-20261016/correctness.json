@@ -19,7 +19,7 @@
     "tokens": 92
   },
   "total_tokens": 256,
-  "workspace": "/root/areal-benchmarks/20261016-112420--0700-kv-live-probe",
+  "workspace": "/root/areal-development/20261016-112420--0700-kv-live-probe",
   "scope": "One deterministic vLLM TP=1 Qwen2.5-1.5B request; not a throughput measurement.",
   "source_sha256": {
     "areal/engine/vllm_ext/kv_handoff.py": "dc180be3ff9d24b3603b03c05c7040e57d222ef41e34c9fbdc73355ed1820e7c",

@@ -1,0 +1,22 @@
+{
+  "model": "Qwen/Qwen2-7B-Instruct",
+  "order": [
+    "tp1a",
+    "tp2",
+    "tp1b"
+  ],
+  "repetitions": 3,
+  "warmups": 2,
+  "precision": "bfloat16",
+  "eager": false,
+  "prefix_caching": true,
+  "max_num_seqs": 64,
+  "memory_utilization": 0.6,
+  "max_model_len": 4096,
+  "measurements": "Inference-only; no live migration; same token inputs and fixed generated token counts",
+  "logical_kv_bytes_per_token": 57344,
+  "logical_kv_mib_at_context1536": 84.0,
+  "request_metrics_note": "This vLLM offline run disables log stats, so RequestOutput.metrics is absent. Report warmed completion time and fixed-work throughput; do not report TTFT/TPOT as measured. Single-request elapsed/output_tokens is only an effective average including residual prefill.",
+  "graph_mode": "FULL_DECODE_ONLY",
+  "comparison_workspace": "/root/areal-development/r026-qwen7b-tp-20261020"
+}

@@ -1,0 +1,66 @@
+{
+  "tp": 2,
+  "replicas": 4,
+  "pairs": [
+    {
+      "source": 0,
+      "target": 2,
+      "pair_id": "replica-0-to-2",
+      "tokens_equal": true,
+      "logprob_max_error": 0.0,
+      "total_tokens": 256,
+      "prefix_tokens": 34,
+      "import_result": {
+        "outcome": "import_applied",
+        "import_s": 0.03903282433748245,
+        "computed": 91,
+        "request_id": "generate-tokens-kv-probe-9ec0661f"
+      }
+    },
+    {
+      "source": 0,
+      "target": 3,
+      "pair_id": "replica-0-to-3",
+      "tokens_equal": true,
+      "logprob_max_error": 0.0,
+      "total_tokens": 256,
+      "prefix_tokens": 34,
+      "import_result": {
+        "outcome": "import_applied",
+        "import_s": 0.034930240362882614,
+        "computed": 91,
+        "request_id": "generate-tokens-kv-probe-9c1cef37"
+      }
+    },
+    {
+      "source": 1,
+      "target": 2,
+      "pair_id": "replica-1-to-2",
+      "tokens_equal": true,
+      "logprob_max_error": 0.0,
+      "total_tokens": 256,
+      "prefix_tokens": 34,
+      "import_result": {
+        "outcome": "import_applied",
+        "import_s": 0.006539730355143547,
+        "computed": 91,
+        "request_id": "generate-tokens-kv-probe-9cb21c86"
+      }
+    },
+    {
+      "source": 1,
+      "target": 3,
+      "pair_id": "replica-1-to-3",
+      "tokens_equal": true,
+      "logprob_max_error": 0.0,
+      "total_tokens": 256,
+      "prefix_tokens": 34,
+      "import_result": {
+        "outcome": "import_applied",
+        "import_s": 0.006718715652823448,
+        "computed": 91,
+        "request_id": "generate-tokens-kv-probe-900ee197"
+      }
+    }
+  ]
+}

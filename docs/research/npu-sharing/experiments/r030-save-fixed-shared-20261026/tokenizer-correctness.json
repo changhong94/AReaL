@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "checkpoints": [
+    "/oldnew/comparison/20261026-133133-0700_code_fsdp_c16_b6_32e9e4/repetitions/04/latest/checkpoints/root/npu-share-ab/run/default/epoch0epochstep5globalstep5",
+    "/oldnew/comparison/20261026-133133-0700_code_fsdp_c16_b6_32e9e4/repetitions/03/latest/checkpoints/root/npu-share-ab/run/default/epoch0epochstep5globalstep5",
+    "/oldnew/comparison/20261026-133133-0700_code_fsdp_c16_b6_32e9e4/repetitions/02/latest/checkpoints/root/npu-share-ab/run/default/epoch0epochstep5globalstep5",
+    "/oldnew/comparison/20261026-133133-0700_code_fsdp_c16_b6_32e9e4/repetitions/01/latest/checkpoints/root/npu-share-ab/run/default/epoch0epochstep5globalstep5",
+    "/fixedshared/comparison/20261026-144007-0700_code_fsdp_c16_b6_3fca1c/repetitions/01/latest/checkpoints/root/npu-share-ab/run/default/epoch0epochstep5globalstep5",
+    "/fixedshared/comparison/20261026-144007-0700_code_fsdp_c16_b6_3fca1c/repetitions/01/fixed/checkpoints/root/npu-share-ab/run/default/epoch0epochstep5globalstep5"
+  ]
+}

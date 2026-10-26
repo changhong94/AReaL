@@ -18,7 +18,13 @@ def eligible(scheduler, request, waiting_status):
 def queue_operation(core, action, ids, waiting_status, aborted_status):
     """Called only by EngineCore's serialized utility dispatcher, never an API thread."""
     scheduler = core.scheduler
-    if action not in ("snapshot", "abort", "abort_running"):
+    if action not in (
+        "snapshot",
+        "abort",
+        "abort_running",
+        "abort_retained",
+        "abort_retained_selected",
+    ):
         raise ValueError("Unknown queue rebalance operation")
     available = [r for r in scheduler.waiting if eligible(scheduler, r, waiting_status)]
     if action == "snapshot":
@@ -45,6 +51,12 @@ def queue_operation(core, action, ids, waiting_status, aborted_status):
         if os.getenv("AREAL_RUNNING_REBALANCE", "off") not in {"active", "kv"}:
             raise ValueError("Running rebalance is not enabled")
         available = list(scheduler.running)
+    if action in {"abort_retained", "abort_retained_selected"}:
+        # Dedicated paused-source endpoint verifies the pause before this atomic
+        # utility. Include preempted waiting requests and zero-token requests.
+        available = list(scheduler.requests.values())
+        if action == "abort_retained":
+            ids = [r.request_id for r in available]
     selected = set(ids)
     safe = [r.request_id for r in available if r.request_id in selected]
     # Eligibility is checked again here, after the planning round trip. No
@@ -55,7 +67,9 @@ def queue_operation(core, action, ids, waiting_status, aborted_status):
 
 
 def install_queue_rebalance():
-    if (
+    if os.getenv(
+        "AREAL_PROFIT_AWARE_RETURN", os.getenv("AREAL_DYNAMIC_KV", "0")
+    ) != "1" and (
         os.getenv("AREAL_QUEUE_REBALANCE", "1") != "1"
         or os.getenv("AREAL_DRAIN_METRICS", "0") != "1"
     ):

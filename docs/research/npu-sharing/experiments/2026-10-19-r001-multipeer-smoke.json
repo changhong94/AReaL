@@ -1,0 +1,48 @@
+{
+  "workspace": "/root/areal-development/20261019-170314-0700_math_megatron_c16_b3_6325fe",
+  "purpose": "Shared-only multi-replica correctness validation; not a performance comparison",
+  "engine": "megatron",
+  "npu_count": 4,
+  "tp": 1,
+  "replicas": 4,
+  "batches": 3,
+  "questions": 48,
+  "samples_per_question": 6,
+  "concurrency": 16,
+  "exit_code": 0,
+  "answers": 288,
+  "tokens": 70589,
+  "train_loop_seconds": 78.73939228057861,
+  "initialize_seconds": 290.1554217338562,
+  "import_applied": 10,
+  "handoffs": [
+    {
+      "source": 2,
+      "target": 0,
+      "pair_id": "replica-2-to-0",
+      "request_ids": [
+        "9bc2ed7cd7fc4ca5b076f763903f9ca5",
+        "e845dfbe67904e14b4a4cbfc04777372",
+        "55566f3a3bab442591684b9ad793b935",
+        "874b737d9ed34b7fbd30b1286aae08da",
+        "b76895069bd24ffe99cddf1be107feeb"
+      ],
+      "seconds": 1.0973949488252401,
+      "policy": "exploratory"
+    },
+    {
+      "source": 3,
+      "target": 0,
+      "pair_id": "replica-3-to-0",
+      "request_ids": [
+        "2168037a9db84be4a008a2c98d50cca1",
+        "6d0044f97c0f45bdb1891960c6667b9f",
+        "6113c7f57ac049e4bc8e7bf99a53be43",
+        "66ab6b13ee6145e08649361bb15f018c",
+        "a2c23bf376d04619a6a3e8d1e3c897a9"
+      ],
+      "seconds": 1.282111443579197,
+      "policy": "exploratory"
+    }
+  ]
+}

@@ -199,7 +199,7 @@ def main():
         text(
             44,
             844,
-            "Evidence and scope: linked research note  |  Reviewed 2026-10-15  |  No standalone novelty claim",
+            f"Evidence and scope: linked research note  |  Reviewed {spec.get('reviewed', '2026-10-15')}  |  No standalone novelty claim",
             16,
             "#596779",
         )

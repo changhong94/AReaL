@@ -454,3 +454,35 @@ class TestAsyncTaskRunnerWithDifferentTypes:
         assert set(even_numbers) == {0, 2, 4, 6, 8}
 
         runner.destroy()
+
+
+def test_paused_runner_delivers_existing_results_without_admitting_new_work():
+    from threading import Event
+
+    started, release, next_started = Event(), Event(), Event()
+    runner = AsyncTaskRunner[int](max_queue_size=8)
+    runner.initialize()
+
+    async def existing():
+        started.set()
+        while not release.is_set():
+            await asyncio.sleep(0.01)
+        return 7
+
+    async def queued():
+        next_started.set()
+        return 9
+
+    try:
+        runner.submit(existing, task_id=1)
+        assert started.wait(2)
+        runner.pause()
+        runner.submit(queued, task_id=2)
+        release.set()
+        assert runner.wait(count=1, timeout=2) == [7]
+        assert not next_started.is_set()
+        runner.resume()
+        assert runner.wait(count=1, timeout=2) == [9]
+    finally:
+        release.set()
+        runner.destroy()

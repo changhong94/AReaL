@@ -39,6 +39,8 @@ class RequestLeasePool:
         self.running_versions = {}
         self.running_attempts = {}
         self.closing = set()
+        self.evacuation_targets = {}
+        self.retained_kv_pins = {}
 
     def acquire(
         self,
@@ -108,6 +110,17 @@ class RequestLeasePool:
                     candidates = [group["rank"]] if group["rank"] in available else []
                 else:
                     candidates = available
+                evacuation = self.evacuation_targets.get(pending["request_id"])
+                if evacuation is not None:
+                    candidates = [r for r in available if r in evacuation]
+                    pin = self.retained_kv_pins.get(pending["request_id"])
+                    if pin is not None:
+                        r = pin["rank"]
+                        # close() waits for this import ACK: admit its already
+                        # pinned continuation while rejecting unrelated new work.
+                        candidates = (
+                            [r] if self.ready[r] and counts[r] < self.capacity else []
+                        )
                 required_version = self.running_versions.get(pending["request_id"])
                 if required_version is not None:
                     candidates = [
@@ -207,6 +220,7 @@ class RequestLeasePool:
             if observation and observation.get("finished"):
                 self.rebalance_reservations.pop(lease["request_id"], None)
                 self.running_moved.discard(lease["request_id"])
+                self.evacuation_targets.pop(lease["request_id"], None)
                 question = lease.get("metrics", {}).get("question_id")
                 if question is not None:
                     self.completed.setdefault(question, set()).add(lease["request_id"])
@@ -239,6 +253,7 @@ class RequestLeasePool:
             pending = self.waiting.pop(ticket, None)
             if pending:
                 self.rebalance_reservations.pop(pending["request_id"], None)
+                self.evacuation_targets.pop(pending["request_id"], None)
             if ticket in self.active:
                 self.error = "Request cancelled with an outstanding lease"
 
@@ -253,7 +268,10 @@ class RequestLeasePool:
             with self.lock:
                 pinned = any(
                     r.get("running") and rank in (r["source_rank"], r["rank"])
-                    for r in self.rebalance_reservations.values()
+                    for r in (
+                        *self.rebalance_reservations.values(),
+                        *self.retained_kv_pins.values(),
+                    )
                 )
                 if self.error:
                     raise RuntimeError(self.error)
@@ -276,7 +294,10 @@ class RequestLeasePool:
     def _check_handoff_epoch(self, rank):
         if any(
             r.get("running") and rank in (r["source_rank"], r["rank"])
-            for r in self.rebalance_reservations.values()
+            for r in (
+                *self.rebalance_reservations.values(),
+                *self.retained_kv_pins.values(),
+            )
         ):
             raise RuntimeError("Running handoff pins replica epoch")
 
@@ -310,6 +331,22 @@ class RequestLeasePool:
                 raise RuntimeError("Version change requires drained requests")
             self.versions[rank] = version
 
+    def admission_snapshot(self, version: int) -> dict:
+        """Read bounded routing state without copying request histories or device RPCs."""
+        with self.lock:
+            if self.error:
+                raise RuntimeError(self.error)
+            return dict(
+                ready=[
+                    ready
+                    and rank not in self.closing
+                    and self.versions[rank] == version
+                    for rank, ready in enumerate(self.ready)
+                ],
+                capacity=self.capacity,
+                waiting=len(self.waiting),
+            )
+
     def drain_snapshot(self, rotate=False) -> dict:
         with self.lock:
             if self.error:
@@ -336,6 +373,79 @@ class RequestLeasePool:
                 completed={k: list(v) for k, v in self.completed.items()},
                 lengths=list(self.lengths),
             )
+
+    def force_prefix_evacuation(self, source_rank: int, target_ranks: list[int]):
+        """R027 mandatory continuation: no gain filter or destination slot reservation.
+
+        Prefix replay uses the destination's actual version. Source leases remain
+        owned until their acknowledged abort responses arrive via release().
+        Busy destinations queue through normal FIFO admission.
+        """
+        with self.lock:
+            if self.error:
+                raise RuntimeError(self.error)
+            if (
+                self.ready[source_rank]
+                or not target_ranks
+                or source_rank in target_ranks
+            ):
+                raise ValueError(
+                    "Evacuation requires a closed source and other targets"
+                )
+            if any(r < 0 or r >= len(self.addresses) for r in target_ranks):
+                raise ValueError("Invalid evacuation destination")
+            leases = [dict(r) for r in self.active.values() if r["rank"] == source_rank]
+            for lease in leases:
+                rid = lease["request_id"]
+                self.rebalance_reservations.pop(rid, None)
+                self.running_versions.pop(rid, None)
+                self.running_attempts.pop(rid, None)
+                self.evacuation_targets[rid] = tuple(target_ranks)
+            return leases
+
+    def pin_retained_kv(self, lease, target):
+        """Pin a mandatory continuation to its staged same-version destination.
+
+        Unlike optional rebalance, a full destination queues rather than vetoing
+        evacuation. Source ownership is unchanged until the native abort reply.
+        """
+        with self.lock:
+            current = self.active.get(lease["ticket"])
+            if (
+                current != lease
+                or self.ready[lease["rank"]]
+                or target not in self.evacuation_targets.get(lease["request_id"], ())
+                or not self.ready[target]
+                or target in self.closing
+                or self.versions[target] != lease["version"]
+            ):
+                raise RuntimeError("Retained KV destination or ownership changed")
+            rid = lease["request_id"]
+            self.evacuation_targets[rid] = (target,)
+            self.running_versions[rid] = lease["version"]
+            self.running_attempts.pop(rid, None)
+            self.retained_kv_pins[rid] = dict(
+                running=True,
+                source_rank=lease["rank"],
+                rank=target,
+                lease_id=lease["lease_id"],
+            )
+
+    def complete_retained_kv(self, lease):
+        """Release the publication fence only after native import/replay ACK."""
+        with self.lock:
+            pin = self.retained_kv_pins.get(lease["request_id"])
+            if pin and pin["lease_id"] == lease["lease_id"]:
+                del self.retained_kv_pins[lease["request_id"]]
+
+    def cancel_retained_kv(self, lease, targets):
+        with self.lock:
+            rid = lease["request_id"]
+            pin = self.retained_kv_pins.get(rid)
+            if pin and pin["lease_id"] == lease["lease_id"]:
+                del self.retained_kv_pins[rid]
+                self.running_versions.pop(rid, None)
+                self.evacuation_targets[rid] = tuple(targets)
 
     def reserve_rebalance(
         self, request_ids, version, source_rank=1, target_rank=0, *, running=False

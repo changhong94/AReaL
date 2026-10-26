@@ -1,0 +1,35 @@
+{
+  "order": [
+    "old",
+    "new",
+    "new",
+    "old"
+  ],
+  "means": {
+    "old": {
+      "seconds": 432.6062945127487,
+      "save_seconds": 12.359785500000001,
+      "final_save_join_seconds": 1.941667,
+      "tokens": 363510,
+      "tokens_per_second": 840.4044532640573,
+      "initialization_seconds": 388.088672041893,
+      "score_work_seconds": 4768.65632724762,
+      "reward_mean": 0.10221354166666666,
+      "save_with_final_join": 14.301452500000002
+    },
+    "new": {
+      "seconds": 425.0589325428009,
+      "save_seconds": 3.5274080000000003,
+      "final_save_join_seconds": 1.747435,
+      "tokens": 358416,
+      "tokens_per_second": 843.2373721709739,
+      "initialization_seconds": 406.0631699562073,
+      "score_work_seconds": 4771.318345546722,
+      "reward_mean": 0.10091145833333334,
+      "save_with_final_join": 5.274843000000001
+    }
+  },
+  "identical_input_files": true,
+  "all_answers_scored": true,
+  "caveat": "Reused vLLM development comparison. Generated token counts and code hashes differ; two runs per candidate are not statistical proof of end-to-end improvement. Final write joins are included."
+}

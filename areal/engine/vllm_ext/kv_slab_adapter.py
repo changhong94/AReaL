@@ -142,7 +142,9 @@ def install_kv_slab() -> None:
         def load_model(self, *args, **kwargs):
             self._adaptive_backend = AscendPoolBackend()
             self._adaptive_memory = TaggedMemory(
-                self._adaptive_backend, ["weights", "kv_cache"]
+                self._adaptive_backend,
+                ["weights", "kv_cache"],
+                retained_tags=("weights",),
             )
             with self._adaptive_backend.allocation_scope("weights"):
                 result = original_load_model(self, *args, **kwargs)
@@ -152,14 +154,23 @@ def install_kv_slab() -> None:
             return result
 
         NPUModelRunner.load_model = load_model
+        original_execute_model = NPUModelRunner.execute_model
+
+        @wraps(original_execute_model)
+        def execute_with_backing(self, *args, **kwargs):
+            # All publication buckets have completed before generation resumes.
+            # Weight-only copies may overlap read-only inference; KV stays dirty.
+            self._adaptive_memory.start_retained_backup()
+            return original_execute_model(self, *args, **kwargs)
+
+        NPUModelRunner.execute_model = execute_with_backing
 
     @wraps(original_allocate)
     def allocate_kv(self, cache_config):
         config = self.vllm_config
         parallel = config.parallel_config
         if (
-            not config.model_config.enforce_eager
-            or config.model_config.enable_sleep_mode
+            config.model_config.enable_sleep_mode
             or config.cache_config.enable_prefix_caching
             or config.speculative_config is not None
             or config.kv_transfer_config is not None
@@ -174,8 +185,12 @@ def install_kv_slab() -> None:
         ):
             raise ValueError(
                 "KV slabs require uni/mp Qwen2 full attention, "
-                "native KV dtype, eager, no prefix cache/sleep/speculation/KV transfer"
+                "native KV dtype, no prefix cache/sleep/speculation/KV transfer"
             )
+        if not config.model_config.enforce_eager:
+            mode = config.compilation_config.cudagraph_mode
+            if getattr(mode, "name", str(mode)) not in {"FULL", "FULL_DECODE_ONLY"}:
+                raise ValueError("Shared KV graphs require FULL or FULL_DECODE_ONLY")
         if dynamic_kv.enabled():
             return dynamic_kv.allocate_dynamic_kv(self, cache_config)
         allocator = CaMemAllocator.get_instance()

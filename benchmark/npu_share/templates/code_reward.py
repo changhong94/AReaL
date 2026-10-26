@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from kuasar import run_test
+from question_rewards import DEFAULT_REWARD_CONCURRENCY
 
 from areal.utils import request_trace
 from areal.workflow.openai.code_agent import _build_test_script, _extract_code_block
@@ -18,7 +19,7 @@ def sandbox_slot():
     """One aggregate limit across all rollout processes sharing run-output."""
     directory = Path(os.environ.get("AREAL_CODE_SLOT_DIR", "/run-output/sandbox-slots"))
     directory.mkdir(parents=True, exist_ok=True)
-    limit = 4
+    limit = DEFAULT_REWARD_CONCURRENCY
     start = time.monotonic_ns() % limit
     while True:
         for offset in range(limit):
