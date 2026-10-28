@@ -21,11 +21,31 @@ def main():
         "--shared-concurrency-modes",
         help="Comma-separated R025 modes, one per repetition: off,capacity",
     )
+    parser.add_argument(
+        "--shared-ablations",
+        help="One development ablation per repetition: baseline,no-first-return,no-training-overlap,both",
+    )
+    parser.add_argument(
+        "--shared-route-transports",
+        help="One development route transport per repetition: poll,push (default: push)",
+    )
     special, remaining = parser.parse_known_args()
     sys.argv = [sys.argv[0]] + remaining
     opts = run_bench.arguments()
     opts.repetitions = special.repetitions
     opts.kv_policy = special.kv_policy
+    opts.shared_route_transports = (
+        special.shared_route_transports.split(",")
+        if special.shared_route_transports
+        else ["push"] * opts.repetitions
+    )
+    if len(opts.shared_route_transports) != opts.repetitions or any(
+        x not in ("poll", "push") for x in opts.shared_route_transports
+    ):
+        raise ValueError("Provide one poll/push transport per repetition")
+    from templates.reuse_ablation import validate_modes
+
+    opts.shared_ablations = validate_modes(special.shared_ablations, opts.repetitions)
     opts.shared_concurrency_modes = (
         special.shared_concurrency_modes.split(",")
         if special.shared_concurrency_modes

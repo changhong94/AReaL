@@ -125,9 +125,8 @@ def run(opts, profile):
         from telemetry import parse_info, sampler
 
         raw = bench.capture([profile["npu_smi"], "info"])
-        _, processes = parse_info(raw)
-        if processes or raw.count("No running processes found in NPU") != 8:
-            raise RuntimeError("Other NPU users detected; reusable session not started")
+        devices, processes = parse_info(raw)
+        bench.validate_idle_devices(raw, devices, processes, profile["devices"])
         infos = {}
         for arm in ("fixed", "latest"):
             progress.set(
@@ -179,6 +178,8 @@ def run(opts, profile):
             pair_settings = dict(
                 settings,
                 adaptive_concurrency=opts.shared_concurrency_modes[repetition - 1],
+                shared_ablation=opts.shared_ablations[repetition - 1],
+                shared_route_transport=opts.shared_route_transports[repetition - 1],
                 container_prefix=settings["container_prefix"] + f"-r{repetition}",
             )
             bench.write_json(pair / "settings.json", pair_settings)
@@ -233,6 +234,20 @@ def run(opts, profile):
                     "-d",
                     "-e",
                     "AREAL_BENCH_SERVERS=" + servers,
+                    "-e",
+                    "AREAL_ROUTE_TRANSPORT="
+                    + (
+                        pair_settings["shared_route_transport"]
+                        if arm == "latest"
+                        else "poll"
+                    ),
+                    "-e",
+                    "AREAL_DEV_ABLATION="
+                    + (
+                        pair_settings["shared_ablation"]
+                        if arm == "latest"
+                        else "baseline"
+                    ),
                     "-e",
                     "AREAL_KV_REBALANCE_POLICY=" + opts.kv_policy,
                 ]

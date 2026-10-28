@@ -7,6 +7,7 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import shlex
 import shutil
 import signal
@@ -308,7 +309,6 @@ def environment(shared):
             "AREAL_DRAIN_METRICS",
             "AREAL_ADAPTIVE_DRAIN",
             "AREAL_QUEUE_REBALANCE",
-            "AREAL_TRAIN_PRIORITY_INFERENCE",
             "AREAL_PRESSURE_MEMORY",
             "AREAL_DYNAMIC_KV",
             "AREAL_PROFIT_AWARE_RETURN",
@@ -316,6 +316,11 @@ def environment(shared):
         ]
     }
     env.update(
+        AREAL_ROUTE_TRANSPORT=os.getenv("AREAL_ROUTE_TRANSPORT", "push"),
+        AREAL_RETURN_CALIBRATION_PROBE=os.getenv("AREAL_RETURN_CALIBRATION_PROBE", "0"),
+        AREAL_TRAIN_PRIORITY_INFERENCE=(
+            os.getenv("AREAL_TRAIN_PRIORITY_INFERENCE", "0") if shared else "0"
+        ),
         AREAL_IDLE_FULL_VERIFY=os.getenv("AREAL_IDLE_FULL_VERIFY", "1"),
         AREAL_IDLE_HELPER_VALIDATE=os.getenv("AREAL_IDLE_HELPER_VALIDATE", "0"),
         AREAL_IDLE_HELPER_LEAN=os.getenv("AREAL_IDLE_HELPER_LEAN", "0"),
@@ -434,6 +439,27 @@ def docker_args(profile, settings, workspace, arm=None):
     )
     setup += "export PATH=" + shlex.quote(str(Path(spec["python"]).parent)) + ":$PATH; "
     return args, setup
+
+
+def validate_idle_devices(raw, devices, processes, selected):
+    """Require explicit idle evidence for every selected device on shared hosts."""
+    selected = {str(device) for device in selected}
+    idle = set(re.findall(r"No running processes found in NPU\s+(\d+)\b", raw))
+    busy = {str(process["device"]) for process in processes}
+    unhealthy = {
+        device for device in selected if devices.get(device, {}).get("health") != "OK"
+    }
+    if (
+        "Process id" not in raw
+        or not selected
+        or not selected <= idle
+        or selected & busy
+        or unhealthy
+    ):
+        raise RuntimeError(
+            "Selected NPU devices are busy, unhealthy, or lack explicit idle evidence; "
+            "no experiment started"
+        )
 
 
 def main():
@@ -612,15 +638,7 @@ def main():
         progress.set("Checking NPU availability")
         raw = capture([profile["npu_smi"], "info"])
         devices, processes = parse_info(raw)
-        if (
-            len(devices) != 8
-            or "Process id" not in raw
-            or processes
-            or raw.count("No running processes found in NPU") != 8
-        ):
-            raise RuntimeError(
-                "Unexpected NPU state or other NPU users; no experiment started"
-            )
+        validate_idle_devices(raw, devices, processes, profile["devices"])
         for arm in ["fixed", "latest"]:
             progress.set(f"Starting {arm} group: model initialization and training")
             event_offset, completed_batches = 0, 0

@@ -13,6 +13,50 @@ import run_bench as run
 
 
 class RunnerTests(unittest.TestCase):
+    def test_reuse_route_defaults_to_push_and_allows_poll(self):
+        import run_reuse_dev_bench as reuse
+
+        with tempfile.TemporaryDirectory() as directory:
+            profile = Path(directory) / "profile.json"
+            profile.write_text("{}")
+            for flags, expected in [
+                ([], ["push", "push"]),
+                (["--shared-route-transports", "poll,push"], ["poll", "push"]),
+            ]:
+                opts = SimpleNamespace(
+                    adaptive_concurrency="capacity",
+                    render_only=False,
+                    npu_count=2,
+                    inference_tp=1,
+                    profile=profile,
+                )
+                with (
+                    patch.object(sys, "argv", ["reuse", *flags]),
+                    patch.object(reuse.run_bench, "arguments", return_value=opts),
+                    patch.object(reuse, "run") as execute,
+                ):
+                    reuse.main()
+                self.assertEqual(
+                    execute.call_args.args[0].shared_route_transports, expected
+                )
+
+    def test_shared_host_checks_only_selected_idle_devices(self):
+        raw = "Process id\nNo running processes found in NPU 4\nNo running processes found in NPU 5\n"
+        devices = {str(i): {"health": "OK"} for i in range(8)}
+        run.validate_idle_devices(raw, devices, [{"device": "0"}], [4, 5])
+        for selected, processes in [
+            ([0, 4], []),
+            ([4, 5], [{"device": "5"}]),
+            ([4, 7], []),
+        ]:
+            with self.assertRaises(RuntimeError):
+                run.validate_idle_devices(raw, devices, processes, selected)
+        devices["4"]["health"] = "Warning"
+        with self.assertRaises(RuntimeError):
+            run.validate_idle_devices(raw, devices, [], [4, 5])
+        with self.assertRaises(RuntimeError):
+            run.validate_idle_devices("", devices, [], [4, 5])
+
     def test_code_reward_policy_is_opt_in(self):
         with patch.object(sys, "argv", ["run_bench.py"]):
             self.assertEqual(run.arguments().code_reward_scheduling, "answer")
@@ -143,7 +187,9 @@ class RunnerTests(unittest.TestCase):
                 calls.append(list(map(str, args)))
                 return SimpleNamespace(returncode=0)
 
-            raw = "Process id\n" + "No running processes found in NPU\n" * 8
+            raw = "Process id\n" + "".join(
+                f"No running processes found in NPU {i}\n" for i in range(8)
+            )
 
             def cap(args):
                 if args[0] == "smi":
@@ -163,7 +209,10 @@ class RunnerTests(unittest.TestCase):
 
             telemetry = SimpleNamespace(
                 sampler=lambda *a: None,
-                parse_info=lambda raw: ({str(i): {} for i in range(8)}, []),
+                parse_info=lambda raw: (
+                    {str(i): {"health": "OK"} for i in range(8)},
+                    [],
+                ),
             )
             with (
                 patch.object(run, "arguments", return_value=opts),
@@ -325,6 +374,29 @@ class RunnerTests(unittest.TestCase):
             with self.assertRaises(argparse.ArgumentTypeError):
                 run.positive(value)
         self.assertEqual(run.positive("100"), 100)
+
+    def test_safe_shared_policy_defaults_and_explicit_overrides(self):
+        with patch.dict("os.environ", {}, clear=True):
+            env = run.environment(True)
+            self.assertEqual(env["AREAL_ROUTE_TRANSPORT"], "push")
+            self.assertEqual(env["AREAL_RETURN_CALIBRATION_PROBE"], "0")
+            self.assertEqual(env["AREAL_TRAIN_PRIORITY_INFERENCE"], "0")
+        overrides = {
+            "AREAL_TRAIN_PRIORITY_INFERENCE": "1",
+            "AREAL_RETURN_CALIBRATION_PROBE": "1",
+            "AREAL_ROUTE_TRANSPORT": "poll",
+        }
+        with patch.dict("os.environ", overrides):
+            self.assertEqual(
+                run.environment(True)["AREAL_TRAIN_PRIORITY_INFERENCE"], "1"
+            )
+            self.assertEqual(
+                run.environment(False)["AREAL_TRAIN_PRIORITY_INFERENCE"], "0"
+            )
+            self.assertEqual(
+                run.environment(True)["AREAL_RETURN_CALIBRATION_PROBE"], "1"
+            )
+            self.assertEqual(run.environment(True)["AREAL_ROUTE_TRANSPORT"], "poll")
 
 
 if __name__ == "__main__":

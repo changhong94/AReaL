@@ -25,4 +25,16 @@ if os.getenv("AREAL_BENCH_SERVERS"):
 
 
 if __name__ == "__main__":
+    from reuse_ablation import install
+
+    from areal.infra import profit_return
+    from areal.trainer.rl_trainer import PPOTrainer
+    from areal.utils import request_trace
+
+    install(
+        os.getenv("AREAL_DEV_ABLATION", "baseline"),
+        PPOTrainer,
+        profit_return,
+        request_trace.emit,
+    )
     entry.main()
