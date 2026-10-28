@@ -257,3 +257,53 @@ explicitly enable both; fixed arms explicitly disable both. Existing safety chec
 single-rank default-pool credit restrictions remain. Explicit runtime environment values
 of `0` disable either mechanism. Historical experiment statements about opt-in status
 describe their configuration at the time.
+
+## 2026-10-28: cold-decision and concurrency safeguards
+
+The earlier development-only ablation was not a production fix: the formal cold path
+still returned `calibration_probe`. The formal path now keeps the actor resident with
+`uncalibrated_keep` when transition-cost or service observations are missing. Set
+`AREAL_RETURN_CALIBRATION_PROBE=1` explicitly to restore exploratory calibration. This
+conservative default does not manufacture a predicted negative gain: without a
+calibration opportunity, it may remain uncalibrated for the entire run. Existing
+decisions using measured positive gain remain unchanged. Persistent, configuration-keyed
+calibration reuse is not implemented by this change.
+
+The benchmark no longer forces concurrent training/inference on the same device.
+`AREAL_TRAIN_PRIORITY_INFERENCE=1` explicitly enables that experiment; the default is
+zero. This is separate from model residency and inference/weight-publication overlap.
+The fixed arm always disables same-device training/inference.
+
+Request admission now defaults to the validated push transport
+(`AREAL_ROUTE_TRANSPORT=push`). `poll` remains available for controlled comparisons. The
+controller and workers must use the same setting. Push does not change off-policy
+limits, answer counts, or the single authoritative lease pool.
+
+Validation and paired performance results are recorded separately; a routing fix must
+not be credited with the entire fixed/shared difference. In particular, changed
+stochastic answers and warm-service ordering remain confounders.
+
+### Explicit follow-up: measured-benefit control of same-device concurrency
+
+Requested on 2026-10-28. The explicit switch is a temporary safeguard, not the final
+design.
+
+- Optimize next-batch training readiness and end-to-end RL time, not utilization or
+  memory feasibility alone.
+- Collect rolling measurements of isolated training, isolated inference and concurrent
+  service times, token throughput, training slowdown, pending work and remaining
+  training work.
+- Enable concurrency only when predicted batch-readiness gains exceed training
+  interference, activation/deactivation and memory-management costs.
+- Use conservative behavior with insufficient data. Bound exploratory calibration and
+  include its overhead in end-to-end accounting.
+- Add hysteresis or a minimum stable interval; preserve off-policy limits, version
+  consistency, memory budgets and training safety boundaries.
+- Compare disabled, forced-on and adaptive policies across inference-heavy,
+  training-heavy and tail-dominated workloads. Report prediction errors and harmful
+  decisions as well as aggregate performance.
+
+Status: recorded, not implemented. Disabling concurrency by default does not implement
+adaptive control.
+
+[2026-10-28 paired evidence](../experiments/2026-10-28-c01-push-admission.md)

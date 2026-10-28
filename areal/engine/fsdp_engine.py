@@ -1010,36 +1010,53 @@ class FSDPEngine(TrainEngine):
                 inputs.update(tree_kwargs)
                 tree_attn_keys = list(tree_kwargs.keys())
 
-            with trace_scope("fsdp_engine.forward"):
-                outputs = self.model(**inputs)
-            logits = outputs.logits.squeeze(0)
+            backend = getattr(self, "_adaptive_backend", None)
+            unified_workspace = not forward_only and getattr(
+                backend, "training_forward_in_workspace", False
+            )
+            forward_scope = (
+                backend.allocation_scope("actor_workspace")
+                if unified_workspace
+                else nullcontext()
+            )
+            forward_autograd_scope = (
+                torch.autograd.set_multithreading_enabled(False)
+                if unified_workspace
+                else nullcontext()
+            )
+            # Checkpoint recomputation and its original forward can reuse the
+            # same transient cache. Keep forward-only and optimizer paths out.
+            with forward_autograd_scope, forward_scope:
+                with trace_scope("fsdp_engine.forward"):
+                    outputs = self.model(**inputs)
+                logits = outputs.logits.squeeze(0)
 
-            # Release tree attention metadata after forward pass
-            for key in tree_attn_keys:
-                del inputs[key]
+                # Release tree attention metadata after forward pass
+                for key in tree_attn_keys:
+                    del inputs[key]
 
-            ctx_dict = ctx.to_dict()
-            loss = process_output_fn(logits, ctx_dict)
+                ctx_dict = ctx.to_dict()
+                loss = process_output_fn(logits, ctx_dict)
 
-            if not forward_only and loss is not None:
-                workspace = getattr(
-                    getattr(self, "_adaptive_backend", None), "workspace", None
-                )
-                scope = (
-                    self._adaptive_backend.allocation_scope("actor_workspace")
-                    if workspace is not None
-                    else nullcontext()
-                )
-                # NPU autograd worker threads inherit the pool id but not its
-                # pluggable allocator TLS. Execute on this thread so all cached
-                # segments actually use CaMem and can be safely unmapped.
-                autograd_scope = (
-                    torch.autograd.set_multithreading_enabled(False)
-                    if workspace is not None
-                    else nullcontext()
-                )
-                with autograd_scope, scope, trace_scope("fsdp_engine.backward"):
-                    loss.backward()
+                if not forward_only and loss is not None:
+                    workspace = getattr(
+                        getattr(self, "_adaptive_backend", None), "workspace", None
+                    )
+                    scope = (
+                        self._adaptive_backend.allocation_scope("actor_workspace")
+                        if workspace is not None and not unified_workspace
+                        else nullcontext()
+                    )
+                    # NPU autograd worker threads inherit the pool id but not its
+                    # pluggable allocator TLS. Execute on this thread so all cached
+                    # segments actually use CaMem and can be safely unmapped.
+                    autograd_scope = (
+                        torch.autograd.set_multithreading_enabled(False)
+                        if workspace is not None and not unified_workspace
+                        else nullcontext()
+                    )
+                    with autograd_scope, scope, trace_scope("fsdp_engine.backward"):
+                        loss.backward()
 
     def train_batch(
         self,

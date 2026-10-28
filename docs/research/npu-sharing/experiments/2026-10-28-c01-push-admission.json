@@ -1,0 +1,374 @@
+[
+  {
+    "pair": "01",
+    "ablation": "baseline",
+    "fixed": {
+      "seconds": 154.93635940551758,
+      "batch_ready": [
+        [
+          1,
+          24.3853600025177
+        ],
+        [
+          2,
+          46.953941345214844
+        ],
+        [
+          3,
+          65.69945979118347
+        ],
+        [
+          4,
+          83.24616384506226
+        ],
+        [
+          5,
+          102.20527267456055
+        ],
+        [
+          6,
+          122.49018263816833
+        ]
+      ],
+      "returns": [],
+      "answers": 1536
+    },
+    "latest": {
+      "seconds": 147.8026647567749,
+      "batch_ready": [
+        [
+          1,
+          15.341636896133423
+        ],
+        [
+          2,
+          40.2388436794281
+        ],
+        [
+          3,
+          61.26031947135925
+        ],
+        [
+          4,
+          79.15688943862915
+        ],
+        [
+          5,
+          98.26532196998596
+        ],
+        [
+          6,
+          116.46220278739929
+        ]
+      ],
+      "returns": [
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 88
+        },
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 123
+        },
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 152
+        },
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 179
+        },
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 192
+        }
+      ],
+      "answers": 1536
+    },
+    "saving_percent": 4.604274087834693
+  },
+  {
+    "pair": "02",
+    "ablation": "no-first-return",
+    "fixed": {
+      "seconds": 151.41833662986755,
+      "batch_ready": [
+        [
+          1,
+          23.94226861000061
+        ],
+        [
+          2,
+          46.12439680099487
+        ],
+        [
+          3,
+          65.2614688873291
+        ],
+        [
+          4,
+          83.38590502738953
+        ],
+        [
+          5,
+          102.33663249015808
+        ],
+        [
+          6,
+          121.39428544044495
+        ]
+      ],
+      "returns": [],
+      "answers": 1536
+    },
+    "latest": {
+      "seconds": 146.08400630950928,
+      "batch_ready": [
+        [
+          1,
+          14.717428922653198
+        ],
+        [
+          2,
+          38.428027391433716
+        ],
+        [
+          3,
+          59.833590507507324
+        ],
+        [
+          4,
+          77.29335856437683
+        ],
+        [
+          5,
+          97.31074810028076
+        ],
+        [
+          6,
+          114.8712739944458
+        ]
+      ],
+      "returns": [
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 84
+        },
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 118
+        },
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 149
+        },
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 178
+        },
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 192
+        }
+      ],
+      "answers": 1536
+    },
+    "saving_percent": 3.5229090736861757
+  },
+  {
+    "pair": "03",
+    "ablation": "no-training-overlap",
+    "fixed": {
+      "seconds": 153.29843616485596,
+      "batch_ready": [
+        [
+          1,
+          23.447633743286133
+        ],
+        [
+          2,
+          44.74648690223694
+        ],
+        [
+          3,
+          64.0553891658783
+        ],
+        [
+          4,
+          82.4426429271698
+        ],
+        [
+          5,
+          101.39895629882812
+        ],
+        [
+          6,
+          123.35334062576294
+        ]
+      ],
+      "returns": [],
+      "answers": 1536
+    },
+    "latest": {
+      "seconds": 147.053706407547,
+      "batch_ready": [
+        [
+          1,
+          15.234735488891602
+        ],
+        [
+          2,
+          36.123592376708984
+        ],
+        [
+          3,
+          58.1911940574646
+        ],
+        [
+          4,
+          77.29880619049072
+        ],
+        [
+          5,
+          96.98050713539124
+        ],
+        [
+          6,
+          114.95143365859985
+        ]
+      ],
+      "returns": [
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 69
+        },
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 107
+        },
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 138
+        },
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 167
+        },
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 192
+        }
+      ],
+      "answers": 1536
+    },
+    "saving_percent": 4.073576948034507
+  },
+  {
+    "pair": "04",
+    "ablation": "both",
+    "fixed": {
+      "seconds": 154.43551325798035,
+      "batch_ready": [
+        [
+          1,
+          23.97195792198181
+        ],
+        [
+          2,
+          45.57241201400757
+        ],
+        [
+          3,
+          64.21887373924255
+        ],
+        [
+          4,
+          82.63493609428406
+        ],
+        [
+          5,
+          101.379234790802
+        ],
+        [
+          6,
+          122.93219065666199
+        ]
+      ],
+      "returns": [],
+      "answers": 1536
+    },
+    "latest": {
+      "seconds": 147.4446074962616,
+      "batch_ready": [
+        [
+          1,
+          19.643845558166504
+        ],
+        [
+          2,
+          39.945186614990234
+        ],
+        [
+          3,
+          60.553122997283936
+        ],
+        [
+          4,
+          79.30303072929382
+        ],
+        [
+          5,
+          98.10152554512024
+        ],
+        [
+          6,
+          116.41274881362915
+        ]
+      ],
+      "returns": [
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 83
+        },
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 112
+        },
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 140
+        },
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 173
+        },
+        {
+          "action": "keep",
+          "reason": "next_batch_ready",
+          "accepted": 192
+        }
+      ],
+      "answers": 1536
+    },
+    "saving_percent": 4.5267475169656235
+  }
+]

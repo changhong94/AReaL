@@ -119,7 +119,8 @@ def test_parked_actor_rejects_stats_and_checkpoint_context():
         pass
 
 
-def test_backward_scope_uses_calling_thread_and_restores_autograd_mode():
+@pytest.mark.parametrize("unified", [False, True])
+def test_backward_scope_uses_calling_thread_and_restores_autograd_mode(unified):
     import threading
     from contextlib import contextmanager
 
@@ -147,7 +148,9 @@ def test_backward_scope_uses_calling_thread_and_restores_autograd_mode():
 
     engine = object.__new__(FSDPEngine)
     engine._adaptive_backend = SimpleNamespace(
-        workspace=object(), allocation_scope=scope
+        workspace=object(),
+        allocation_scope=scope,
+        training_forward_in_workspace=unified,
     )
     engine._prepare_mb_inputs = lambda mb: ({}, SimpleNamespace(to_dict=lambda: {}))
     engine.enable_tree_training = False
@@ -157,3 +160,54 @@ def test_backward_scope_uses_calling_thread_and_restores_autograd_mode():
     assert calls == [caller]
     torch.testing.assert_close(weight.grad, torch.tensor([[4.0, 6.0]]))
     assert torch.autograd.is_multithreading_enabled() == previous
+
+
+@pytest.mark.parametrize("forward_only", [False, True])
+def test_unified_workspace_covers_training_and_restores_on_failure(forward_only):
+    from contextlib import contextmanager
+
+    import torch
+
+    from areal.engine.fsdp_engine import FSDPEngine
+
+    active = []
+
+    @contextmanager
+    def scope(tag):
+        active.append(tag)
+        try:
+            yield
+        finally:
+            active.pop()
+
+    previous = torch.autograd.is_multithreading_enabled()
+
+    def model(**kwargs):
+        assert bool(active) is (not forward_only)
+        if not forward_only:
+            assert not torch.autograd.is_multithreading_enabled()
+        raise ValueError("forward failed")
+
+    engine = object.__new__(FSDPEngine)
+    engine._adaptive_backend = SimpleNamespace(
+        workspace=object(),
+        allocation_scope=scope,
+        training_forward_in_workspace=True,
+    )
+    engine._prepare_mb_inputs = lambda mb: ({}, SimpleNamespace(to_dict=lambda: {}))
+    engine.enable_tree_training = False
+    engine.model = model
+    with pytest.raises(ValueError, match="forward failed"):
+        engine.forward_backward_batch(
+            [None], lambda logits, ctx: logits.sum(), forward_only
+        )
+    assert not active
+    assert torch.autograd.is_multithreading_enabled() == previous
+
+
+def test_unified_workspace_does_not_credit_default_pool_cache():
+    backend = object.__new__(AscendPoolBackend)
+    backend.training_forward_in_workspace = True
+    backend.segments = Mock(side_effect=AssertionError("must not query default cache"))
+    assert backend.reusable_forward_bytes() == 0
+    backend.segments.assert_not_called()

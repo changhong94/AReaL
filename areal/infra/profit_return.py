@@ -1,10 +1,20 @@
 # SPDX-License-Identifier: Apache-2.0
 """Causal next-batch return decision; no device operations or model RNG use."""
 
+import os
 import statistics
 
 from areal.infra.drain_prediction import BucketService, simulate_decode
 from areal.infra.rolling_drain import residual_distribution
+
+
+def uncalibrated_return(reason, **details):
+    """Keep unknown-cost exploration explicit instead of assuming a benefit."""
+    if os.getenv("AREAL_RETURN_CALIBRATION_PROBE", "0") == "1":
+        return dict(details, action="return", reason=reason)
+    return dict(
+        details, action="keep", reason="uncalibrated_keep", missing_reason=reason
+    )
 
 
 def estimate_return(calibration, route, engines, needed, costs, margin=0.0):
@@ -25,7 +35,9 @@ def estimate_return(calibration, route, engines, needed, costs, margin=0.0):
             for d, first in zip(calibration.decode, calibration.first, strict=True)
         )
     ):
-        return dict(base, action="return", reason="calibration_probe")
+        return uncalibrated_return(
+            "calibration_probe", **base, cost_samples=len(costs or [])
+        )
     publish = statistics.median(c["publish"] for c in costs)
     restore = statistics.median(c["restore"] for c in costs)
     live = [{r["request_id"]: r for r in e["active"]} for e in engines]
@@ -43,7 +55,7 @@ def estimate_return(calibration, route, engines, needed, costs, margin=0.0):
                 "max_new_tokens",
             )
         ):
-            return dict(base, action="return", reason="missing_metadata_probe")
+            return uncalibrated_return("missing_metadata_probe", **base)
         rank = lease["rank"]
         progress = live[rank].get(rid, {}) if rank >= 0 else {}
         generated = meta["generated_tokens"] + progress.get("tokens", 0)
@@ -77,11 +89,8 @@ def estimate_return(calibration, route, engines, needed, costs, margin=0.0):
         if len(q["ids"] | set(route["completed"].get(qid, []))) == q["size"]
     ]
     if len(known) < needed:
-        return dict(
-            base,
-            action="return",
-            reason="incomplete_horizon_probe",
-            known_questions=len(known),
+        return uncalibrated_return(
+            "incomplete_horizon_probe", **base, known_questions=len(known)
         )
     service = BucketService(calibration.decode, calibration.service)
     widths = [

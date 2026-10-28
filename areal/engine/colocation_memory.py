@@ -518,6 +518,10 @@ class AscendPoolBackend:
             if os.getenv("AREAL_PARK_TRAIN_CACHE", "0") == "1"
             else None
         )
+        self.training_forward_in_workspace = (
+            self.workspace is not None
+            and os.getenv("AREAL_UNIFIED_TRAIN_WORKSPACE", "1") == "1"
+        )
         # Native init_module borrows these exact Python objects without INCREF.
         # Pin bound methods on the singleton, including future pool creation and
         # frees after this backend is gone. An instance reference alone is not enough.
@@ -556,6 +560,10 @@ class AscendPoolBackend:
         return self.torch.npu.memory._snapshot()["segments"]
 
     def reusable_forward_bytes(self):
+        # Default-pool cache cannot satisfy private-pool training allocations.
+        # Keep the existing forward reserve; do not credit workspace twice.
+        if getattr(self, "training_forward_in_workspace", False):
+            return 0
         return reusable_default_segments(
             self.segments(),
             self.torch.npu.current_stream().npu_stream,

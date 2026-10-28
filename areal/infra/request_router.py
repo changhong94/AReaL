@@ -2,14 +2,29 @@
 """FIFO admission for generation segments, independent of workflow ownership."""
 
 import asyncio
+import functools
 import os
+import random
 import time
 from collections import OrderedDict
 from threading import Lock
+from weakref import WeakKeyDictionary, WeakValueDictionary
 
 import aiohttp
 
 from areal.utils import request_trace
+
+
+def _route_change(fn):
+    @functools.wraps(fn)
+    def wrapped(self, *args, **kwargs):
+        try:
+            return fn(self, *args, **kwargs)
+        finally:
+            for notify in tuple(self.change_listeners):
+                notify()
+
+    return wrapped
 
 
 class RequestLeasePool:
@@ -24,6 +39,8 @@ class RequestLeasePool:
         self.active = {}
         self.serial = 0
         self.error = None
+        self.change_listeners = []
+        self.push_cancelled = None
         self.lock = Lock()
         self.task_affinity = task_affinity
         self.groups = {}
@@ -62,6 +79,8 @@ class RequestLeasePool:
         with self.lock:
             if self.error:
                 raise RuntimeError(self.error)
+            if self.push_cancelled is not None and ticket in self.push_cancelled:
+                raise RuntimeError("Request ticket was cancelled")
             if ticket in self.active:
                 if any(self.active[ticket][k] != v for k, v in item.items()):
                     raise ValueError("Ticket metadata changed")
@@ -183,6 +202,7 @@ class RequestLeasePool:
             request_trace.emit("route_acquire", **lease)
             return lease.copy()
 
+    @_route_change
     def finish_group(self, group_id: str):
         with self.lock:
             if any(x.get("group_id") == group_id for x in self.active.values()) or any(
@@ -193,6 +213,7 @@ class RequestLeasePool:
             self.completed.pop(group_id, None)
             request_trace.emit("route_group_finished", group_id=group_id)
 
+    @_route_change
     def release(
         self,
         ticket: str,
@@ -248,8 +269,11 @@ class RequestLeasePool:
             del self.active[ticket]
             request_trace.emit("route_release", **lease)
 
+    @_route_change
     def cancel_wait(self, ticket: str):
         with self.lock:
+            if self.push_cancelled is not None:
+                self.push_cancelled.add(ticket)
             pending = self.waiting.pop(ticket, None)
             if pending:
                 self.rebalance_reservations.pop(pending["request_id"], None)
@@ -257,6 +281,7 @@ class RequestLeasePool:
             if ticket in self.active:
                 self.error = "Request cancelled with an outstanding lease"
 
+    @_route_change
     def close(self, rank: int):
         # A running handoff pins both epochs until the response prefix has
         # arrived and the destination owns a lease. Never hold the pool lock
@@ -301,6 +326,7 @@ class RequestLeasePool:
         ):
             raise RuntimeError("Running handoff pins replica epoch")
 
+    @_route_change
     def open(self, rank: int, version: int):
         with self.lock:
             self._check_handoff_epoch(rank)
@@ -313,6 +339,7 @@ class RequestLeasePool:
             self.versions[rank] = version
             self.ready[rank] = True
 
+    @_route_change
     def reopen(self, rank: int, version: int):
         """Resume same-version retained leases without changing their model epoch."""
         with self.lock:
@@ -324,6 +351,7 @@ class RequestLeasePool:
                 )
             self.ready[rank] = True
 
+    @_route_change
     def set_version(self, rank: int, version: int):
         with self.lock:
             self._check_handoff_epoch(rank)
@@ -374,6 +402,7 @@ class RequestLeasePool:
                 lengths=list(self.lengths),
             )
 
+    @_route_change
     def force_prefix_evacuation(self, source_rank: int, target_ranks: list[int]):
         """R027 mandatory continuation: no gain filter or destination slot reservation.
 
@@ -403,6 +432,7 @@ class RequestLeasePool:
                 self.evacuation_targets[rid] = tuple(target_ranks)
             return leases
 
+    @_route_change
     def pin_retained_kv(self, lease, target):
         """Pin a mandatory continuation to its staged same-version destination.
 
@@ -431,6 +461,7 @@ class RequestLeasePool:
                 lease_id=lease["lease_id"],
             )
 
+    @_route_change
     def complete_retained_kv(self, lease):
         """Release the publication fence only after native import/replay ACK."""
         with self.lock:
@@ -438,6 +469,7 @@ class RequestLeasePool:
             if pin and pin["lease_id"] == lease["lease_id"]:
                 del self.retained_kv_pins[lease["request_id"]]
 
+    @_route_change
     def cancel_retained_kv(self, lease, targets):
         with self.lock:
             rid = lease["request_id"]
@@ -447,6 +479,7 @@ class RequestLeasePool:
                 self.running_versions.pop(rid, None)
                 self.evacuation_targets[rid] = tuple(targets)
 
+    @_route_change
     def reserve_rebalance(
         self, request_ids, version, source_rank=1, target_rank=0, *, running=False
     ):
@@ -502,6 +535,7 @@ class RequestLeasePool:
                 room -= 1
             return chosen
 
+    @_route_change
     def cancel_rebalance(self, reservations):
         with self.lock:
             for rid, lease_id in reservations.items():
@@ -546,14 +580,65 @@ class RequestLeasePool:
             time.sleep(0.01)
 
 
+# Bound callback connections independently of the generation connector. Each worker
+# loop has its own limits; release/cancel traffic must not queue behind acquire polls.
+_route_lanes = WeakKeyDictionary()
+_ROUTE_ATTEMPTS = 5
+_ROUTE_TIMEOUT = 60.0
+_route_jitter = random.SystemRandom()
+
+
+def _route_lane(address: str, action: str):
+    loop = asyncio.get_running_loop()
+    lanes = _route_lanes.setdefault(loop, WeakValueDictionary())
+    key = (address, action == "acquire")
+    lane = lanes.get(key)
+    if lane is None:
+        lane = asyncio.Semaphore(16 if action == "acquire" else 4)
+        lanes[key] = lane
+    return lane
+
+
 async def route_call(session, address: str, action: str, **payload):
-    async with session.post(
-        f"http://{address}/callback/request_route",
-        json=dict(action=action, **payload),
-        timeout=aiohttp.ClientTimeout(total=60),
-    ) as response:
-        response.raise_for_status()
-        return await response.json()
+    """Retry idempotent lease operations, never generation or model updates.
+
+    An acquire response can be lost after the server grants a lease. Reuse the
+    exact ticket/payload so the retry acknowledges that lease, rather than creating
+    a second execution. Server/application errors remain fatal.
+    """
+    retryable = action in {"acquire", "release", "cancel", "finish_group"}
+    deadline = time.monotonic() + _ROUTE_TIMEOUT
+    lane = _route_lane(address, action)
+    for attempt in range(_ROUTE_ATTEMPTS):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("Request route callback deadline exceeded")
+        try:
+            # Include local admission in the deadline. The semaphore is released
+            # before retry delays or the acquire polling interval.
+            async with asyncio.timeout(remaining):
+                async with lane:
+                    async with session.post(
+                        f"http://{address}/callback/request_route",
+                        json=dict(action=action, **payload),
+                        timeout=aiohttp.ClientTimeout(
+                            total=max(0.001, deadline - time.monotonic())
+                        ),
+                    ) as response:
+                        response.raise_for_status()
+                        return await response.json()
+        except (aiohttp.ClientConnectionError, aiohttp.ClientPayloadError) as exc:
+            if not retryable or attempt + 1 == _ROUTE_ATTEMPTS:
+                raise
+            request_trace.emit(
+                "route_transport_retry",
+                action=action,
+                ticket=payload.get("ticket"),
+                attempt=attempt + 1,
+                error=type(exc).__name__,
+            )
+            delay = min(0.05 * 2**attempt, 0.5) * _route_jitter.uniform(0.75, 1.25)
+            await asyncio.sleep(min(delay, max(0.0, deadline - time.monotonic())))
 
 
 async def acquire_route(
@@ -565,8 +650,36 @@ async def acquire_route(
     group_size: int = 1,
     metrics: dict | None = None,
 ):
+    started = time.monotonic()
+    calls = 0
     try:
+        mode = os.getenv("AREAL_ROUTE_TRANSPORT", "push")
+        if mode not in {"poll", "push", "push_or_poll"}:
+            raise ValueError("Unknown request route transport")
+        if mode != "poll":
+            from areal.infra.request_push import push_acquire
+
+            lease = await push_acquire(
+                session,
+                address,
+                mode=mode,
+                ticket=ticket,
+                request_id=request_id,
+                group_id=group_id,
+                group_size=group_size,
+                metrics=metrics,
+            )
+            if lease is not None:
+                request_trace.emit(
+                    "route_admission",
+                    ticket=ticket,
+                    transport="push",
+                    poll_calls=0,
+                    wait_seconds=time.monotonic() - started,
+                )
+                return lease
         while True:
+            calls += 1
             lease = await route_call(
                 session,
                 address,
@@ -578,6 +691,13 @@ async def acquire_route(
                 metrics=metrics,
             )
             if lease is not None:
+                request_trace.emit(
+                    "route_admission",
+                    ticket=ticket,
+                    transport="poll",
+                    poll_calls=calls,
+                    wait_seconds=time.monotonic() - started,
+                )
                 return lease
             await asyncio.sleep(0.02)
     except BaseException:

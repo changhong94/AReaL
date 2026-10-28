@@ -121,6 +121,7 @@ class RolloutController:
         # HTTP callback server
         self._callback_app: Flask | None = None
         self._callback_server = None
+        self._route_push_server = None
         self._callback_server_thread: threading.Thread | None = None
         self._callback_port: int | None = None
         self._callback_host: str | None = None
@@ -360,7 +361,7 @@ class RolloutController:
         request_trace.emit("batch_drain_calibration", **summary)
 
     def decide_inference_return(self, target: int) -> dict:
-        from areal.infra.profit_return import estimate_return
+        from areal.infra.profit_return import estimate_return, uncalibrated_return
 
         accepted = self.staleness_manager.get_stats().accepted
         observation = getattr(self, "_return_observation", None)
@@ -368,7 +369,7 @@ class RolloutController:
         if target <= accepted:
             result = dict(action="keep", reason="next_batch_ready", gain_seconds=0.0)
         elif observation is None or calibration is None:
-            result = dict(action="return", reason="missing_observation_probe")
+            result = uncalibrated_return("missing_observation_probe")
         else:
             engines, route = observation
             result = estimate_return(
@@ -1439,6 +1440,10 @@ class RolloutController:
             if pool is None:
                 raise RuntimeError("Request routing is disabled")
             action = payload.pop("action")
+            if action == "push_endpoint":
+                return jsonify(
+                    self._route_push_server.url if self._route_push_server else None
+                )
             if action == "acquire":
                 return jsonify(pool.acquire(**payload))
             if action == "release":
@@ -1524,6 +1529,16 @@ class RolloutController:
         self._callback_port = find_free_ports(1)[0]
         self._callback_host = gethostip()
         self._callback_app = app
+        if (
+            self._request_pool is not None
+            and os.getenv("AREAL_ROUTE_TRANSPORT", "push") != "poll"
+        ):
+            from areal.infra.request_push import PushRouteServer
+
+            self._route_push_server = PushRouteServer(
+                self._request_pool, self._callback_host
+            )
+            self._route_push_server.start()
         self._callback_server = make_server(
             self._callback_host, self._callback_port, app, threaded=True
         )
@@ -1560,6 +1575,9 @@ class RolloutController:
 
     def _stop_callback_server(self):
         """Stop the callback server if running."""
+        if self._route_push_server is not None:
+            self._route_push_server.stop()
+            self._route_push_server = None
         if self._callback_server is not None:
             logger.info("Stopping callback server...")
             self._callback_server.shutdown()

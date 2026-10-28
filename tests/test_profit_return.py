@@ -51,7 +51,8 @@ def test_ready_batch_does_not_need_calibration():
     assert estimate_return(None, {}, [], 0, [])["action"] == "keep"
 
 
-def test_missing_cost_history_probes_instead_of_disabling_forever():
+def test_missing_cost_history_probe_is_explicit(monkeypatch):
+    monkeypatch.setenv("AREAL_RETURN_CALIBRATION_PROBE", "1")
     c, r, e = inputs()
     assert estimate_return(c, r, e, 4, [])["reason"] == "calibration_probe"
 
@@ -68,7 +69,8 @@ def test_large_queue_returns_extra_replica():
     assert d["action"] == "return" and d["gain_seconds"] > 0
 
 
-def test_partial_answer_group_is_not_counted_as_a_complete_question():
+def test_partial_answer_group_is_not_counted_as_a_complete_question(monkeypatch):
+    monkeypatch.setenv("AREAL_RETURN_CALIBRATION_PROBE", "1")
     c, r, e = inputs()
     r["waiting"].pop()
     assert (
@@ -137,3 +139,36 @@ def test_resident_reuse_keeps_budget_check_without_repeated_pause():
     trainer._memory_policy.train.assert_called_once()
     trainer.rollout.borrow_for_training.assert_not_called()
     trainer.rollout.resume_training_inference.assert_not_called()
+
+
+def test_missing_cost_history_keeps_training_by_default(monkeypatch):
+    monkeypatch.delenv("AREAL_RETURN_CALIBRATION_PROBE", raising=False)
+    c, route, engines = inputs()
+    result = estimate_return(c, route, engines, 4, [])
+    assert result["action"] == "keep"
+    assert result["reason"] == "uncalibrated_keep"
+    assert result["cost_samples"] == 0
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "calibration_probe",
+        "missing_observation_probe",
+        "missing_metadata_probe",
+        "incomplete_horizon_probe",
+    ],
+)
+def test_every_uncalibrated_return_requires_opt_in(monkeypatch, reason):
+    from areal.infra.profit_return import uncalibrated_return
+
+    monkeypatch.delenv("AREAL_RETURN_CALIBRATION_PROBE", raising=False)
+    result = uncalibrated_return(reason, known_questions=2)
+    assert result == dict(
+        action="keep",
+        reason="uncalibrated_keep",
+        missing_reason=reason,
+        known_questions=2,
+    )
+    monkeypatch.setenv("AREAL_RETURN_CALIBRATION_PROBE", "1")
+    assert uncalibrated_return(reason)["action"] == "return"
