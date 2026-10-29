@@ -10,7 +10,7 @@ from areal.infra.rolling_drain import residual_distribution
 
 def uncalibrated_return(reason, **details):
     """Keep unknown-cost exploration explicit instead of assuming a benefit."""
-    if os.getenv("AREAL_RETURN_CALIBRATION_PROBE", "0") == "1":
+    if os.getenv("AREAL_RETURN_CALIBRATION_PROBE", "1") == "1":
         return dict(details, action="return", reason=reason)
     return dict(
         details, action="keep", reason="uncalibrated_keep", missing_reason=reason
@@ -89,8 +89,15 @@ def estimate_return(calibration, route, engines, needed, costs, margin=0.0):
         if len(q["ids"] | set(route["completed"].get(qid, []))) == q["size"]
     ]
     if len(known) < needed:
-        return uncalibrated_return(
-            "incomplete_horizon_probe", **base, known_questions=len(known)
+        return dict(
+            base,
+            action="keep",
+            reason="incomplete_horizon_keep",
+            known_questions=len(known),
+            missing_questions=needed - len(known),
+            cost_samples=len(costs),
+            publish_seconds=publish,
+            restore_seconds=restore,
         )
     service = BucketService(calibration.decode, calibration.service)
     widths = [

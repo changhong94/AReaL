@@ -75,7 +75,7 @@ def test_partial_answer_group_is_not_counted_as_a_complete_question(monkeypatch)
     r["waiting"].pop()
     assert (
         estimate_return(c, r, e, 4, [dict(publish=1, restore=0.1)])["reason"]
-        == "incomplete_horizon_probe"
+        == "incomplete_horizon_keep"
     )
 
 
@@ -141,12 +141,12 @@ def test_resident_reuse_keeps_budget_check_without_repeated_pause():
     trainer.rollout.resume_training_inference.assert_not_called()
 
 
-def test_missing_cost_history_keeps_training_by_default(monkeypatch):
+def test_missing_cost_history_returns_for_calibration_by_default(monkeypatch):
     monkeypatch.delenv("AREAL_RETURN_CALIBRATION_PROBE", raising=False)
     c, route, engines = inputs()
     result = estimate_return(c, route, engines, 4, [])
-    assert result["action"] == "keep"
-    assert result["reason"] == "uncalibrated_keep"
+    assert result["action"] == "return"
+    assert result["reason"] == "calibration_probe"
     assert result["cost_samples"] == 0
 
 
@@ -159,10 +159,10 @@ def test_missing_cost_history_keeps_training_by_default(monkeypatch):
         "incomplete_horizon_probe",
     ],
 )
-def test_every_uncalibrated_return_requires_opt_in(monkeypatch, reason):
+def test_every_uncalibrated_return_allows_explicit_opt_out(monkeypatch, reason):
     from areal.infra.profit_return import uncalibrated_return
 
-    monkeypatch.delenv("AREAL_RETURN_CALIBRATION_PROBE", raising=False)
+    monkeypatch.setenv("AREAL_RETURN_CALIBRATION_PROBE", "0")
     result = uncalibrated_return(reason, known_questions=2)
     assert result == dict(
         action="keep",
@@ -170,5 +170,16 @@ def test_every_uncalibrated_return_requires_opt_in(monkeypatch, reason):
         missing_reason=reason,
         known_questions=2,
     )
-    monkeypatch.setenv("AREAL_RETURN_CALIBRATION_PROBE", "1")
+    monkeypatch.delenv("AREAL_RETURN_CALIBRATION_PROBE", raising=False)
     assert uncalibrated_return(reason)["action"] == "return"
+
+
+@pytest.mark.parametrize("publish", [0.1, 10.51, 1000.0])
+def test_incomplete_horizon_does_not_repeat_calibration(monkeypatch, publish):
+    monkeypatch.setenv("AREAL_RETURN_CALIBRATION_PROBE", "1")
+    c, route, engines = inputs(questions=2)
+    result = estimate_return(c, route, engines, 4, [dict(publish=publish, restore=0.5)])
+    assert result["action"] == "keep"
+    assert result["reason"] == "incomplete_horizon_keep"
+    assert result["missing_questions"] == 2
+    assert result["cost_samples"] == 1
