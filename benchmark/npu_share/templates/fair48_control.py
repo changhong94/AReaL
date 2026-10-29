@@ -44,8 +44,11 @@ def configure_workload(trainer):
                 pending_inputs = len(self._pending_inputs)
             capacity = min(
                 self.staleness_manager.get_pending_limit() - pending_inputs,
+                # Preserve the usual reserve, but leave one batch admissible
+                # when the queue itself holds only one batch (concurrency=1).
                 self.runner.max_queue_size
-                - (self.runner.get_input_queue_size() + batch_size),
+                - self.runner.get_input_queue_size()
+                - min(batch_size, max(0, self.runner.max_queue_size - batch_size)),
                 SETTINGS["questions"] - len(submitted),
             )
             assert self.runner.max_queue_size >= batch_size

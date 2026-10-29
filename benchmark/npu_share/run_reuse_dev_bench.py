@@ -23,7 +23,7 @@ def main():
     )
     parser.add_argument(
         "--shared-ablations",
-        help="One development ablation per repetition: baseline,no-first-return,no-training-overlap,both",
+        help="One development ablation per repetition: baseline,no-first-return,no-training-overlap,both,calibration-return",
     )
     parser.add_argument(
         "--shared-route-transports",

@@ -2,10 +2,13 @@
 # Run selected representative comparisons sequentially.
 set -euo pipefail
 
+output_override=""
 mode=prepare
 suite=core
 inference_mode=""
 selected=""
+shuffle=0
+shuffle_seed=""
 profile="${HOME}/.config/areal-benchmark/profile.json"
 reporter="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/coverage_summary.py"
 runner="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/run_bench.py"
@@ -13,10 +16,12 @@ usage() {
     cat <<'HELP'
 Usage: coverage_bench.sh [--suite NAME] [--mode plan|prepare|run]
                          [--cases 'C01 C02 ...'] [--profile FILE]
-                         [--inference-mode graph|eager]
+                         [--inference-mode graph|eager] [--shuffle] [--shuffle-seed INTEGER]
+--output DIR reuses a coverage directory and preserves prior attempts.
 Suites: core (default), load, boundary, topology, ratio, execution, workload, long, all
 Inference defaults to graph; execution suite also includes eager controls.
 --inference-mode overrides the mode for every selected case.
+--shuffle randomizes case order once. --shuffle-seed also enables shuffling and reproduces the order.
 Default mode: prepare (no NPU training or sandbox creation).
 --cases selects explicit IDs instead of a suite. Cases run sequentially and continue after individual failures.
 The suite exits nonzero if any case fails. Each run_bench invocation compares fixed and shared modes.
@@ -24,14 +29,17 @@ HELP
 }
 while (($#)); do
     case "$1" in
-        --suite|--mode|--cases|--profile|--inference-mode)
+        --suite|--mode|--cases|--profile|--inference-mode|--shuffle-seed|--output)
             (($# >= 2)) || { usage >&2; exit 2; }
             case "$1" in
+                --output) output_override="$2";;
                 --suite) suite="$2";; --mode) mode="$2";;
                 --cases) selected="$2";; --profile) profile="$2";;
                 --inference-mode) inference_mode="$2";;
+                --shuffle-seed) shuffle_seed="$2"; shuffle=1;;
             esac
             shift 2;;
+        --shuffle) shuffle=1; shift;;
         -h|--help) usage; exit 0;;
         *) echo "Unknown option: $1" >&2; usage >&2; exit 2;;
     esac
@@ -90,7 +98,23 @@ for id in "${ids[@]}"; do
     }
     seen[$id]=1
 done
-output="$(python3 - "$profile" <<'PY'
+if [[ "$shuffle" == 1 ]]; then
+    if [[ -z "$shuffle_seed" ]]; then
+        shuffle_seed="$(python3 -c 'import secrets; print(secrets.randbits(32))')"
+    fi
+    [[ "$shuffle_seed" =~ ^[0-9]+$ ]] || { echo "Shuffle seed must be a nonnegative integer" >&2; exit 2; }
+    selected="$(python3 - "$shuffle_seed" "${ids[@]}" <<'PY'
+import random
+import sys
+ids = sys.argv[2:]
+random.Random(int(sys.argv[1])).shuffle(ids)
+print(" ".join(ids))
+PY
+)"
+    read -r -a ids <<< "$selected"
+    echo "Coverage shuffle seed=$shuffle_seed; order=$selected"
+fi
+output="${output_override:-$(python3 - "$profile" <<'PY'
 import datetime
 import json
 import sys
@@ -100,10 +124,24 @@ p = json.loads(Path(sys.argv[1]).read_text())
 stamp = datetime.datetime.now(ZoneInfo(p.get("timezone", "UTC"))).strftime("%Y%m%d-%H%M%S%z")
 print(Path(p["workspace_root"]).resolve() / ("coverage-" + stamp))
 PY
-)"
+)}"
+reuse=0
+[[ ! -f "$output/cases.tsv" ]] || reuse=1
 if [[ "$mode" != plan ]]; then
     mkdir -p -- "$output"
+    if [[ "$reuse" == 0 ]]; then
+    python3 - "$output" "$shuffle" "$shuffle_seed" "${ids[@]}" <<'PY'
+import json
+import sys
+from pathlib import Path
+(Path(sys.argv[1]) / "case-order.json").write_text(json.dumps({
+    "shuffled": sys.argv[2] == "1",
+    "seed": int(sys.argv[3]) if sys.argv[3] else None,
+    "cases": sys.argv[4:],
+}, indent=2) + "\n")
+PY
     printf 'case\trl\tengine\tconcurrency\tbatches\tnpu_count\ttp\toffpolicy\tinference_training_ratio\tadaptive_concurrency\tinference_mode\tbatch_size\tanswers\texit_code\n' > "$output/cases.tsv"
+    fi
 fi
 case_parameters() {
     read -r rl engine concurrency batches npus tp offpolicy ratio case_mode batch_size answers <<< "${matrix[$id]}"
@@ -113,12 +151,14 @@ case_parameters() {
     case_mode="${inference_mode:-${case_mode:-graph}}"
 }
 if [[ "$mode" != plan ]]; then
+    if [[ "$reuse" == 0 ]]; then
     head -1 "$output/cases.tsv" > "$output/planned-cases.tsv"
     for id in "${ids[@]}"; do
         case_parameters
         printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n' \
             "$id" "$rl" "$engine" "$concurrency" "$batches" "$npus" "$tp" "$offpolicy" "$ratio" "capacity" "$case_mode" "$batch_size" "$answers" >> "$output/planned-cases.tsv"
     done
+    fi
     report_on_exit() {
         local rc=$?
         trap - EXIT
@@ -145,6 +185,15 @@ for id in "${ids[@]}"; do
     echo "[$id] $rl / $engine; c=$concurrency b=$batches NPU=$npus TP=$tp offpolicy=$offpolicy inference:training=$ratio adaptive=capacity inference=$case_mode batch-size=$batch_size answers=$answers"
     printf '%q ' "${cmd[@]}"; printf '\n'
     [[ "$mode" != plan ]] || continue
+    if [[ -f "$output/$id.log" ]]; then
+        history="$output/attempts/$id/$(date -u +%Y%m%dT%H%M%S)-$$"
+        mkdir -p "$history"
+        cp "$output/$id.log" "$history/attempt.log"
+        cp "$output/cases.tsv" "$history/cases.tsv"
+    fi
+    # The last row represents the new attempt; prior rows remain as history.
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n' \
+        "$id" "$rl" "$engine" "$concurrency" "$batches" "$npus" "$tp" "$offpolicy" "$ratio" "capacity" "$case_mode" "$batch_size" "$answers" >> "$output/cases.tsv"
     : > "$output/$id.log"
     python3 "$reporter" "$output"
     set +e

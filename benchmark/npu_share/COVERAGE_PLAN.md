@@ -293,3 +293,48 @@ python3 "$BENCH_DIR/coverage_summary.py" /path/to/coverage-directory --final
 For older coverage directories without `planned-cases.tsv`, only recorded cases can be
 recovered. The report does not invent missing planned cases. Omit `--final` when
 inspecting a suite that is still running.
+
+### Pause, resume, and manually rerun cases
+
+For an already running suite, identify the **Bash coverage_bench.sh PID**, not its
+driver, run_bench.py, or training process. Control only that launcher:
+
+```bash
+python3 "$BENCH_DIR/coverage_control.py" pause --pid <coverage-bash-pid>
+python3 "$BENCH_DIR/coverage_control.py" status --pid <coverage-bash-pid>
+# Wait for status=paused, then optionally rerun selected cases:
+python3 "$BENCH_DIR/coverage_control.py" rerun --pid <coverage-bash-pid> --cases 'T01 T02'
+# Continue the original suite in its original workspace:
+python3 "$BENCH_DIR/coverage_control.py" resume --pid <coverage-bash-pid>
+```
+
+`pause_pending` lets the current comparison finish normally, including cleanup; `paused`
+means the launcher has no live direct children. Verify container cleanup before reusing
+devices, especially after a failed case. The completed case's TSV entry and suite
+summary may only be finalized when the launcher resumes. No process-group stop is used.
+This is a live-process pause, not restart recovery: the remote host and launcher must
+remain alive. Laptop disconnection is safe. Add `--wait` to the pause command to wait
+until its active children finish.
+
+Manual reruns retain original results and create a separate timestamped coverage
+workspace. They use the current source/case matrix and the original launcher's profile
+and inference-mode override. They do not replace original failures or change the paused
+suite's queue. Historical configurations should be checked against planned-cases.tsv if
+the matrix changed. Without a live paused suite, use the existing standalone command:
+
+```bash
+bash "$BENCH_DIR/coverage_bench.sh" --mode run --cases 'T01 T02' --profile /path/to/profile.json
+```
+
+### Random case order
+
+Use `--shuffle` to randomize selected cases once. `--shuffle-seed 42` enables
+reproducible ordering. Without either option, the original order remains. The seed and
+order are printed and saved to `case-order.json`; `planned-cases.tsv` uses that order. A
+paused live suite retains its order on resume. Individual failures still allow
+subsequent cases to run.
+
+```bash
+bash "$BENCH_DIR/coverage_bench.sh" --suite all --mode run --shuffle
+bash "$BENCH_DIR/coverage_bench.sh" --suite all --mode plan --shuffle-seed 42
+```

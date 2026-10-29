@@ -93,3 +93,29 @@ class WorkloadControlTests(unittest.TestCase):
                     iter(()), size, dynamic
                 )
             self.assertEqual(submitted, [])
+
+    def test_single_batch_queue_admits_work_without_initial_deadlock(self):
+        for shared in (False, True):
+            module, settings = self.load_control(32)
+            trainer = self.trainer(32, shared)
+            dispatcher = trainer.rollout.dispatcher
+            dispatcher.runner.max_queue_size = 32
+            original_wait = dispatcher.wait_results
+
+            def wait_results(count, timeout):
+                self.assertGreater(dispatcher.runner.get_input_queue_size(), 0)
+                self.assertLessEqual(dispatcher.runner.get_input_queue_size(), 32)
+                return original_wait(count, timeout)
+
+            dispatcher.wait_results = wait_results
+            tasks = iter(
+                SimpleNamespace(task_id=i, data={"question": i})
+                for i in range(settings["questions"])
+            )
+            with patch.object(request_trace, "emit"):
+                submitted = module.configure_workload(trainer)
+                for _ in range(settings["batches"]):
+                    self.assertEqual(
+                        len(dispatcher.active_submit_and_wait(tasks, 32)), 32
+                    )
+            self.assertEqual(len(submitted), settings["questions"])

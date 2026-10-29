@@ -61,6 +61,49 @@ class Progress:
         self.thread.join(timeout=6)
 
 
+class ResourceHooks:
+    """Optional host commands; never run for preparation or rendering alone."""
+
+    def __init__(self, profile, workspace, devices, progress):
+        self.commands = profile.get("resource_hooks", {})
+        self.workspace = workspace
+        self.devices = devices
+        self.progress = progress
+        self.started = False
+        self.finished = False
+
+    def invoke(self, name):
+        argv = self.commands.get(name)
+        if not argv:
+            return
+        if not isinstance(argv, list) or not all(isinstance(x, str) for x in argv):
+            raise ValueError("resource_hooks commands must be argument lists")
+        self.progress.set(f"Running host resource hook: {name}")
+        env = dict(
+            os.environ,
+            AREAL_BENCH_WORKSPACE=str(self.workspace),
+            AREAL_BENCH_DEVICES=",".join(map(str, self.devices)),
+        )
+        with (self.workspace / f"resource-{name}.log").open("a") as log:
+            subprocess.run(
+                argv,
+                check=True,
+                timeout=self.commands.get("timeout", 120),
+                env=env,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+            )
+
+    def start(self):
+        self.started = True
+        self.invoke("before")
+
+    def finish(self):
+        if self.started and not self.finished:
+            self.finished = True
+            self.invoke("after")
+
+
 def report_events(path, offset, completed, total, progress):
     """Read appended phase records, retaining partial lines for the next poll."""
     if not path.exists():
@@ -316,8 +359,9 @@ def environment(shared):
         ]
     }
     env.update(
+        AREAL_MEMORY_DIAGNOSTICS=os.getenv("AREAL_MEMORY_DIAGNOSTICS", ""),
         AREAL_ROUTE_TRANSPORT=os.getenv("AREAL_ROUTE_TRANSPORT", "push"),
-        AREAL_RETURN_CALIBRATION_PROBE=os.getenv("AREAL_RETURN_CALIBRATION_PROBE", "0"),
+        AREAL_RETURN_CALIBRATION_PROBE=os.getenv("AREAL_RETURN_CALIBRATION_PROBE", "1"),
         AREAL_TRAIN_PRIORITY_INFERENCE=(
             os.getenv("AREAL_TRAIN_PRIORITY_INFERENCE", "0") if shared else "0"
         ),
@@ -361,6 +405,11 @@ def environment(shared):
         HCCL_CONNECT_TIMEOUT="120",
         HCCL_EXEC_TIMEOUT="300",
     )
+    # Drain policies require inference to remain active during training.
+    # Keep metrics available even when that concurrent execution is disabled.
+    if env["AREAL_TRAIN_PRIORITY_INFERENCE"] != "1":
+        env["AREAL_ADAPTIVE_DRAIN"] = "0"
+        env["AREAL_BATCH_DRAIN"] = "0"
     return env
 
 
@@ -571,6 +620,7 @@ def main():
     progress.set(
         f"Preparing {opts.rl} / {opts.engine} / inference={opts.inference_mode}: fixed + shared, {opts.batches} batches each, {opts.batch_size} questions/batch, {opts.answers} answers/question, concurrency {opts.concurrency}"
     )
+    hooks = ResourceHooks(profile, workspace, selected, progress)
     signal.signal(signal.SIGINT, interrupted)
     signal.signal(signal.SIGTERM, interrupted)
     try:
@@ -635,6 +685,7 @@ def main():
         sys.path.insert(0, str(HERE / "templates"))
         from telemetry import parse_info, sampler
 
+        hooks.start()
         progress.set("Checking NPU availability")
         raw = capture([profile["npu_smi"], "info"])
         devices, processes = parse_info(raw)
@@ -703,6 +754,7 @@ def main():
                 f"{arm} group finished successfully; logs: {workspace / arm}"
             )
             active = None
+        hooks.finish()
         progress.set("Generating four chart families")
         state["phase"] = "rendering"
         save()
@@ -742,6 +794,12 @@ def main():
             state.update(phase="failed", cleanup_error=str(exc))
             error = error or exc
         finally:
+            if "cleanup_error" not in state:
+                try:
+                    hooks.finish()
+                except Exception as exc:
+                    state.update(phase="failed", resource_hook_error=str(exc))
+                    error = error or exc
             state["ended"] = time.time()
             save()
             progress.message(

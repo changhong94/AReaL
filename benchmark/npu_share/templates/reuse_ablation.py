@@ -1,6 +1,14 @@
 """Development-only causal ablations; formal benchmark behavior is unchanged."""
 
-MODES = {"baseline", "no-first-return", "no-training-overlap", "both"}
+import os
+
+MODES = {
+    "baseline",
+    "no-first-return",
+    "no-training-overlap",
+    "both",
+    "calibration-return",
+}
 
 
 def validate_modes(value, repetitions):
@@ -13,6 +21,8 @@ def validate_modes(value, repetitions):
 def install(mode, trainer, predictor, emit):
     if mode not in MODES:
         raise ValueError("Unknown development ablation")
+    if mode == "calibration-return":
+        os.environ["AREAL_RETURN_CALIBRATION_PROBE"] = "1"
     emit("development_ablation", mode=mode)
     if mode in ("no-first-return", "both"):
         original = predictor.estimate_return

@@ -212,3 +212,36 @@ python3 "$BENCH_DIR/coverage_summary.py" /path/to/coverage-directory --final
 ```
 
 旧目录若没有 `planned-cases.tsv`，只能恢复有记录的用例，不会猜测缺失的计划项。查看仍在运行的 suite 时，不要加 `--final`。
+
+### 暂停、恢复与手动重跑
+
+先找到正在运行的 **Bash coverage_bench.sh 的 PID**，不要填 driver、run_bench.py 或训练进程的 PID。
+
+```bash
+python3 "$BENCH_DIR/coverage_control.py" pause --pid <coverage-bash-pid>
+python3 "$BENCH_DIR/coverage_control.py" status --pid <coverage-bash-pid>
+# Wait until paused before manually rerunning selected cases.
+python3 "$BENCH_DIR/coverage_control.py" rerun --pid <coverage-bash-pid> --cases 'T01 T02'
+python3 "$BENCH_DIR/coverage_control.py" resume --pid <coverage-bash-pid>
+```
+
+`pause_pending` 表示当前对照仍在正常运行、清理资源；`paused` 表示主进程已暂停且没有
+活动的直属子进程。重用卡之前仍须检查容器是否清理完成，尤其是失败项。当前项的 TSV 记录及套件汇总可能要到恢复后才更新。仅暂停启动后续用例的 Bash，不暂停整个进程组。
+这是保留远端进程的暂停，不支持远端重启恢复；笔记本断开不影响。`pause --wait` 可等待当前子任务结束。
+
+手动重跑保留原结果，新建带时间戳的 coverage 目录，采用当前代码和用例矩阵、原启动 命令的 profile 及 inference-mode
+覆盖值。不覆盖原失败记录，不改变暂停套件的队列。 如果矩阵曾修改，应核对旧 planned-cases.tsv。没有存活的暂停套件时，可独立运行：
+
+```bash
+bash "$BENCH_DIR/coverage_bench.sh" --mode run --cases 'T01 T02' --profile /path/to/profile.json
+```
+
+### 随机项目顺序
+
+使用 `--shuffle` 随机排列所选用例；`--shuffle-seed 42` 指定种子并启用随机排列，可复现同一顺序。默认仍使用原顺序。种子和顺序打印到日志并保存到
+`case-order.json`，`planned-cases.tsv` 按实际顺序排列。暂停后恢复原进程不会重新打乱。单项失败仍继续后续项。
+
+```bash
+bash "$BENCH_DIR/coverage_bench.sh" --suite all --mode run --shuffle
+bash "$BENCH_DIR/coverage_bench.sh" --suite all --mode plan --shuffle-seed 42
+```

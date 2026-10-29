@@ -375,15 +375,29 @@ class RunnerTests(unittest.TestCase):
                 run.positive(value)
         self.assertEqual(run.positive("100"), 100)
 
+    def test_drain_policies_require_training_priority_inference(self):
+        for enabled in ("0", "1"):
+            with patch.dict(
+                "os.environ", {"AREAL_TRAIN_PRIORITY_INFERENCE": enabled}, clear=True
+            ):
+                for shared in (False, True):
+                    env = run.environment(shared)
+                    expected = "1" if shared and enabled == "1" else "0"
+                    self.assertEqual(env["AREAL_ADAPTIVE_DRAIN"], expected)
+                    self.assertEqual(env["AREAL_BATCH_DRAIN"], expected)
+                    if expected == "1":
+                        self.assertEqual(env["AREAL_DRAIN_METRICS"], "1")
+                        self.assertEqual(env["AREAL_BATCH_DRAIN_METRICS"], "1")
+
     def test_safe_shared_policy_defaults_and_explicit_overrides(self):
         with patch.dict("os.environ", {}, clear=True):
             env = run.environment(True)
             self.assertEqual(env["AREAL_ROUTE_TRANSPORT"], "push")
-            self.assertEqual(env["AREAL_RETURN_CALIBRATION_PROBE"], "0")
+            self.assertEqual(env["AREAL_RETURN_CALIBRATION_PROBE"], "1")
             self.assertEqual(env["AREAL_TRAIN_PRIORITY_INFERENCE"], "0")
         overrides = {
             "AREAL_TRAIN_PRIORITY_INFERENCE": "1",
-            "AREAL_RETURN_CALIBRATION_PROBE": "1",
+            "AREAL_RETURN_CALIBRATION_PROBE": "0",
             "AREAL_ROUTE_TRANSPORT": "poll",
         }
         with patch.dict("os.environ", overrides):
@@ -394,7 +408,7 @@ class RunnerTests(unittest.TestCase):
                 run.environment(False)["AREAL_TRAIN_PRIORITY_INFERENCE"], "0"
             )
             self.assertEqual(
-                run.environment(True)["AREAL_RETURN_CALIBRATION_PROBE"], "1"
+                run.environment(True)["AREAL_RETURN_CALIBRATION_PROBE"], "0"
             )
             self.assertEqual(run.environment(True)["AREAL_ROUTE_TRANSPORT"], "poll")
 
