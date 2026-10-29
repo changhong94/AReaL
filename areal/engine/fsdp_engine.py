@@ -992,7 +992,11 @@ class FSDPEngine(TrainEngine):
         ],
         forward_only: bool = False,
     ) -> None:
-        for mb_item in mb_list:
+        from areal.engine.memory_diagnostics import record_training_memory
+
+        for mb_index, mb_item in enumerate(mb_list):
+            diagnostic_backend = getattr(self, "_adaptive_backend", None)
+            record_training_memory("before_forward", mb_index, diagnostic_backend)
             inputs, ctx = self._prepare_mb_inputs(mb_item)
 
             # Lazily create tree attention metadata just before forward.
@@ -1030,13 +1034,25 @@ class FSDPEngine(TrainEngine):
                 with trace_scope("fsdp_engine.forward"):
                     outputs = self.model(**inputs)
                 logits = outputs.logits.squeeze(0)
+                record_training_memory(
+                    "after_forward", mb_index, diagnostic_backend, logits
+                )
 
                 # Release tree attention metadata after forward pass
                 for key in tree_attn_keys:
                     del inputs[key]
 
                 ctx_dict = ctx.to_dict()
-                loss = process_output_fn(logits, ctx_dict)
+                try:
+                    loss = process_output_fn(logits, ctx_dict)
+                except Exception:
+                    record_training_memory(
+                        "loss_exception", mb_index, diagnostic_backend, logits
+                    )
+                    raise
+                record_training_memory(
+                    "after_loss", mb_index, diagnostic_backend, logits
+                )
 
                 if not forward_only and loss is not None:
                     workspace = getattr(
@@ -1057,6 +1073,10 @@ class FSDPEngine(TrainEngine):
                     )
                     with autograd_scope, scope, trace_scope("fsdp_engine.backward"):
                         loss.backward()
+                    record_training_memory(
+                        "after_backward", mb_index, diagnostic_backend, logits
+                    )
+            record_training_memory("after_pool_exit", mb_index, diagnostic_backend)
 
     def train_batch(
         self,

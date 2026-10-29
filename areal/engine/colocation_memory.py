@@ -546,6 +546,25 @@ class AscendPoolBackend:
             with self.allocator.use_allocation_tag(tag):
                 with self.torch.npu.memory.use_mem_pool(pool):
                     yield
+        if tag == "actor_workspace":
+            self._process_deferred_workspace_frees()
+
+    def _process_deferred_workspace_frees(self):
+        """Make cross-stream frees reusable after leaving the private pool.
+
+        torch_npu routes MemPool scopes through capture bookkeeping. A free
+        recorded on another stream can remain deferred even after the scope
+        exits, and snapshot() may label it inactive before it is reusable.
+        A normal allocator request outside all private scopes processes those
+        events without synchronizing the device or evicting cached segments.
+        torch_npu currently exposes no public event-processing-only operation.
+        """
+        memory = self.torch.npu.memory
+        if memory.MemPoolContext.active_pool() is not None:
+            # An enclosing private scope must handle its own exit boundary.
+            return
+        token = self.torch.empty(1024, dtype=self.torch.uint8, device="npu")
+        del token
 
     def inventory(self):
         return self.allocator.pointer_to_data
