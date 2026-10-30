@@ -571,6 +571,28 @@ def write_summary_markdown(root, summary):
     settings = summary["settings"]
     times = summary["loop_seconds"]
     arms = ["fixed", "latest"]
+    infrastructure = {}
+    if settings.get("rl") == "code":
+        for arm in arms:
+            events = [
+                e
+                for path in (root / arm / "request-events").glob("*.jsonl")
+                for e in rows(path)
+            ]
+            retries = [
+                e for e in events if e.get("event") == "code_sandbox_upload_missing"
+            ]
+            infrastructure[arm] = dict(
+                observed=any(e.get("event") == "code_sandbox_created" for e in events),
+                upload_failures=len(retries),
+                retry_wait_seconds=sum(e.get("retry_wait_seconds", 0) for e in retries),
+                reward_errors=sum(
+                    e.get("event") == "code_reward_error" for e in events
+                ),
+            )
+        (root / "infrastructure_audit.json").write_text(
+            json.dumps(infrastructure, indent=2), encoding="utf-8"
+        )
     for language, filename in [("en", "summary.md"), ("zh", "summary.zh.md")]:
 
         def tr(text):
@@ -593,6 +615,30 @@ def write_summary_markdown(root, summary):
             f"## {tr('Configuration')}",
             "",
         ]
+        if infrastructure:
+            affected = any(
+                v["upload_failures"] or v["reward_errors"]
+                for v in infrastructure.values()
+            )
+            if affected:
+                warning = (
+                    "受沙箱故障干扰：以下百分比仅为原始耗时差，不能作为共享性能收益结论。"
+                    if language == "zh"
+                    else "Sandbox failures affected this run: percentages below are raw timing differences, not validated sharing benefits."
+                )
+                lines += [f"**{warning}**", ""]
+            elif not all(v["observed"] for v in infrastructure.values()):
+                lines += [
+                    "沙箱审计数据不完整，无法确认有无故障重试。"
+                    if language == "zh"
+                    else "Incomplete sandbox audit; absence of retries is unverified.",
+                    "",
+                ]
+            lines += [
+                f"- {arm}: sandbox upload failures={v['upload_failures']}, retry backoff={v['retry_wait_seconds']:.3f}s, reward errors={v['reward_errors']}"
+                for arm, v in infrastructure.items()
+            ]
+            lines += ["", "[Sandbox audit](infrastructure_audit.json)", ""]
         for key in config_labels:
             label = f"{config_labels[key]} (`{key}`)" if language == "zh" else key
             value = settings.get(key, tr("N/A"))

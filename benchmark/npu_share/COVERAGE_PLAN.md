@@ -7,7 +7,7 @@ existing **fixed-versus-shared comparison**; do not run another fixed/shared pai
 manually. The cases run sequentially and continue after individual failures. The suite
 returns a nonzero exit code if any case failed.
 
-The plan uses 28 selected configurations, not a Cartesian sweep. Start with the four
+The plan uses 41 selected configurations, not a Cartesian sweep. Start with the four
 core cases, then choose the suite relevant to the changed code. This is risk-based
 coverage, **not a mathematically complete pairwise covering array**.
 
@@ -85,42 +85,62 @@ size over 16/32/64 and answers over 4/8/16. The core suite alone keeps 32/8 fixe
 identical CLI values. All cases use inference graph mode except G01/G02, which use
 eager; training execution is unchanged.
 
+Scoring concurrency is not a coverage dimension: all code cases use **16** for both
+fixed and shared groups, with **AgentEnv on alice** as the current scoring service.
+Connection details and credentials belong in the private host profile. The
+question-concurrency column remains an inference-admission coverage dimension, not
+scoring concurrency. L03 requires 3,200 eligible code questions and 25,600 scores per
+group; validate dataset capacity before running.
+
 | ID  | Suite     | RL   | Engine   | Inference mode | Concurrency | Batches | NPUs | Inference:training |  TP | Offpolicy | Batch size | Answers | Main purpose                                                                         |
 | --- | --------- | ---- | -------- | -------------- | ----------: | ------: | ---: | ------------------ | --: | --------: | ---------: | ------: | ------------------------------------------------------------------------------------ |
 | C01 | core      | math | fsdp     | graph          |          16 |       6 |    2 | 1:1                |   1 |         2 |         32 |       8 | Default reference; publication and terminal cleanup                                  |
 | C02 | core      | math | megatron | graph          |          16 |       6 |    2 | 1:1                |   1 |         2 |         32 |       8 | Backend comparison against C01                                                       |
-| C03 | core      | code | fsdp     | graph          |          16 |       3 |    2 | 1:1                |   1 |         2 |         32 |       8 | E2B/Kuasar execution and reward path                                                 |
+| C03 | core      | code | fsdp     | graph          |          16 |       3 |    2 | 1:1                |   1 |         2 |         32 |       8 | E2B/AgentEnv execution and reward path                                               |
 | C04 | core      | code | megatron | graph          |          16 |       3 |    2 | 1:1                |   1 |         2 |         32 |       8 | Code workflow plus second training backend                                           |
 | C05 | load      | math | fsdp     | graph          |          32 |       6 |    2 | 1:1                |   1 |         2 |         32 |       8 | Higher concurrency versus C01                                                        |
 | C06 | load      | math | megatron | graph          |          32 |       6 |    2 | 1:1                |   1 |         2 |         32 |       8 | Higher concurrency versus C02                                                        |
+| C07 | load      | code | fsdp     | graph          |          32 |       3 |    2 | 1:1                |   1 |         2 |         32 |       8 | Higher inference question concurrency vs C03 (not scoring slots)                     |
 | E00 | boundary  | math | fsdp     | graph          |          16 |       6 |    2 | 1:1                |   1 |         0 |         32 |       8 | Synchronous admission; next batch executes only after weight publication             |
-| E04 | boundary  | math | megatron | graph          |          16 |       3 |    2 | 1:1                |   1 |         0 |         32 |       8 | Zero-lookahead publication on the second training backend                            |
 | E01 | boundary  | math | fsdp     | graph          |           1 |       1 |    2 | 1:1                |   1 |         1 |         32 |       8 | Minimum positive concurrency/staleness; no ordinary intermediate publication         |
 | E02 | boundary  | math | fsdp     | graph          |          16 |       6 |    2 | 1:1                |   1 |         1 |         32 |       8 | Smallest positive lookahead bound versus E00 and C01                                 |
 | E03 | boundary  | math | fsdp     | graph          |          16 |       6 |    2 | 1:1                |   1 |         3 |         32 |       8 | Wider lookahead versus C01; watch stale/unused work                                  |
+| E04 | boundary  | math | megatron | graph          |          16 |       3 |    2 | 1:1                |   1 |         0 |         32 |       8 | Zero-lookahead publication on the second training backend                            |
+| E05 | boundary  | code | fsdp     | graph          |          16 |       3 |    2 | 1:1                |   1 |         0 |         32 |       8 | Code zero lookahead vs C03                                                           |
+| E06 | boundary  | code | megatron | graph          |          16 |       3 |    2 | 1:1                |   1 |         1 |         32 |       8 | Code minimum positive lookahead vs C04                                               |
+| E07 | boundary  | math | megatron | graph          |          16 |       6 |    2 | 1:1                |   1 |         1 |         32 |       8 | Megatron minimum positive lookahead vs C02                                           |
+| E08 | boundary  | math | megatron | graph          |          16 |       6 |    2 | 1:1                |   1 |         3 |         32 |       8 | Megatron larger lookahead vs C02                                                     |
 | T01 | topology  | math | fsdp     | graph          |          16 |       3 |    4 | 1:1                |   1 |         2 |         32 |       8 | Multiple TP1 inference instances and two training ranks                              |
 | T02 | topology  | math | fsdp     | graph          |          16 |       3 |    4 | 1:1                |   2 |         2 |         32 |       8 | TP2 versus T01 with the same devices/workload                                        |
 | T03 | topology  | math | megatron | graph          |          32 |       3 |    8 | 1:1                |   1 |         2 |         32 |       8 | Four training ranks; four dedicated and four borrowed TP1 instances                  |
 | T04 | topology  | math | megatron | graph          |          32 |       3 |    8 | 1:1                |   2 |         2 |         32 |       8 | Two dedicated and two borrowed TP2 instances; compare with T03                       |
+| T05 | topology  | code | fsdp     | graph          |          16 |       3 |    4 | 1:1                |   1 |         2 |         32 |       8 | Code multiple training ranks vs C03/T01                                              |
+| T06 | topology  | code | fsdp     | graph          |          16 |       3 |    4 | 1:1                |   2 |         2 |         32 |       8 | Code TP2 vs T05/T02                                                                  |
 | R01 | ratio     | math | fsdp     | graph          |          16 |       3 |    3 | 2:1                |   1 |         2 |         32 |       8 | 2:1 allocation; 2 dedicated and one borrowed TP1 instances                           |
 | R02 | ratio     | math | fsdp     | graph          |          16 |       3 |    4 | 3:1                |   1 |         2 |         32 |       8 | 3:1 allocation; 3 dedicated and one borrowed TP1 instances                           |
 | R03 | ratio     | math | megatron | graph          |          16 |       3 |    6 | 2:1                |   2 |         2 |         32 |       8 | 2:1 allocation; 2 dedicated and one borrowed TP2 instances                           |
 | R04 | ratio     | math | megatron | graph          |          16 |       3 |    8 | 3:1                |   2 |         2 |         32 |       8 | 3:1 allocation; 3 dedicated and one borrowed TP2 instances                           |
+| R05 | ratio     | code | megatron | graph          |          16 |       3 |    6 | 2:1                |   2 |         2 |         32 |       8 | Code unequal ratio with TP2 vs R03                                                   |
 | G01 | execution | math | fsdp     | eager          |          16 |       6 |    2 | 1:1                |   1 |         2 |         32 |       8 | Eager control matched to graph C01                                                   |
 | G02 | execution | math | megatron | eager          |          16 |       6 |    2 | 1:1                |   1 |         2 |         32 |       8 | Eager control matched to graph C02                                                   |
+| G03 | execution | code | megatron | eager          |          16 |       3 |    2 | 1:1                |   1 |         2 |         32 |       8 | Code eager vs C04                                                                    |
 | W01 | workload  | math | fsdp     | graph          |          16 |       6 |    2 | 1:1                |   1 |         2 |         16 |       8 | Smaller question batch versus C01                                                    |
 | W02 | workload  | math | fsdp     | graph          |          16 |       6 |    2 | 1:1                |   1 |         2 |         64 |       8 | Larger question batch versus C01                                                     |
 | W03 | workload  | math | fsdp     | graph          |          16 |       6 |    2 | 1:1                |   1 |         2 |         32 |       4 | Smaller answer group versus C01                                                      |
 | W04 | workload  | math | fsdp     | graph          |          16 |       6 |    2 | 1:1                |   1 |         2 |         32 |      16 | Larger answer group versus C01                                                       |
 | W05 | workload  | math | fsdp     | graph          |          16 |       6 |    2 | 1:1                |   1 |         2 |         64 |      16 | Combined high-load corner                                                            |
+| W06 | workload  | code | megatron | graph          |          16 |       3 |    2 | 1:1                |   1 |         2 |         32 |       4 | Code smaller answer group vs C04                                                     |
+| W07 | workload  | math | megatron | graph          |          16 |       6 |    2 | 1:1                |   1 |         2 |         16 |       8 | Megatron smaller question batch vs C02/W01                                           |
+| W08 | workload  | math | megatron | graph          |          16 |       6 |    2 | 1:1                |   1 |         2 |         32 |      16 | Megatron larger answer group vs C02/W04                                              |
 | L01 | long      | math | fsdp     | graph          |          16 |     100 |    2 | 1:1                |   1 |         2 |         32 |       8 | 3,200 unique questions; repeated publication, cleanup and resource growth            |
 | L02 | long      | math | megatron | graph          |          32 |     100 |    2 | 1:1                |   1 |         2 |         32 |       8 | Megatron long-run stability under higher concurrency; inference:training remains 1:1 |
+| L03 | long      | code | megatron | graph          |          16 |     100 |    2 | 1:1                |   1 |         2 |         32 |       8 | Code Megatron 100-batch stability; extend C04 with the same configuration            |
 
 E01 deliberately combines boundaries to cheaply find terminal-path failures; it is not a
 one-variable performance ablation. Core/load/off-policy pairs and T01/T02, T03/T04 hold
 other CLI settings fixed. Generated responses can nevertheless differ.
 
-L01 and L02 both use two NPUs with inference:training `1:1`. L02 changes both the
+L01, L02 and L03 use two NPUs with inference:training `1:1`. L02 changes both the
 training backend and concurrency; it is complementary stability coverage, not a
 single-variable performance ablation. Each arm processes 3,200 questions and 25,600
 answers across 100 batches.

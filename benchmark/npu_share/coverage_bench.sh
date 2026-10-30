@@ -48,14 +48,14 @@ case "$mode" in plan|prepare|run) ;; *) echo "Invalid mode: $mode" >&2; exit 2;;
 case "$inference_mode" in ""|graph|eager) ;; *) echo "Invalid inference mode" >&2; exit 2;; esac
 case "$suite" in
     core) defaults="C01 C02 C03 C04";;
-    load) defaults="C05 C06";;
-    boundary) defaults="E00 E01 E02 E03 E04";;
-    topology) defaults="T01 T02 T03 T04";;
-    ratio) defaults="R01 R02 R03 R04";;
-    execution) defaults="C01 C02 G01 G02";;
-    workload) defaults="C01 W01 W02 W03 W04 W05";;
-    long) defaults="L01 L02";;
-    all) defaults="C01 C02 C03 C04 C05 C06 E00 E01 E02 E03 E04 T01 T02 T03 T04 R01 R02 R03 R04 G01 G02 W01 W02 W03 W04 W05 L01 L02";;
+    load) defaults="C05 C06 C07";;
+    boundary) defaults="E00 E01 E02 E03 E04 E05 E06 E07 E08";;
+    topology) defaults="T01 T02 T03 T04 T05 T06";;
+    ratio) defaults="R01 R02 R03 R04 R05";;
+    execution) defaults="C01 C02 G01 G02 G03";;
+    workload) defaults="C01 W01 W02 W03 W04 W05 W06 W07 W08";;
+    long) defaults="L01 L02 L03";;
+    all) defaults="C01 C02 C03 C04 C05 C06 E00 E01 E02 E03 E04 T01 T02 T03 T04 R01 R02 R03 R04 G01 G02 W01 W02 W03 W04 W05 L01 L02 C07 E05 E06 E07 E08 T05 T06 R05 G03 W06 W07 W08 L03";;
     *) echo "Invalid suite: $suite" >&2; exit 2;;
 esac
 selected="${selected:-$defaults}"
@@ -88,6 +88,19 @@ declare -A matrix=(
     [W05]="math fsdp     16 6   2 1 2 1:1 graph 64 16"
     [L01]="math fsdp     16 100 2 1 2"
     [L02]="math megatron 32 100 2 1 2 1:1"
+    [L03]="code megatron 16 100 2 1 2 1:1"
+    [C07]="code fsdp     32 3   2 1 2"
+    [E05]="code fsdp     16 3   2 1 0"
+    [E06]="code megatron 16 3   2 1 1"
+    [E07]="math megatron 16 6   2 1 1"
+    [E08]="math megatron 16 6   2 1 3"
+    [T05]="code fsdp     16 3   4 1 2"
+    [T06]="code fsdp     16 3   4 2 2"
+    [R05]="code megatron 16 3   6 2 2 2:1"
+    [G03]="code megatron 16 3   2 1 2 1:1 eager"
+    [W06]="code megatron 16 3   2 1 2 1:1 graph 32 4"
+    [W07]="math megatron 16 6   2 1 2 1:1 graph 16 8"
+    [W08]="math megatron 16 6   2 1 2 1:1 graph 32 16"
 )
 read -r -a ids <<< "$selected"
 declare -A seen=()

@@ -8,8 +8,8 @@ from pathlib import Path
 
 
 def _write_test(sandbox, script, trace_fields):
-    """Retry only idempotent upload when a newly created route is absent."""
-    from e2b.exceptions import FileNotFoundException
+    """Retry idempotent upload while a fresh sandbox route activates."""
+    from e2b.exceptions import FileNotFoundException, TimeoutException
 
     from areal.utils import request_trace
 
@@ -18,15 +18,26 @@ def _write_test(sandbox, script, trace_fields):
         try:
             sandbox.files.write("/tmp/areal-test.py", script)
             return
-        except FileNotFoundException as exc:
+        except (FileNotFoundException, TimeoutException) as exc:
             # A missing guest path or other error is not a route readiness error.
-            if str(exc).strip().lower() != "sandbox not found":
+            message = str(exc).strip().lower()
+            missing_route = (
+                isinstance(exc, FileNotFoundException)
+                and message == "sandbox not found"
+            )
+            activating = (
+                isinstance(exc, TimeoutException)
+                and message.splitlines()[0] == "sandbox activation failed"
+            )
+            if not (missing_route or activating):
                 raise
             request_trace.emit(
                 "code_sandbox_upload_missing",
                 sandbox_id=sandbox.sandbox_id,
+                error_type=type(exc).__name__,
                 attempt=attempt + 1,
                 exhausted=attempt == len(delays),
+                retry_wait_seconds=delays[attempt] if attempt < len(delays) else 0,
                 **trace_fields,
             )
             if attempt == len(delays):
@@ -47,6 +58,12 @@ def run_test(script: str, timeout: int = 10, trace_fields=None) -> tuple[bool, s
     from e2b.sandbox.commands.command_handle import CommandExitException
 
     cfg = json.loads(Path(os.environ["KUASAR_CONFIG"]).read_text())
+    if "backends" in cfg:
+        from sandbox_pool import run_test as run_pool_test
+
+        return run_pool_test(
+            script, timeout, trace_fields, config_path=os.environ["KUASAR_CONFIG"]
+        )
     # SDK's TLS transport reads this before constructing its HTTP clients.
     os.environ["SSL_CERT_FILE"] = cfg["ca_file"]
     sandbox = Sandbox.create(

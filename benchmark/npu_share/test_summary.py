@@ -66,6 +66,23 @@ class SummaryTests(unittest.TestCase):
             self.assertIn("(`max_head_offpolicyness`): 无数据", zh)
             self.assertIn("| Reported generated tokens | 139706 | N/A |", en)
 
+    def test_sandbox_retry_marks_performance_as_affected(self):
+        summary = self.fixture()
+        summary["settings"]["rl"] = "code"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            events = root / "fixed" / "request-events"
+            events.mkdir(parents=True)
+            (events / "events.jsonl").write_text(
+                '{"event":"code_sandbox_upload_missing","retry_wait_seconds":0.4}\n'
+            )
+            write_summary_markdown(root, summary)
+            self.assertIn(
+                "不能作为共享性能收益结论", (root / "summary.zh.md").read_text()
+            )
+            self.assertIn("0.400s", (root / "summary.zh.md").read_text())
+            self.assertTrue((root / "infrastructure_audit.json").exists())
+
     def test_zero_duration_does_not_divide_by_zero(self):
         summary = self.fixture()
         summary["loop_seconds"]["latest"] = 0
