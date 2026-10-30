@@ -179,6 +179,8 @@ class RunnerTests(unittest.TestCase):
                 workspace_root=None,
                 timeout=1,
                 prepare_only=False,
+                return_calibration_in=None,
+                return_calibration_out=False,
                 render_only=None,
             )
             calls = []

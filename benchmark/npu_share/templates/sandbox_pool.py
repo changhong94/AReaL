@@ -11,6 +11,8 @@ import os
 import random
 import threading
 import time
+import urllib.request
+import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -40,7 +42,12 @@ def load_config(path):
             url.scheme == "http" and url.hostname in ("localhost", "127.0.0.1", "::1")
         ):
             raise ValueError("TLS API or loopback SSH tunnel required")
-        if b.get("provider", "kuasar") not in ("kuasar", "cube", "agentenv"):
+        if b.get("provider", "kuasar") not in (
+            "kuasar",
+            "cube",
+            "agentenv",
+            "agentenv-worker",
+        ):
             raise ValueError("Unsupported sandbox provider")
         b["access"] = access
     if not Path(cfg["lock_dir"]).is_absolute():
@@ -114,16 +121,48 @@ def run_test(script, timeout=10, trace_fields=None, config_path=None):
     initialize_tls(cfg)
     fields = dict(trace_fields or {})
     queued = time.monotonic()
-    with lease(cfg) as (backend, state):
+    with lease(cfg, timeout=cfg.get("lease_timeout", 300)) as (backend, state):
         fields["sandbox_backend"] = backend["name"]
         access = backend["access"]
         sandbox = None
         stage = "create"
+        timings = {}
         started = time.monotonic()
         request_trace.emit(
             "sandbox_pool_begin", queue_seconds=started - queued, **fields
         )
         try:
+            if backend.get("provider") == "agentenv-worker":
+                task_id = uuid.uuid4().hex
+                fields["worker_task_id"] = task_id
+                request_trace.emit("sandbox_worker_submit", **fields)
+                body = json.dumps(
+                    {"task_id": task_id, "script": script, "timeout": timeout}
+                ).encode()
+                request = urllib.request.Request(
+                    access["api_url"].rstrip("/") + "/v1/score",
+                    data=body,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + access["api_key"],
+                    },
+                )
+                # Exactly one submission, no automatic retry on ambiguous failure.
+                opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+                stage = "worker_rpc"
+                with opener.open(request, timeout=150) as response:
+                    result = json.load(response)
+                state["release"] = result.get("cleanup_confirmed") is True
+                if (
+                    result.get("status") != "completed"
+                    or type(result.get("passed")) is not bool
+                    or not state["release"]
+                ):
+                    raise RuntimeError(
+                        f"Scoring worker task {task_id}: {result.get('status', 'invalid response')}"
+                    )
+                timings["worker_seconds"] = result.get("worker_seconds", 0)
+                return result["passed"], result.get("stderr", "")
             options = {}
             if backend.get("provider", "kuasar") == "kuasar":
                 options = {
@@ -132,6 +171,7 @@ def run_test(script, timeout=10, trace_fields=None, config_path=None):
                 }
             elif backend["provider"] == "agentenv":
                 options = {"sandbox_url": access["api_url"]}
+            stage_started = time.monotonic()
             sandbox = Sandbox.create(
                 access["template_id"],
                 timeout=120,
@@ -141,12 +181,16 @@ def run_test(script, timeout=10, trace_fields=None, config_path=None):
                 domain=access.get("domain"),
                 **options,
             )
+            timings["create_seconds"] = time.monotonic() - stage_started
             stage = "upload"
+            stage_started = time.monotonic()
             user_options = {"user": backend["user"]} if backend.get("user") else {}
             sandbox.files.write(
                 "/tmp/areal-test.py", script, request_timeout=30, **user_options
             )
+            timings["upload_seconds"] = time.monotonic() - stage_started
             stage = "execute"
+            stage_started = time.monotonic()
             command = (
                 f"timeout -k 2s {int(timeout)}s "
                 "sh -c 'ulimit -t 2; ulimit -v 524288; "
@@ -168,14 +212,27 @@ def run_test(script, timeout=10, trace_fields=None, config_path=None):
             )
             raise
         finally:
+            if stage == "execute":
+                timings["execute_seconds"] = time.monotonic() - stage_started
             try:
                 if sandbox is not None:
+                    stage_started = time.monotonic()
                     sandbox.kill(request_timeout=30)
                     state["release"] = True
+                    timings["delete_seconds"] = time.monotonic() - stage_started
+            except Exception as exc:
+                request_trace.emit(
+                    "sandbox_pool_error",
+                    stage="delete",
+                    error_type=type(exc).__name__,
+                    **fields,
+                )
+                raise
             finally:
                 request_trace.emit(
                     "sandbox_pool_end",
                     seconds=time.monotonic() - started,
                     quarantined=not state["release"],
+                    **timings,
                     **fields,
                 )

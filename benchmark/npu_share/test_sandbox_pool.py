@@ -93,3 +93,80 @@ def test_ambiguous_creation_quarantines_slot(tmp_path):
     next(tmp_path.iterdir()).write_text(str(time.time() - 1))
     with pool.lease(cfg, timeout=0.1) as (_, state):
         state["release"] = True
+
+
+@pytest.mark.parametrize("failure", [None, "create", "delete"])
+def test_lifecycle_failure_and_timing(tmp_path, monkeypatch, failure):
+    """Infrastructure failures propagate without retry and cleanup is traced."""
+    import sys
+    import types
+
+    cfg = config(str(tmp_path))
+    cfg["backends"] = [
+        dict(
+            cfg["backends"][0],
+            provider="agentenv",
+            access=dict(api_key="test", api_url="http://localhost", template_id="test"),
+        )
+    ]
+    calls, events = [], []
+
+    def create(*args, **kwargs):
+        calls.append("create")
+        if failure == "create":
+            raise ConnectionError("creation failed")
+        return types.SimpleNamespace(
+            files=types.SimpleNamespace(write=lambda *a, **k: None),
+            commands=types.SimpleNamespace(
+                run=lambda *a, **k: types.SimpleNamespace(exit_code=0, stderr="")
+            ),
+            kill=kill,
+        )
+
+    def kill(**kwargs):
+        calls.append("delete")
+        if failure == "delete":
+            raise ConnectionError("cleanup failed")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "e2b",
+        types.SimpleNamespace(Sandbox=types.SimpleNamespace(create=create)),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "e2b.sandbox.commands.command_handle",
+        types.SimpleNamespace(CommandExitException=type("Exit", (Exception,), {})),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "areal.utils",
+        types.SimpleNamespace(
+            request_trace=types.SimpleNamespace(
+                emit=lambda name, **kw: events.append((name, kw))
+            )
+        ),
+    )
+    monkeypatch.setattr(pool, "load_config", lambda _: cfg)
+    monkeypatch.setattr(pool, "initialize_tls", lambda _: None)
+    if failure:
+        with pytest.raises(ConnectionError):
+            pool.run_test("pass", config_path="test")
+        assert calls.count("create") == 1
+        assert any(
+            name == "sandbox_pool_error" and data["stage"] == failure
+            for name, data in events
+        )
+    else:
+        assert pool.run_test("pass", config_path="test") == (True, "")
+        assert calls == ["create", "delete"]
+        assert all(
+            events[-1][1][key] >= 0
+            for key in (
+                "create_seconds",
+                "upload_seconds",
+                "execute_seconds",
+                "delete_seconds",
+            )
+        )
+    assert events[-1][1]["quarantined"] == bool(failure)

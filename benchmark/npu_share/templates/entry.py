@@ -141,8 +141,10 @@ def main():
                 return result
 
             setattr(trainer, name, traced)
+        from deployment_calibration import export, install
         from fair48_control import configure_workload
 
+        install(trainer, "/work", event)
         submitted = configure_workload(trainer)
         event("train.begin")
         trainer.train(
@@ -154,6 +156,7 @@ def main():
             eval_workflow_kwargs={**kwargs, "gconfig": config.eval_gconfig},
         )
         event("train.end")
+        export(trainer, "/work", event)
         assert len(submitted) == SETTINGS["questions"]
         Path("/run-output/submitted.json").write_text(json.dumps(submitted, indent=2))
     event("closed")

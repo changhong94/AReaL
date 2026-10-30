@@ -12,7 +12,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-DEFAULT_REWARD_CONCURRENCY = 16
+DEFAULT_REWARD_CONCURRENCY = 64
 
 
 class _Admission:

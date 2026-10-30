@@ -282,6 +282,17 @@ def arguments():
         type=Path,
         help="regenerate charts from an existing workspace, without NPU access",
     )
+    calibration = p.add_mutually_exclusive_group()
+    calibration.add_argument(
+        "--return-calibration-in",
+        type=Path,
+        help="validated deployment cost cache; fresh engines, no online probes",
+    )
+    calibration.add_argument(
+        "--return-calibration-out",
+        action="store_true",
+        help="export real return/restore costs from a deployment warmup run",
+    )
     return p.parse_args()
 
 
@@ -658,6 +669,47 @@ def main():
         for arm in ["fixed", "latest"]:
             (workspace / arm).mkdir()
             (workspace / (arm + "-cache")).mkdir()
+        if opts.return_calibration_in or opts.return_calibration_out:
+            stable = {
+                k: v
+                for k, v in settings.items()
+                if k
+                not in {
+                    "batches",
+                    "questions",
+                    "created",
+                    "container_prefix",
+                    "timeout",
+                }
+            }
+            model_files = {
+                str(f.relative_to(profile["model"])): [
+                    f.stat().st_size,
+                    f.stat().st_mtime_ns,
+                ]
+                for f in Path(profile["model"]).rglob("*")
+                if f.is_file()
+            }
+            context = dict(
+                settings=stable,
+                model=str(Path(profile["model"]).resolve()),
+                model_files=model_files,
+                source=json.loads((workspace / "source-manifest.json").read_text()),
+                templates=json.loads((workspace / "adapter-manifest.json").read_text()),
+                environment={
+                    arm: environment(arm == "latest") for arm in ["fixed", "latest"]
+                },
+            )
+            write_json(workspace / "return-calibration-context.json", context)
+            if opts.return_calibration_in:
+                sys.path.insert(0, str(HERE / "templates"))
+                from deployment_calibration import validate
+
+                payload = json.loads(opts.return_calibration_in.read_text())
+                validate(payload, context)
+                write_json(workspace / "return-calibration.json", payload)
+            else:
+                (workspace / "return-calibration-export").touch()
         args, setup = docker_args(profile, settings, workspace)
         progress.set(
             f"Preparing data and validating configurations; log: {workspace / 'prepare.log'}"
