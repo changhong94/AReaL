@@ -2,7 +2,8 @@
 
 [English version](COVERAGE_PLAN.md)
 
-这是测试覆盖计划，不是已通过测试的记录。每个用例本身就执行一次**固定组与共享组对照**，无需再手动补跑一对。各用例串行运行，单项失败后继续执行其余项；全部尝试结束后，只要有失败项，脚本就返回非零退出码。
+这是测试覆盖计划，不是已通过测试的记录。每个用例默认比较**固定、colocated（适用时）、共享**三组。固定与 colocated 使用独立社区 Ascend
+库，共享使用研究分支。各用例串行运行，单项失败后继续执行其余项；全部尝试结束后，只要有失败项，脚本就返回非零退出码。
 
 本计划选取 41 个典型配置，不穷举所有参数组合。建议先运行四个 core 用例，再选择与改动相关的套件。这是按风险选择的覆盖，**不是数学上完备的两两组合覆盖数组**。
 
@@ -78,49 +79,53 @@ workload 套件包含 C01 和 W01–W05，覆盖每批 16／32／64 题及每题
 
 两组接收相同的命令行参数。除 G01/G02/G03 使用 eager 外，所有用例均使用推理图模式；训练执行模式不变。套件名和枚举值保留英文，便于与脚本对应。
 
-| ID  | 套件      | RL   | 训练引擎 | 推理模式 | 题目并发数 | 批次数 | NPU 数 | 推理:训练 |  TP | Offpolicy | 每批题数 | 每题回答数 | 主要目的                                              |
-| --- | --------- | ---- | -------- | -------- | ---------: | -----: | -----: | --------- | --: | --------: | -------: | ---------: | ----------------------------------------------------- |
-| C01 | core      | math | fsdp     | graph    |         16 |      6 |      2 | 1:1       |   1 |         2 |       32 |          8 | 默认基准；权重发布与最后一批清理                      |
-| C02 | core      | math | megatron | graph    |         16 |      6 |      2 | 1:1       |   1 |         2 |       32 |          8 | 与 C01 比较训练后端                                   |
-| C03 | core      | code | fsdp     | graph    |         16 |      3 |      2 | 1:1       |   1 |         2 |       32 |          8 | E2B/AgentEnv 执行及奖励计算路径                       |
-| C04 | core      | code | megatron | graph    |         16 |      3 |      2 | 1:1       |   1 |         2 |       32 |          8 | 代码工作流与另一种训练后端                            |
-| C05 | load      | math | fsdp     | graph    |         32 |      6 |      2 | 1:1       |   1 |         2 |       32 |          8 | 相对 C01 增大并发                                     |
-| C06 | load      | math | megatron | graph    |         32 |      6 |      2 | 1:1       |   1 |         2 |       32 |          8 | 相对 C02 增大并发                                     |
-| C07 | load      | code | fsdp     | graph    |         32 |      3 |      2 | 1:1       |   1 |         2 |       32 |          8 | 提高题目推理并发，与 C03 对照（不是评分槽数）         |
-| E00 | boundary  | math | fsdp     | graph    |         16 |      6 |      2 | 1:1       |   1 |         0 |       32 |          8 | 同步准入；权重发布后才允许下一批执行                  |
-| E01 | boundary  | math | fsdp     | graph    |          1 |      1 |      2 | 1:1       |   1 |         1 |       32 |          8 | 最小正并发与前瞻值；不经过普通中间批次发布            |
-| E02 | boundary  | math | fsdp     | graph    |         16 |      6 |      2 | 1:1       |   1 |         1 |       32 |          8 | 与 E00、C01 比较最小正前瞻范围                        |
-| E03 | boundary  | math | fsdp     | graph    |         16 |      6 |      2 | 1:1       |   1 |         3 |       32 |          8 | 相对 C01 扩大前瞻；观察过时及未使用工作               |
-| E04 | boundary  | math | megatron | graph    |         16 |      3 |      2 | 1:1       |   1 |         0 |       32 |          8 | 另一训练后端上的零前瞻权重发布                        |
-| E05 | boundary  | code | fsdp     | graph    |         16 |      3 |      2 | 1:1       |   1 |         0 |       32 |          8 | 代码零前瞻，与 C03 对照                               |
-| E06 | boundary  | code | megatron | graph    |         16 |      3 |      2 | 1:1       |   1 |         1 |       32 |          8 | 代码最小正前瞻，与 C04 对照                           |
-| E07 | boundary  | math | megatron | graph    |         16 |      6 |      2 | 1:1       |   1 |         1 |       32 |          8 | Megatron 最小正前瞻，与 C02 对照                      |
-| E08 | boundary  | math | megatron | graph    |         16 |      6 |      2 | 1:1       |   1 |         3 |       32 |          8 | Megatron 较大前瞻，与 C02 对照                        |
-| T01 | topology  | math | fsdp     | graph    |         16 |      3 |      4 | 1:1       |   1 |         2 |       32 |          8 | 多个 TP1 推理实例与两个训练 rank                      |
-| T02 | topology  | math | fsdp     | graph    |         16 |      3 |      4 | 1:1       |   2 |         2 |       32 |          8 | 相同设备和工作量下，与 T01 比较 TP2                   |
-| T03 | topology  | math | megatron | graph    |         32 |      3 |      8 | 1:1       |   1 |         2 |       32 |          8 | 四个训练 rank；四个专用及四个借用的 TP1 实例          |
-| T04 | topology  | math | megatron | graph    |         32 |      3 |      8 | 1:1       |   2 |         2 |       32 |          8 | 两个专用及两个借用的 TP2 实例；与 T03 比较            |
-| T05 | topology  | code | fsdp     | graph    |         16 |      3 |      4 | 1:1       |   1 |         2 |       32 |          8 | 代码多训练 rank，与 C03/T01 对照                      |
-| T06 | topology  | code | fsdp     | graph    |         16 |      3 |      4 | 1:1       |   2 |         2 |       32 |          8 | 代码 TP2，与 T05/T02 对照                             |
-| R01 | ratio     | math | fsdp     | graph    |         16 |      3 |      3 | 2:1       |   1 |         2 |       32 |          8 | 2:1 分配；两个专用及一个借用的 TP1 实例               |
-| R02 | ratio     | math | fsdp     | graph    |         16 |      3 |      4 | 3:1       |   1 |         2 |       32 |          8 | 3:1 分配；三个专用及一个借用的 TP1 实例               |
-| R03 | ratio     | math | megatron | graph    |         16 |      3 |      6 | 2:1       |   2 |         2 |       32 |          8 | 2:1 分配；两个专用及一个借用的 TP2 实例               |
-| R04 | ratio     | math | megatron | graph    |         16 |      3 |      8 | 3:1       |   2 |         2 |       32 |          8 | 3:1 分配；三个专用及一个借用的 TP2 实例               |
-| R05 | ratio     | code | megatron | graph    |         16 |      3 |      6 | 2:1       |   2 |         2 |       32 |          8 | 代码不等比例 TP2，与 R03 对照                         |
-| G01 | execution | math | fsdp     | eager    |         16 |      6 |      2 | 1:1       |   1 |         2 |       32 |          8 | 与图模式 C01 配对的 eager 对照                        |
-| G02 | execution | math | megatron | eager    |         16 |      6 |      2 | 1:1       |   1 |         2 |       32 |          8 | 与图模式 C02 配对的 eager 对照                        |
-| G03 | execution | code | megatron | eager    |         16 |      3 |      2 | 1:1       |   1 |         2 |       32 |          8 | 代码 eager，与 C04 对照                               |
-| W01 | workload  | math | fsdp     | graph    |         16 |      6 |      2 | 1:1       |   1 |         2 |       16 |          8 | 相对 C01 减少每批题数                                 |
-| W02 | workload  | math | fsdp     | graph    |         16 |      6 |      2 | 1:1       |   1 |         2 |       64 |          8 | 相对 C01 增加每批题数                                 |
-| W03 | workload  | math | fsdp     | graph    |         16 |      6 |      2 | 1:1       |   1 |         2 |       32 |          4 | 相对 C01 减少每题回答数                               |
-| W04 | workload  | math | fsdp     | graph    |         16 |      6 |      2 | 1:1       |   1 |         2 |       32 |         16 | 相对 C01 增加每题回答数                               |
-| W05 | workload  | math | fsdp     | graph    |         16 |      6 |      2 | 1:1       |   1 |         2 |       64 |         16 | 较大题目批次与较大回答组的组合高负载                  |
-| W06 | workload  | code | megatron | graph    |         16 |      3 |      2 | 1:1       |   1 |         2 |       32 |          4 | 代码小回答组，与 C04 对照                             |
-| W07 | workload  | math | megatron | graph    |         16 |      6 |      2 | 1:1       |   1 |         2 |       16 |          8 | Megatron 小题目批次，与 C02/W01 对照                  |
-| W08 | workload  | math | megatron | graph    |         16 |      6 |      2 | 1:1       |   1 |         2 |       32 |         16 | Megatron 大回答组，与 C02/W04 对照                    |
-| L01 | long      | math | fsdp     | graph    |         16 |    100 |      2 | 1:1       |   1 |         2 |       32 |          8 | 3,200 道不同题目；反复发布、清理及资源增长            |
-| L02 | long      | math | megatron | graph    |         32 |    100 |      2 | 1:1       |   1 |         2 |       32 |          8 | 较高并发下 Megatron 长时间稳定性；推理:训练保持 1:1   |
-| L03 | long      | code | megatron | graph    |         16 |    100 |      2 | 1:1       |   1 |         2 |       32 |          8 | 代码 Megatron 100 批稳定性；与 C04 相同配置延长批次数 |
+Colocated 列按当前 Megatron＋vLLM＋AWEX 实现、actor TP=1 判定；“可配置”不代表已验证通过。FSDP 暂未接通；R03/R05
+三组均使用每批 48 题、每题 8 个回答，共 384 个回答，可整除 DP6；此前 32 题历史结果不是同配置对照。当前不自动改变 TP 或填充样本。不能做
+colocated 的项目仍执行固定／共享比较。
+
+| ID  | 套件      | RL   | 训练引擎 | 推理模式 | 题目并发数 | 批次数 | NPU 数 | 推理:训练 |  TP | Offpolicy | 每批题数 | 每题回答数 | Colocated（当前实现）      | 主要目的                                              |
+| --- | --------- | ---- | -------- | -------- | ---------: | -----: | -----: | --------- | --: | --------: | -------: | ---------: | -------------------------- | ----------------------------------------------------- |
+| C01 | core      | math | fsdp     | graph    |         16 |      6 |      2 | 1:1       |   1 |         2 |       32 |          8 | 暂不支持：FSDP/AWEX 未接通 | 默认基准；权重发布与最后一批清理                      |
+| C02 | core      | math | megatron | graph    |         16 |      6 |      2 | 1:1       |   1 |         2 |       32 |          8 | 可配置，待验证             | 与 C01 比较训练后端                                   |
+| C03 | core      | code | fsdp     | graph    |         16 |      3 |      2 | 1:1       |   1 |         2 |       32 |          8 | 暂不支持：FSDP/AWEX 未接通 | E2B/AgentEnv 执行及奖励计算路径                       |
+| C04 | core      | code | megatron | graph    |         16 |      3 |      2 | 1:1       |   1 |         2 |       32 |          8 | 可配置，待验证             | 代码工作流与另一种训练后端                            |
+| C05 | load      | math | fsdp     | graph    |         32 |      6 |      2 | 1:1       |   1 |         2 |       32 |          8 | 暂不支持：FSDP/AWEX 未接通 | 相对 C01 增大并发                                     |
+| C06 | load      | math | megatron | graph    |         32 |      6 |      2 | 1:1       |   1 |         2 |       32 |          8 | 可配置，待验证             | 相对 C02 增大并发                                     |
+| C07 | load      | code | fsdp     | graph    |         32 |      3 |      2 | 1:1       |   1 |         2 |       32 |          8 | 暂不支持：FSDP/AWEX 未接通 | 提高题目推理并发，与 C03 对照（不是评分槽数）         |
+| E00 | boundary  | math | fsdp     | graph    |         16 |      6 |      2 | 1:1       |   1 |         0 |       32 |          8 | 暂不支持：FSDP/AWEX 未接通 | 同步准入；权重发布后才允许下一批执行                  |
+| E01 | boundary  | math | fsdp     | graph    |          1 |      1 |      2 | 1:1       |   1 |         1 |       32 |          8 | 暂不支持：FSDP/AWEX 未接通 | 最小正并发与前瞻值；不经过普通中间批次发布            |
+| E02 | boundary  | math | fsdp     | graph    |         16 |      6 |      2 | 1:1       |   1 |         1 |       32 |          8 | 暂不支持：FSDP/AWEX 未接通 | 与 E00、C01 比较最小正前瞻范围                        |
+| E03 | boundary  | math | fsdp     | graph    |         16 |      6 |      2 | 1:1       |   1 |         3 |       32 |          8 | 暂不支持：FSDP/AWEX 未接通 | 相对 C01 扩大前瞻；观察过时及未使用工作               |
+| E04 | boundary  | math | megatron | graph    |         16 |      3 |      2 | 1:1       |   1 |         0 |       32 |          8 | 可配置，待验证             | 另一训练后端上的零前瞻权重发布                        |
+| E05 | boundary  | code | fsdp     | graph    |         16 |      3 |      2 | 1:1       |   1 |         0 |       32 |          8 | 暂不支持：FSDP/AWEX 未接通 | 代码零前瞻，与 C03 对照                               |
+| E06 | boundary  | code | megatron | graph    |         16 |      3 |      2 | 1:1       |   1 |         1 |       32 |          8 | 可配置，待验证             | 代码最小正前瞻，与 C04 对照                           |
+| E07 | boundary  | math | megatron | graph    |         16 |      6 |      2 | 1:1       |   1 |         1 |       32 |          8 | 可配置，待验证             | Megatron 最小正前瞻，与 C02 对照                      |
+| E08 | boundary  | math | megatron | graph    |         16 |      6 |      2 | 1:1       |   1 |         3 |       32 |          8 | 可配置，待验证             | Megatron 较大前瞻，与 C02 对照                        |
+| T01 | topology  | math | fsdp     | graph    |         16 |      3 |      4 | 1:1       |   1 |         2 |       32 |          8 | 暂不支持：FSDP/AWEX 未接通 | 多个 TP1 推理实例与两个训练 rank                      |
+| T02 | topology  | math | fsdp     | graph    |         16 |      3 |      4 | 1:1       |   2 |         2 |       32 |          8 | 暂不支持：FSDP/AWEX 未接通 | 相同设备和工作量下，与 T01 比较 TP2                   |
+| T03 | topology  | math | megatron | graph    |         32 |      3 |      8 | 1:1       |   1 |         2 |       32 |          8 | 可配置，待验证             | 四个训练 rank；四个专用及四个借用的 TP1 实例          |
+| T04 | topology  | math | megatron | graph    |         32 |      3 |      8 | 1:1       |   2 |         2 |       32 |          8 | 可配置，待验证             | 两个专用及两个借用的 TP2 实例；与 T03 比较            |
+| T05 | topology  | code | fsdp     | graph    |         16 |      3 |      4 | 1:1       |   1 |         2 |       32 |          8 | 暂不支持：FSDP/AWEX 未接通 | 代码多训练 rank，与 C03/T01 对照                      |
+| T06 | topology  | code | fsdp     | graph    |         16 |      3 |      4 | 1:1       |   2 |         2 |       32 |          8 | 暂不支持：FSDP/AWEX 未接通 | 代码 TP2，与 T05/T02 对照                             |
+| R01 | ratio     | math | fsdp     | graph    |         16 |      3 |      3 | 2:1       |   1 |         2 |       32 |          8 | 暂不支持：FSDP/AWEX 未接通 | 2:1 分配；两个专用及一个借用的 TP1 实例               |
+| R02 | ratio     | math | fsdp     | graph    |         16 |      3 |      4 | 3:1       |   1 |         2 |       32 |          8 | 暂不支持：FSDP/AWEX 未接通 | 3:1 分配；三个专用及一个借用的 TP1 实例               |
+| R03 | ratio     | math | megatron | graph    |         16 |      3 |      6 | 2:1       |   2 |         2 |       48 |          8 | 可配置，待验证             | 2:1 分配；两个专用及一个借用的 TP2 实例               |
+| R04 | ratio     | math | megatron | graph    |         16 |      3 |      8 | 3:1       |   2 |         2 |       32 |          8 | 可配置，待验证             | 3:1 分配；三个专用及一个借用的 TP2 实例               |
+| R05 | ratio     | code | megatron | graph    |         16 |      3 |      6 | 2:1       |   2 |         2 |       48 |          8 | 可配置，待验证             | 代码不等比例 TP2，与 R03 对照                         |
+| G01 | execution | math | fsdp     | eager    |         16 |      6 |      2 | 1:1       |   1 |         2 |       32 |          8 | 暂不支持：FSDP/AWEX 未接通 | 与图模式 C01 配对的 eager 对照                        |
+| G02 | execution | math | megatron | eager    |         16 |      6 |      2 | 1:1       |   1 |         2 |       32 |          8 | 可配置，待验证             | 与图模式 C02 配对的 eager 对照                        |
+| G03 | execution | code | megatron | eager    |         16 |      3 |      2 | 1:1       |   1 |         2 |       32 |          8 | 可配置，待验证             | 代码 eager，与 C04 对照                               |
+| W01 | workload  | math | fsdp     | graph    |         16 |      6 |      2 | 1:1       |   1 |         2 |       16 |          8 | 暂不支持：FSDP/AWEX 未接通 | 相对 C01 减少每批题数                                 |
+| W02 | workload  | math | fsdp     | graph    |         16 |      6 |      2 | 1:1       |   1 |         2 |       64 |          8 | 暂不支持：FSDP/AWEX 未接通 | 相对 C01 增加每批题数                                 |
+| W03 | workload  | math | fsdp     | graph    |         16 |      6 |      2 | 1:1       |   1 |         2 |       32 |          4 | 暂不支持：FSDP/AWEX 未接通 | 相对 C01 减少每题回答数                               |
+| W04 | workload  | math | fsdp     | graph    |         16 |      6 |      2 | 1:1       |   1 |         2 |       32 |         16 | 暂不支持：FSDP/AWEX 未接通 | 相对 C01 增加每题回答数                               |
+| W05 | workload  | math | fsdp     | graph    |         16 |      6 |      2 | 1:1       |   1 |         2 |       64 |         16 | 暂不支持：FSDP/AWEX 未接通 | 较大题目批次与较大回答组的组合高负载                  |
+| W06 | workload  | code | megatron | graph    |         16 |      3 |      2 | 1:1       |   1 |         2 |       32 |          4 | 可配置，待验证             | 代码小回答组，与 C04 对照                             |
+| W07 | workload  | math | megatron | graph    |         16 |      6 |      2 | 1:1       |   1 |         2 |       16 |          8 | 可配置，待验证             | Megatron 小题目批次，与 C02/W01 对照                  |
+| W08 | workload  | math | megatron | graph    |         16 |      6 |      2 | 1:1       |   1 |         2 |       32 |         16 | 可配置，待验证             | Megatron 大回答组，与 C02/W04 对照                    |
+| L01 | long      | math | fsdp     | graph    |         16 |    100 |      2 | 1:1       |   1 |         2 |       32 |          8 | 暂不支持：FSDP/AWEX 未接通 | 3,200 道不同题目；反复发布、清理及资源增长            |
+| L02 | long      | math | megatron | graph    |         32 |    100 |      2 | 1:1       |   1 |         2 |       32 |          8 | 可配置，待验证             | 较高并发下 Megatron 长时间稳定性；推理:训练保持 1:1   |
+| L03 | long      | code | megatron | graph    |         16 |    100 |      2 | 1:1       |   1 |         2 |       32 |          8 | 可配置，待验证             | 代码 Megatron 100 批稳定性；与 C04 相同配置延长批次数 |
 
 E01 故意组合多个边界，以较低成本发现最后一批处理路径的问题，不是单变量性能消融。core/load/off-policy 配对以及 T01/T02、T03/T04
 保持其他命令行设置不变，但生成的回答仍可能不同。

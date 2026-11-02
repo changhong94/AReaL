@@ -543,3 +543,9 @@ ties. Reward-waiting tasks do not inflate this load. A withdrawn shared worker r
 ineligible regardless of its apparent idle capacity. Progress callbacks are idempotent;
 a failed progress notification conservatively retains its slot until final completion.
 Cancellation and repeated finalization do not leak or double-release admission counts.
+
+Host profiles may set Docker shared-memory limits with `shm_size` (all arms) or
+`shm_size_by_arm` (fixed, colocated, latest; overrides the common value). Without
+overrides the existing host RAM defaults apply. These settings do not reserve NPU
+memory. Legacy mid-batch experiments may explicitly set AREAL_IDLE_SWITCH_COST_SECONDS
+and AREAL_IDLE_SWITCH_SPEEDUP; normal runs require measurements.

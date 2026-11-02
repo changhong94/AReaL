@@ -6,7 +6,7 @@ from areal.trainer.idle_budget import SwitchBudget
 
 
 def test_cold_short_suffix_stays_single():
-    b = SwitchBudget(initial_cost=15)
+    b = SwitchBudget(initial_cost=15, initial_speedup=1.5)
     b.observe(1, 1, 100, 10)
     d = b.decide(1, [100, 100])
     assert not d["accepted"]
@@ -19,14 +19,14 @@ def test_measured_entry_does_not_charge_obsolete_return():
     b.observe(1, 2, 100, 12)
     b.cost(1, "in", 6)
     b.cost(1, "out", 5)
-    d = b.decide(2, [100] * 8)
+    d = b.decide(2, [100] * 8, terminal=True)
     assert d["accepted"]
     assert d["net_seconds"] == pytest.approx(26)
     assert d["cost_source"] == "measured_entry"
 
 
 def test_imbalanced_suffix_not_ideal_halving():
-    b = SwitchBudget(initial_cost=1)
+    b = SwitchBudget(initial_cost=1, initial_speedup=1.5)
     b.observe(1, 1, 100, 10)
     assert not b.decide(1, [1000, 1])["accepted"]
 
@@ -38,7 +38,7 @@ def test_window_expires_and_missing_samples_reject():
 
 
 def test_odd_suffix_accounts_for_dummy_round():
-    b = SwitchBudget(initial_cost=1)
+    b = SwitchBudget(initial_cost=1, initial_speedup=1.5)
     b.observe(1, 1, 100, 10)
     d = b.decide(1, [100, 100, 100])
     assert d["dual_seconds"] == pytest.approx(200 * 0.1 * 2 / 1.5)
@@ -56,7 +56,7 @@ def test_lockstep_rounds_account_for_alternating_heavy_items():
 
 
 def test_incremental_publication_and_terminal_skip():
-    b = SwitchBudget(initial_cost=6)
+    b = SwitchBudget(initial_cost=6, initial_speedup=1.5)
     b.observe(1, 1, 100, 10)
     b.cost(1, "in", 4)
     samples = [(1, 1, "return", 2), (1, 2, "return", 8)]
@@ -65,7 +65,7 @@ def test_incremental_publication_and_terminal_skip():
 
 
 def test_entry_measurement_works_without_any_out_sample():
-    b = SwitchBudget(initial_cost=15)
+    b = SwitchBudget(initial_cost=15, initial_speedup=1.5)
     b.observe(1, 1, 100, 10)
     b.cost(1, "in", 2)
     assert b.decide(1, [100] * 8)["entry_seconds"] == 2
@@ -95,7 +95,9 @@ def test_stale_publication_cost_is_not_free():
     entry.observe(5, 1, "prepare", 0.2)
     budget = SwitchBudget()
     budget.observe(5, 1, 100, 30)
-    decision = budget.decide(5, [25] * 4, entry.cost_samples(5))
+    budget.observe(5, 2, 100, 16)
+    budget.cost(5, "in", 2)
+    decision = budget.decide(5, [25] * 4, [(1, 2, "return", 8), *entry.cost_samples(5)])
     assert decision["incremental_publication_seconds"] == 6
     assert decision["publication_source"] == "last_known_fallback"
     entry.observe(5, 2, "return", 3)
@@ -117,3 +119,11 @@ def test_helper_can_win_even_when_expansion_is_profitable():
         dict(accepted=True, net_seconds=6), dict(accepted=True, net_seconds=6)
     )
     assert not prefer_helper(dict(accepted=False), dict(accepted=False))
+
+
+def test_default_refuses_unknown_switch_or_speed():
+    b = SwitchBudget()
+    b.observe(1, 1, 100, 20)
+    assert not b.decide(1, [100] * 8, terminal=True)["accepted"]
+    b.observe(1, 2, 100, 3)
+    assert not b.decide(1, [100] * 8, terminal=True)["accepted"]

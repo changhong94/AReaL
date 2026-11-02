@@ -9,9 +9,8 @@ from pathlib import Path
 
 def _write_test(sandbox, script, trace_fields):
     """Retry idempotent upload while a fresh sandbox route activates."""
+    import benchmark_trace as request_trace
     from e2b.exceptions import FileNotFoundException, TimeoutException
-
-    from areal.utils import request_trace
 
     delays = (0.2, 0.4, 0.8, 1.6, 2.0)
     for attempt in range(len(delays) + 1):
@@ -51,7 +50,7 @@ def run_test(script: str, timeout: int = 10, trace_fields=None) -> tuple[bool, s
     Each call uses a fresh sandbox. Configuration and credentials remain outside
     the repository, in the JSON file selected by KUASAR_CONFIG.
     """
-    from areal.utils import request_trace
+    import benchmark_trace as request_trace
 
     trace_fields = trace_fields or {}
     from e2b import Sandbox

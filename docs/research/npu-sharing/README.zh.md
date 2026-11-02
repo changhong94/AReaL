@@ -53,6 +53,7 @@ R001 已实现；采用收紧策略的共享整体收益已验证（最近独立
 | R028 | [多节点训练—推理资源共享与调度](optimizations/R028-multinode-training-inference-sharing.zh.md)     | 研究提议；跨节点扩展M1/M2/M3，尚未实现与验证。                                                            |
 | R029 | [面向训练批次就绪的评分调度](optimizations/R029-training-ready-reward-scheduling.zh.md)            | 按题优先、跨题并行；槽位利用率超过99%、首批提前，整轮收益仍不稳定。                                       |
 | R030 | [空闲推理卡加入训练与状态低开销重分片](optimizations/R030-idle-inference-training-expansion.zh.md) | 全量状态验证通过；最新切换15.31秒，开发比较RL快2.31%；token不同且不含初始化。保持可选，见多轮结果与限制。 |
+| R031 | [部署校准与实测替代](optimizations/R031-local-deployment-calibration.zh.md)                        | 同机兼容布局复用；按指标记录来源、实测替代、失效与回退。                                                  |
 
 ## 维护规则
 

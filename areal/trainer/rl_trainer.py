@@ -394,8 +394,13 @@ class PPOTrainer:
         self.actor.initialize(**engine_init_kwargs, role="actor")
         from areal.trainer.idle_training import IdleTrainingPool, idle_training_enabled
 
+        pool_cls = IdleTrainingPool
+        if idle_training_enabled() and self.actor_alloc.backend == "megatron":
+            from areal.trainer.megatron_idle_training import MegatronIdleTrainingPool
+
+            pool_cls = MegatronIdleTrainingPool
         self._idle_training = (
-            IdleTrainingPool(self, ft_spec) if idle_training_enabled() else None
+            pool_cls(self, ft_spec) if idle_training_enabled() else None
         )
         if self.critic is not None:
             self.critic.initialize(**engine_init_kwargs, role="critic")
@@ -636,6 +641,9 @@ class PPOTrainer:
                     else None
                 ),
             )
+
+        if getattr(self._idle_training, "critical", False):
+            self._idle_training.commission()
 
     @staticmethod
     def _is_colocation(strategy: SchedulingStrategy | None) -> bool:
@@ -1030,6 +1038,13 @@ class PPOTrainer:
     def _finish_shared_weights(self, new_version: int) -> dict[str, float]:
         if not getattr(self, "_return_shared_inference", True):
             self.rollout.skip_inference_return(new_version)
+            if getattr(self._idle_training, "critical", False):
+                self._idle_training._entry_budget.observe(
+                    new_version,
+                    1,
+                    "return",
+                    time.monotonic() - self._idle_publication_started,
+                )
             return self.actor.export_stats()
         # Fixed inference is already resumed. Only the background tail waits
         # for owned CPU bytes before releasing actor device storage.
@@ -1067,6 +1082,10 @@ class PPOTrainer:
                 )
             request_trace.emit("shared_memory_switch_end", version=new_version)
         self.rollout.load_shared_snapshot_async(snapshot_meta)
+        if getattr(self._idle_training, "critical", False):
+            self._idle_training.observe_full_publication(
+                new_version, 1, self._idle_publication_started
+            )
         if self._idle_training is not None:
             self._idle_training._entry_budget.observe(
                 new_version,
@@ -1208,6 +1227,13 @@ class PPOTrainer:
             stats_tracker.scalar(**{"timeperf/rollout": prepare_seconds})
             if self._should_offload_rollout and self._idle_training is None:
                 self._offload_rollout()
+            if getattr(self._idle_training, "critical", False):
+                ends = global_step + 1 >= min(
+                    max_steps, config.total_train_steps or max_steps
+                )
+                self._idle_training.prepare_decision(
+                    rollout_batch, global_step + 1, ends and eval_workflow is None
+                )
             training_actor = (
                 self._idle_training.select(global_step + 1)
                 if self._idle_training is not None

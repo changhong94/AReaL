@@ -24,7 +24,7 @@ Inference defaults to graph; execution suite also includes eager controls.
 --shuffle randomizes case order once. --shuffle-seed also enables shuffling and reproduces the order.
 Default mode: prepare (no NPU training or sandbox creation).
 --cases selects explicit IDs instead of a suite. Cases run sequentially and continue after individual failures.
-The suite exits nonzero if any case fails. Each run_bench invocation compares fixed and shared modes.
+The suite exits nonzero if any case fails. Each run_bench invocation compares independent fixed, colocated (when available), and shared modes.
 HELP
 }
 while (($#)); do
@@ -77,7 +77,7 @@ declare -A matrix=(
     [T04]="math megatron 32 3   8 2 2"
     [R01]="math fsdp     16 3   3 1 2 2:1"
     [R02]="math fsdp     16 3   4 1 2 3:1"
-    [R03]="math megatron 16 3   6 2 2 2:1"
+    [R03]="math megatron 16 3   6 2 2 2:1 graph 48 8"
     [R04]="math megatron 16 3   8 2 2 3:1"
     [G01]="math fsdp     16 6   2 1 2 1:1 eager"
     [G02]="math megatron 16 6   2 1 2 1:1 eager"
@@ -96,7 +96,7 @@ declare -A matrix=(
     [E08]="math megatron 16 6   2 1 3"
     [T05]="code fsdp     16 3   4 1 2"
     [T06]="code fsdp     16 3   4 2 2"
-    [R05]="code megatron 16 3   6 2 2 2:1"
+    [R05]="code megatron 16 3   6 2 2 2:1 graph 48 8"
     [G03]="code megatron 16 3   2 1 2 1:1 eager"
     [W06]="code megatron 16 3   2 1 2 1:1 graph 32 4"
     [W07]="math megatron 16 6   2 1 2 1:1 graph 16 8"
@@ -188,7 +188,7 @@ failed=0
 echo "Coverage mode=$mode; cases=$selected; output=$output"
 for id in "${ids[@]}"; do
     case_parameters
-    cmd=(python3 "$runner" --profile "$profile" --workspace-root "$output"
+    cmd=(python3 "$runner" --profile "$profile" --workspace-root "$output" --arms three
          --rl "$rl" --engine "$engine" --concurrency "$concurrency"
          --batches "$batches" --npu-count "$npus" --inference-tp "$tp"
          --max-head-offpolicyness "$offpolicy"

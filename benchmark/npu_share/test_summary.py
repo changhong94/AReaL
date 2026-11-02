@@ -83,6 +83,37 @@ class SummaryTests(unittest.TestCase):
             self.assertIn("0.400s", (root / "summary.zh.md").read_text())
             self.assertTrue((root / "infrastructure_audit.json").exists())
 
+    def test_three_arm_report_keeps_all_timings_and_comparisons(self):
+        summary = self.fixture()
+        summary["settings"]["arms"] = ["fixed", "colocated", "latest"]
+        summary["loop_seconds"]["colocated"] = 110.0
+        summary["token_audit"]["colocated"] = dict(reported=138000)
+        summary["utilization_sample_means"]["colocated"] = {"1_aicore": 29.0}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_summary_markdown(root, summary)
+            text = (root / "summary.md").read_text()
+            self.assertIn("| Training loop (s) | 120.000 | 110.000 | 100.000 |", text)
+            self.assertIn("8.33%", text)
+            self.assertIn("9.09%", text)
+            self.assertIn("138000", text)
+
+    def test_missing_colocated_keeps_fixed_shared_and_explains_reason(self):
+        import json
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "arm-status.json").write_text(
+                json.dumps(
+                    {"colocated": {"status": "unsupported", "reason": "AWEX missing"}}
+                )
+            )
+            write_summary_markdown(root, self.fixture())
+            text = (root / "summary.zh.md").read_text()
+            self.assertIn("AWEX missing", text)
+            self.assertIn("120.000", text)
+            self.assertIn("100.000", text)
+
     def test_zero_duration_does_not_divide_by_zero(self):
         summary = self.fixture()
         summary["loop_seconds"]["latest"] = 0

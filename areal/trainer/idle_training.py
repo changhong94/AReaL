@@ -60,8 +60,12 @@ class IdleTrainingPool:
         from areal.trainer.idle_budget import SwitchBudget
 
         self._switch_budget = SwitchBudget(
-            initial_cost=float(os.getenv("AREAL_IDLE_SWITCH_COST_SECONDS", "6")),
-            initial_speedup=float(os.getenv("AREAL_IDLE_SWITCH_SPEEDUP", "1.5")),
+            initial_cost=float(os.environ["AREAL_IDLE_SWITCH_COST_SECONDS"])
+            if "AREAL_IDLE_SWITCH_COST_SECONDS" in os.environ
+            else None,
+            initial_speedup=float(os.environ["AREAL_IDLE_SWITCH_SPEEDUP"])
+            if "AREAL_IDLE_SWITCH_SPEEDUP" in os.environ
+            else None,
             margin=float(os.getenv("AREAL_IDLE_SWITCH_MARGIN_SECONDS", "0")),
         )
         self._jobs = ThreadPoolExecutor(

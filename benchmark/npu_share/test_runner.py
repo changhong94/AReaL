@@ -99,19 +99,19 @@ class RunnerTests(unittest.TestCase):
             for line in output.splitlines()
             if line.startswith("python3 ")
         ]
-        self.assertEqual(len(commands), 28)
+        self.assertEqual(len(commands), 41)
 
         def value(cmd, flag):
             return cmd[cmd.index(flag) + 1]
 
         self.assertEqual(
-            {value(cmd, "--batch-size") for cmd in commands}, {"16", "32", "64"}
+            {value(cmd, "--batch-size") for cmd in commands}, {"16", "32", "48", "64"}
         )
         self.assertEqual(
             {value(cmd, "--answers") for cmd in commands}, {"4", "8", "16"}
         )
         self.assertEqual(
-            sum(value(cmd, "--inference-mode") == "eager" for cmd in commands), 2
+            sum(value(cmd, "--inference-mode") == "eager" for cmd in commands), 3
         )
 
     def test_workload_defaults_override_and_validation(self):
@@ -138,7 +138,7 @@ class RunnerTests(unittest.TestCase):
         with patch.object(sys, "argv", ["run_bench.py", "--inference-mode", "eager"]):
             self.assertEqual(run.arguments().inference_mode, "eager")
 
-    def exercise(self, stop_fails=False):
+    def exercise(self, stop_fails=False, arms="two", colocated_exit=0):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
             for name in ["repo", "model", "train", "test"]:
@@ -162,6 +162,8 @@ class RunnerTests(unittest.TestCase):
             path.write_text(json.dumps(profile))
             opts = SimpleNamespace(
                 profile=path,
+                arms=arms,
+                colocated_actor_tp=1,
                 rl="math",
                 code_reward_scheduling="answer",
                 engine="fsdp",
@@ -199,7 +201,9 @@ class RunnerTests(unittest.TestCase):
                 if "image" in args:
                     return "sha256:immutable-image"
                 if "{{.State.ExitCode}}" in args:
-                    return "0"
+                    return (
+                        str(colocated_exit) if args[-1].endswith("-colocated") else "0"
+                    )
                 return ""
 
             def isrunning(name):
@@ -222,7 +226,21 @@ class RunnerTests(unittest.TestCase):
                 patch.object(run, "capture", side_effect=cap),
                 patch.object(run, "running", side_effect=isrunning),
                 patch.object(run, "freeze", side_effect=snap),
-                patch.object(run, "render") as render,
+                patch.object(
+                    run,
+                    "resolve_arm_sources",
+                    return_value={
+                        a: base / "repo"
+                        for a in (
+                            ["colocated"]
+                            if arms == "colocated"
+                            else ["fixed", "colocated", "latest"]
+                            if arms == "three"
+                            else ["fixed", "latest"]
+                        )
+                    },
+                ),
+                patch("independent_report.render") as render,
                 patch.object(
                     run,
                     "signal",
@@ -267,12 +285,36 @@ class RunnerTests(unittest.TestCase):
                 render.assert_not_called()
             else:
                 self.assertEqual(state["phase"], "complete")
-                self.assertEqual(state["completed"], ["fixed", "latest"])
+                self.assertEqual(
+                    state["completed"],
+                    ["fixed", "colocated", "latest"]
+                    if arms == "three" and not colocated_exit
+                    else ["colocated"]
+                    if arms == "colocated"
+                    else ["fixed", "latest"],
+                )
+                if colocated_exit:
+                    self.assertEqual(state["arms"]["colocated"]["status"], "failed")
                 self.assertFalse(restarts)
-                render.assert_called_once()
+                if arms == "colocated":
+                    render.assert_not_called()
+                    self.assertEqual(len(training), 1)
+                    self.assertIn("VLLM_SERVER_DEV_MODE=1", training[0])
+                    self.assertIn("HCCL_NPU_SOCKET_PORT_RANGE=auto", training[0])
+                else:
+                    render.assert_called_once()
+
+    def test_colocated_only_does_not_run_comparators(self):
+        self.exercise(arms="colocated")
 
     def test_matched_run_does_not_start_external_containers(self):
         self.exercise()
+
+    def test_failed_colocated_continues_shared(self):
+        self.exercise(arms="three", colocated_exit=1)
+
+    def test_three_arms_complete(self):
+        self.exercise(arms="three")
 
     def test_failed_stop_reports_cleanup_failure(self):
         self.exercise(stop_fails=True)

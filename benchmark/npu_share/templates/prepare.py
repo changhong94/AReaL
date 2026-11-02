@@ -39,6 +39,12 @@ for split, count in [("train", s["questions"]), ("test", 16)]:
             selected.append(i)
         if len(selected) == count:
             break
+    eligible_count = len(selected)
+    repeat_questions = (
+        s.get("repeat_code_questions", False) and s["rl"] == "code" and split == "train"
+    )
+    if repeat_questions and selected and len(selected) < count:
+        selected = (selected * ((count + len(selected) - 1) // len(selected)))[:count]
     if len(selected) < count:
         raise ValueError(
             f"{split}: need {count} eligible distinct questions; found {len(selected)}. Reduce --batches/--batch-size or configure a larger dataset."
@@ -46,6 +52,10 @@ for split, count in [("train", s["questions"]), ("test", 16)]:
     pq.write_table(table.take(selected), data / (split + ".parquet"))
     manifest[split] = dict(
         source_rows=table.num_rows,
+        sampling_policy="cycle" if repeat_questions else "without_replacement",
+        eligible_rows_scanned=eligible_count,
+        unique_source_rows=len(set(selected)),
+        repeated_rows=len(selected) - len(set(selected)),
         selected_rows=selected,
         source_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
     )
@@ -57,6 +67,18 @@ for split, count in [("train", s["questions"]), ("test", 16)]:
     actual = _get_custom_dataset(
         path=str(data), split=split, type="rl", tokenizer=tokenizer, max_length=2048
     )
+    if split == "train":
+        from areal.workflow.rlvr import default_get_input_ids_fn
+
+        expected = [
+            hashlib.sha256(
+                json.dumps(
+                    default_get_input_ids_fn(row["messages"], tokenizer, False)
+                ).encode()
+            ).hexdigest()
+            for row in actual
+        ]
+        (root / "expected-input-token-hashes.json").write_text(json.dumps(expected))
     if len(actual) != count:
         raise ValueError(
             f"{split}: actual preprocessing count {len(actual)} != {count}"
@@ -67,7 +89,8 @@ inference_devices = s.get("npu_count", 2) - training_devices
 inference_tp = s.get("inference_tp", 1)
 instances = inference_devices // inference_tp
 shared_instances = s.get("npu_count", 2) // inference_tp
-for arm in ["fixed", "latest"]:
+arm_status = {}
+for arm in s.get("arms", ["fixed", "latest"]):
     shared = arm == "latest"
     c = yaml.safe_load(Path("/tool/base.yaml").read_text())
     c.update(
@@ -124,19 +147,46 @@ for arm in ["fixed", "latest"]:
     c["train_dataset"]["shuffle"] = False
     c["perf_tracer"].update(enabled=True)
     c["perf_tracer"]["session_tracer"]["enabled"] = True
-    config_path = root / arm / "config.yaml"
-    config_path.write_text(yaml.safe_dump(c, sort_keys=False))
-    from areal.api.alloc_mode import ModelAllocation
-    from areal.api.cli_args import GRPOConfig, load_expr_config
-    from areal.trainer.rl_trainer import PPOTrainer
+    try:
+        if arm == "colocated":
+            from colocated_baseline import build_colocated_config
 
-    trainer = object.__new__(PPOTrainer)
-    trainer.config, _ = load_expr_config(["--config", str(config_path)], GRPOConfig)
-    trainer.actor_alloc = ModelAllocation.from_str(c["actor"]["backend"])
-    trainer.rollout_alloc = ModelAllocation.from_str(c["rollout"]["backend"])
-    for role in ["actor", "rollout", "critic", "ref", "teacher"]:
-        setattr(trainer, "_should_offload_" + role, role == "rollout" and shared)
-    trainer._validate_cfg()
+            c = build_colocated_config(
+                c,
+                devices=s["devices"],
+                inference_tp=inference_tp,
+                actor_tp=s.get("colocated_actor_tp", 1),
+            )
+        config_path = root / arm / "config.yaml"
+        config_path.write_text(yaml.safe_dump(c, sort_keys=False))
+        if arm != "latest":
+            # Baselines are validated by their own pinned source, not the research API.
+            arm_status[arm] = {"status": "prepared"}
+            continue
+        from areal.api.alloc_mode import ModelAllocation
+        from areal.api.cli_args import GRPOConfig, load_expr_config
+        from areal.trainer.rl_trainer import PPOTrainer
+
+        trainer = object.__new__(PPOTrainer)
+        trainer.config, _ = load_expr_config(["--config", str(config_path)], GRPOConfig)
+        trainer.actor_alloc = ModelAllocation.from_str(c["actor"]["backend"])
+        trainer.rollout_alloc = ModelAllocation.from_str(c["rollout"]["backend"])
+        for role in ["actor", "rollout", "critic", "ref", "teacher"]:
+            setattr(
+                trainer,
+                "_should_offload_" + role,
+                role == "rollout" and (shared or arm == "colocated"),
+            )
+        trainer._validate_cfg()
+        arm_status[arm] = {"status": "prepared"}
+    except Exception as exc:
+        if arm != "colocated":
+            raise
+        arm_status[arm] = {
+            "status": "unsupported",
+            "reason": f"{type(exc).__name__}: {exc}",
+        }
+(root / "arm-status.json").write_text(json.dumps(arm_status, indent=2))
 if s["rl"] == "code":
     print("Code SDK and workflow imports passed")
 print(

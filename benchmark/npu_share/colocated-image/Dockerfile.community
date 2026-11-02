@@ -1,0 +1,6 @@
+FROM areal-timeshare:megatron-awex-colocated-95265f85
+COPY baseline-missing-wheels /wheels
+RUN /opt/megatron-py312/bin/python3 -m pip list --format=json > /baseline-packages-before.json && /opt/megatron-py312/bin/python3 -m pip install --no-index --find-links=/wheels trackio==0.22.0 huggingface-hub==1.12.0 datasets==4.8.5 fsspec==2026.2.0 && /opt/megatron-py312/bin/python3 -m pip list --format=json > /baseline-packages-after.json
+RUN git -C /opt/areal-runtime/vllm restore --source=HEAD -- vllm/entrypoints/scale_out/token_in_token_out/protocol.py vllm/entrypoints/scale_out/token_in_token_out/serving.py
+COPY vllm_module_aliases.py /baseline/vllm_module_aliases.py
+RUN /opt/megatron-py312/bin/python3 /baseline/vllm_module_aliases.py

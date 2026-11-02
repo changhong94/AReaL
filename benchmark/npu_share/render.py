@@ -443,6 +443,7 @@ def translate_phase_text(value):
     )
     value = re.sub(r"^fixed \|", "固定组 |", value)
     value = re.sub(r"^latest \|", "共享组 |", value)
+    value = re.sub(r"^colocated \|", "Colocated组 |", value)
     value = value.replace("Rendered ", "生成日期 ").replace("saved ", "节省 ")
     return re.sub(r"(?<=\d)s\b", "秒", value)
 
@@ -568,9 +569,14 @@ def write_summary_markdown(root, summary):
         "Utilization is the arithmetic mean of recorded samples in the renderer's measurement window, not a time-weighted average. HBM includes reservations and caches.",
         "Token charts reconstruct decode-window events; audit discrepancies are retained below.",
     ]
+    unavailable = (
+        json.loads((root / "arm-status.json").read_text())
+        if (root / "arm-status.json").exists()
+        else {}
+    )
     settings = summary["settings"]
     times = summary["loop_seconds"]
-    arms = ["fixed", "latest"]
+    arms = settings.get("arms", ["fixed", "latest"])
     infrastructure = {}
     if settings.get("rl") == "code":
         for arm in arms:
@@ -615,6 +621,12 @@ def write_summary_markdown(root, summary):
             f"## {tr('Configuration')}",
             "",
         ]
+        for arm, status in unavailable.items():
+            if status.get("status") in ("failed", "unsupported"):
+                lines += [
+                    f"**{arm}: {status['status']}** — {status.get('reason', '')}",
+                    "",
+                ]
         if infrastructure:
             affected = any(
                 v["upload_failures"] or v["reward_errors"]
@@ -647,12 +659,19 @@ def write_summary_markdown(root, summary):
             "",
             f"## {tr('Main comparison')}",
             "",
-            f"| {tr('Metric')} | {tr('Fixed')} | {tr('Shared')} |",
-            "| --- | ---: | ---: |",
+            "| "
+            + tr("Metric")
+            + " | "
+            + " | ".join(
+                tr({"fixed": "Fixed", "colocated": "Colocated", "latest": "Shared"}[a])
+                for a in arms
+            )
+            + " |",
+            "| --- | " + " ---: |" * len(arms),
         ]
 
         def row(label, values):
-            lines.append(f"| {tr(label)} | {values[0]} | {values[1]} |")
+            lines.append("| " + tr(label) + " | " + " | ".join(values) + " |")
 
         row("Training loop (s)", [f"{times[a]:.3f}" for a in arms])
         row(
@@ -676,9 +695,25 @@ def write_summary_markdown(root, summary):
             "",
             f"## {tr('Sampled device utilization')}",
             "",
-            f"| {tr('Device metric (%)')} | {tr('Fixed mean')} | {tr('Shared mean')} |",
-            "| --- | ---: | ---: |",
+            "| "
+            + tr("Device metric (%)")
+            + " | "
+            + " | ".join(
+                tr({"fixed": "Fixed", "colocated": "Colocated", "latest": "Shared"}[a])
+                for a in arms
+            )
+            + " |",
+            "| --- | " + " ---: |" * len(arms),
         ]
+        if "colocated" in times:
+            lines[
+                lines.index(f"## {tr('Sampled device utilization')}") : lines.index(
+                    f"## {tr('Sampled device utilization')}"
+                )
+            ] = [
+                f"Colocated vs fixed: **{100 * (1 - times['colocated'] / times['fixed']):.2f}%**; shared vs colocated: **{100 * (1 - times['latest'] / times['colocated']):.2f}%**.",
+                "",
+            ]
         utilization = summary["utilization_sample_means"]
         for key in sorted(set().union(*(utilization[a] for a in arms))):
             row(
@@ -691,7 +726,10 @@ def write_summary_markdown(root, summary):
         lines += ["", f"## {tr('Measurement scope')}", ""]
         lines += [f"- {tr(note)}" for note in notes]
         lines += ["", f"## {tr('Token audit')}", ""]
-        for arm, label in zip(arms, ["Fixed", "Shared"]):
+        for arm in arms:
+            label = {"fixed": "Fixed", "colocated": "Colocated", "latest": "Shared"}[
+                arm
+            ]
             lines.append(
                 f"- {tr(label)}: `{json.dumps(summary['token_audit'][arm], sort_keys=True)}`"
             )
@@ -718,7 +756,41 @@ def main():
             timezone="UTC",
         )
     )
-    data = [load(root, a, settings) for a in ["fixed", "latest"]]
+    arms = settings.get("arms", ["fixed", "latest"])
+    loaded = {a: load(root, a, settings) for a in arms if a != "colocated"}
+    if "colocated" in arms:
+        try:
+            candidate = load(root, "colocated", settings)
+            reference = loaded["fixed"]
+            answers = settings.get("answers", 6)
+            expected_tasks = {r["task"] for r in reference["requests"]}
+            counts = Counter(r["task"] for r in candidate["requests"])
+            if (
+                len(candidate["batches"]) != len(reference["batches"])
+                or set(counts) != expected_tasks
+                or set(counts.values()) != {answers}
+            ):
+                raise ValueError("Colocated completed workload differs from fixed")
+
+            def submitted(arm):
+                return sorted(
+                    (x["task_id"], x["data_sha256"])
+                    for x in json.loads((root / arm / "submitted.json").read_text())
+                )
+
+            if submitted("colocated") != submitted("fixed"):
+                raise ValueError("Colocated question hashes differ from fixed")
+            loaded["colocated"] = candidate
+        except Exception as exc:
+            status_path = root / "arm-status.json"
+            statuses = (
+                json.loads(status_path.read_text()) if status_path.exists() else {}
+            )
+            statuses["colocated"] = {"status": "analysis_failed", "reason": str(exc)}
+            status_path.write_text(json.dumps(statuses, indent=2) + "\n")
+            print(f"Colocated excluded from comparison: {exc}", flush=True)
+            arms = [a for a in arms if a != "colocated"]
+    data = [loaded[a] for a in arms]
     devices = settings.get("devices", [1, 2])
     tp = settings.get("inference_tp", 1)
     instances = list(range(1, len(devices) // tp + 1))
@@ -747,7 +819,7 @@ def main():
                 "Each question must have the configured number of completed answers"
             )
     hashes = []
-    for arm in ["fixed", "latest"]:
+    for arm in arms:
         hashes.append(
             sorted(
                 (x["task_id"], x["data_sha256"])
@@ -758,7 +830,7 @@ def main():
         len(h) != questions or len(set(x[0] for x in h)) != questions for h in hashes
     ):
         raise ValueError("Submitted workload is incomplete or duplicated")
-    if hashes[0] != hashes[1]:
+    if any(h != hashes[0] for h in hashes[1:]):
         raise ValueError("Question hashes differ between arms")
     output = root / "figures"
     output.mkdir(exist_ok=True)
@@ -838,7 +910,11 @@ def main():
 
     def stage_spans(d):
         values = [
-            merged((w["start"], w["end"]) for w in d["wins"] if w["card"] <= half),
+            merged(
+                (w["start"], w["end"])
+                for w in d["wins"]
+                if d["arm"] == "colocated" or w["card"] <= half
+            ),
             [],
             [],
             [],
@@ -846,7 +922,11 @@ def main():
             [],
             [],
             [],
-            merged((w["start"], w["end"]) for w in d["wins"] if w["card"] > half),
+            merged(
+                (w["start"], w["end"])
+                for w in d["wins"]
+                if d["arm"] != "colocated" and w["card"] > half
+            ),
             [],
         ]
         for i, name in [
@@ -864,7 +944,7 @@ def main():
             (7, "shared_model_load_begin", "shared_model_load_end"),
         ]:
             values[i] = pairs(d, b, e)
-        if d["arm"] == "fixed":
+        if d["arm"] in ("fixed", "colocated"):
             values[9] = [
                 (s["start"], s["end"])
                 for s in d["stages"]
@@ -911,6 +991,10 @@ def main():
         return values
 
     extra_stage_labels = {
+        "Actor offload": "actor_offload",
+        "Actor onload": "actor_onload",
+        "Rollout offload": "rollout_offload",
+        "Rollout onload": "rollout_onload",
         "Training switch: single to multi": "idle_switch_in",
         "Training switch: multi to single": "idle_switch_out",
         "Prepare single-card training": "idle_entry_single",
@@ -942,7 +1026,9 @@ def main():
             pages.append((lo, hi, f"batches_{first:03d}_{last:03d}", True))
     for lo, hi, label, labels in pages:
         fig, axs = plt.subplots(
-            2, 1, figsize=(24, 12 + len(extra_phase_names) + len(devices))
+            len(data),
+            1,
+            figsize=(24, (12 + len(extra_phase_names) + len(devices)) * len(data) / 2),
         )
         names = [
             "Shared-group inference",
@@ -985,7 +1071,9 @@ def main():
             card_spans = training_card_spans(
                 d,
                 devices,
-                settings.get("allocation", {}).get("training", len(devices) // 2),
+                len(devices)
+                if d["arm"] == "colocated"
+                else settings.get("allocation", {}).get("training", len(devices) // 2),
             )
             first_card_row = len(names) - len(devices)
             for index, card in enumerate(devices):
@@ -1221,7 +1309,11 @@ def main():
                 "Color: batch. Light: queue/routing; medium: native queue; dark: execution-window span; hollow: logged pause (not exclusive NPU occupancy). Arrow: interrupted segment. Star: last consumed answer; dotted lines: batch ready. All logical answers completed.",
             )
     fig, axs = plt.subplots(
-        2 * len(devices), 2, figsize=(20, 7 * len(devices)), sharex=True, sharey=True
+        len(data) * len(devices),
+        2,
+        figsize=(20, 3.5 * len(data) * len(devices)),
+        sharex=True,
+        sharey=True,
     )
     utilization = {}
     utilization_series = {}
@@ -1263,7 +1355,12 @@ def main():
         ("aicore", "hbm_used_pct"),
         ("Summed AI Core utilization", "Summed HBM utilization"),
     ):
-        for d, line_color in zip(data, ("#2477b8", "#e87924")):
+        for d, line_color in zip(
+            data,
+            ("#2477b8", "#278b69", "#e87924")
+            if len(data) == 3
+            else ("#2477b8", "#e87924"),
+        ):
             times, samples = utilization_series[d["arm"]]
             ax.plot(
                 times,
@@ -1291,9 +1388,9 @@ def main():
         "Approximately 2-second samples. HBM sums per-device occupancy percentages, not capacity-weighted usage; AI Core activity is not FLOPS.",
     )
     fig, axs = plt.subplots(
-        2 * len(instances),
+        len(data) * len(instances),
         1,
-        figsize=(22, 7 * len(instances)),
+        figsize=(22, 3.5 * len(data) * len(instances)),
         sharex=True,
         sharey=True,
     )
@@ -1365,17 +1462,29 @@ def main():
         "One-second bins from single-token decode-window ends, not exact emission times. Colors identify weight version. Prompt/replay excluded; count discrepancies are recorded in summary.json.",
     )
     summary = dict(
+        arm_status=json.loads((root / "arm-status.json").read_text())
+        if (root / "arm-status.json").exists()
+        else {},
         settings=settings,
         questions=questions,
         answers=questions * answers_per_question,
         batches=n,
         loop_seconds={d["arm"]: d["end"] for d in data},
-        reduction_percent=100 * (1 - data[1]["end"] / data[0]["end"]),
+        reduction_percent=100
+        * (1 - next(d["end"] for d in data if d["arm"] == "latest") / data[0]["end"]),
         batch_step_timing={d["arm"]: batch_step_spans(d) for d in data},
         token_audit=audit,
         utilization_sample_means=utilization,
         figures=files,
     )
+    if "colocated" in arms:
+        times = summary["loop_seconds"]
+        summary["colocated_reduction_percent"] = 100 * (
+            1 - times["colocated"] / times["fixed"]
+        )
+        summary["shared_vs_colocated_percent"] = 100 * (
+            1 - times["latest"] / times["colocated"]
+        )
     (root / "summary.json").write_text(json.dumps(summary, indent=2))
     write_summary_markdown(root, summary)
     html = (

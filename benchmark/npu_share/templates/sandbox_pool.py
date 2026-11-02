@@ -108,10 +108,9 @@ def lease(cfg, timeout=300):
 
 
 def run_test(script, timeout=10, trace_fields=None, config_path=None):
+    import benchmark_trace as request_trace
     from e2b import Sandbox
     from e2b.sandbox.commands.command_handle import CommandExitException
-
-    from areal.utils import request_trace
 
     cfg = load_config(config_path or os.environ["AREAL_SANDBOX_POOL_CONFIG"])
     if not 1 <= timeout <= 10:

@@ -140,12 +140,8 @@ def test_lifecycle_failure_and_timing(tmp_path, monkeypatch, failure):
     )
     monkeypatch.setitem(
         sys.modules,
-        "areal.utils",
-        types.SimpleNamespace(
-            request_trace=types.SimpleNamespace(
-                emit=lambda name, **kw: events.append((name, kw))
-            )
-        ),
+        "benchmark_trace",
+        types.SimpleNamespace(emit=lambda name, **kw: events.append((name, kw))),
     )
     monkeypatch.setattr(pool, "load_config", lambda _: cfg)
     monkeypatch.setattr(pool, "initialize_tls", lambda _: None)

@@ -42,7 +42,7 @@ class ShuffleTests(unittest.TestCase):
     def test_reproducible_complete_order(self):
         default = self.ids(self.plan())
         first = self.ids(self.plan("--shuffle-seed", "42"))
-        self.assertEqual(len(first), 28)
+        self.assertEqual(len(first), 41)
         self.assertCountEqual(first, default)
         self.assertEqual(first, self.ids(self.plan("--shuffle-seed", "42")))
         self.assertNotEqual(first, default)

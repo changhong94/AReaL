@@ -21,8 +21,12 @@ def test_entry_charges_only_extra_exposed_preparation():
             budget.observe(1, world, phase, seconds)
     decision = budget.decide(2, 0)
     assert decision["world_size"] == 2
-    assert decision["incremental_prepare_seconds"] == 2
-    assert decision["net_seconds"] == 12
+    assert (
+        decision["candidates"][2]["remaining_prepare"]
+        - decision["candidates"][1]["remaining_prepare"]
+        == 2
+    )
+    assert decision["candidates"][1]["total"] - decision["candidates"][2]["total"] == 12
 
 
 def test_entry_does_not_take_busy_inference_or_unprofitable_world():
@@ -37,7 +41,7 @@ def test_entry_does_not_take_busy_inference_or_unprofitable_world():
 def test_entry_expires_old_workload_observations():
     budget = EntryBudget()
     budget.observe(1, 1, "compute", 60)
-    assert budget.decide(5, 0)["reason"] == "idle_cold_start"
+    assert budget.decide(5, 0)["reason"] == "insufficient_current_run_evidence"
 
 
 @pytest.mark.parametrize("dual", [True, False])
@@ -45,6 +49,9 @@ def test_entry_prepares_only_selected_world(dual):
     pool = object.__new__(IdleTrainingPool)
     pool.primary, pool.multi = object(), object()
     pool._entry_budget = EntryBudget()
+    for world, compute in [(1, 60), (2, 30)]:
+        for phase, seconds in [("compute", compute), ("prepare", 2), ("return", 2)]:
+            pool._entry_budget.observe(0, world, phase, seconds)
     pool.active = False
     pool._restore_multi_from_dram = Mock()
     pool._restore_single_from_dram = Mock()
@@ -205,19 +212,14 @@ def test_cpu_publication_write_failure_reaches_every_rank(monkeypatch):
     assert errors == ["OSError: injected snapshot failure"]
 
 
-def test_entry_keeps_cost_fallback_but_skips_terminal_publication():
+def test_entry_does_not_reuse_stale_costs():
     budget = EntryBudget()
-    budget.observe(1, 2, "return", 12)
-    budget.observe(4, 1, "return", 2)
-    budget.observe(5, 1, "compute", 30)
-    budget.observe(5, 2, "compute", 25)
-    regular = budget.decide(5, 0)
-    assert regular["world_size"] == 1
-    assert regular["incremental_return_seconds"] == 10
-    assert regular["publication_source"] == "last_known_fallback"
-    terminal = budget.decide(5, 0, terminal=True)
-    assert terminal["world_size"] == 2
-    assert terminal["incremental_return_seconds"] == 0
+    for world in (1, 2):
+        for phase in ("compute", "prepare", "return"):
+            budget.observe(1, world, phase, 2)
+    decision = budget.decide(5, 0)
+    assert decision["world_size"] == 1
+    assert decision["reason"] == "insufficient_current_run_evidence"
 
 
 @pytest.mark.parametrize("asynchronous", [True, False])

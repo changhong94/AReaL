@@ -102,7 +102,7 @@ class ProgressRegistry:
                 # Prefill or untracked output must not become a decode sample.
                 self.previous_frame = None
 
-    def snapshot(self, rotate=False):
+    def snapshot(self, rotate=False, include_window=False):
         with self.lock:
             now = time.monotonic()
             result = dict(
@@ -110,13 +110,14 @@ class ProgressRegistry:
                 active=[dict(r) for r in self.active.values()],
                 history=[dict(r) for r in self.history],
             )
-            if rotate:
+            if rotate or include_window:
                 result["window"] = dict(
                     start=self.window_started,
                     cutoff=now,
                     decode=[dict(r) for r in self.decode_bins.values()],
                     first=list(self.first_samples),
                 )
+            if rotate:
                 self.decode_bins.clear()
                 self.first_samples.clear()
                 self.previous_frame = None

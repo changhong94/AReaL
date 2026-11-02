@@ -16,15 +16,21 @@ spec = importlib.util.spec_from_file_location(
 )
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
+# This suite deliberately exercises a 16-slot fixture, independent of production defaults.
+module.DEFAULT_REWARD_CONCURRENCY = 16
 
 
-def process_scores(directory, active, peak, lock):
+def process_scores(directory, active, peak, lock, full):
     os.environ["AREAL_CODE_SLOT_DIR"] = directory
 
     def score():
         with lock:
             active.value += 1
             peak.value = max(peak.value, active.value)
+            if active.value == 16:
+                full.set()
+        # Hold admissions until both processes fill the pool; avoid timing-sensitive overlap.
+        full.wait(3)
         time.sleep(0.04)
         with lock:
             active.value -= 1
@@ -210,9 +216,10 @@ class QuestionRewardsTest(unittest.IsolatedAsyncioTestCase):
     async def test_two_processes_share_exactly_sixteen_slots(self):
         ctx = multiprocessing.get_context("spawn")
         active, peak, lock = ctx.Value("i", 0), ctx.Value("i", 0), ctx.Lock()
+        full = ctx.Event()
         children = [
             ctx.Process(
-                target=process_scores, args=(self.temp.name, active, peak, lock)
+                target=process_scores, args=(self.temp.name, active, peak, lock, full)
             )
             for _ in range(2)
         ]

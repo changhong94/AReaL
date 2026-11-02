@@ -425,6 +425,20 @@ class RolloutController:
             self._return_costs.append(
                 dict(publish=return_cost, restore=prepare_seconds)
             )
+            if os.getenv("AREAL_CALIBRATION_RUN_ID"):
+                if not hasattr(self, "_r031_return_events"):
+                    self._r031_return_events = []
+                self._r031_return_events.append(
+                    dict(
+                        version=self.get_version(),
+                        batch=getattr(self, "_trace_training_batch", None),
+                        publish=return_cost,
+                        restore=prepare_seconds,
+                        unit="seconds",
+                        time=time.time(),
+                    )
+                )
+
             self._return_publish_cost = None
         publish = getattr(self, "_batch_publish_seconds", None)
         if publish is not None:

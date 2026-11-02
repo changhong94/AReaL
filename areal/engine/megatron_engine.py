@@ -492,7 +492,133 @@ class MegatronEngine(TrainEngine):
         memory = getattr(self, "_shared_memory", None)
         if memory is None:
             raise RuntimeError("Adaptive Megatron memory is not enabled")
-        return memory.action(action, target_free_bytes)
+        status = memory.action(action, target_free_bytes)
+        if (
+            action == "status"
+            and not self.is_offload
+            and os.getenv("AREAL_IDLE_COLLECTIVE_MARGIN_BYTES")
+        ):
+            self._idle_resident_free = status["free_bytes"]
+        status["observed_workspace_peak_bytes"] = getattr(
+            self, "_idle_workspace_peak", 0
+        )
+        return status
+
+    def idle_publish_snapshot(self, meta):
+        if dist.get_rank() == 0:
+            self._shared_publisher().export(meta)
+        dist.barrier(group=self.cpu_group)
+
+    def prime_idle_optimizer_collective(self):
+        """Allocate the real grad-norm communicator while device memory is available."""
+        if (
+            self.is_offload
+            or self.get_version() != 0
+            or self.lr_scheduler.num_steps != 0
+        ):
+            raise RuntimeError("Prime only a fresh resident engine")
+
+        def free():
+            return int(self._shared_memory.backend.free_memory()[0])
+
+        current_platform.synchronize()
+        before = free()
+        with torch.no_grad():
+            self.optimizer.get_grad_norm()
+        current_platform.synchronize()
+        after = free()
+        row = dict(
+            rank=self.rank,
+            free_before=before,
+            free_after=after,
+            version=self.get_version(),
+            scheduler_steps=self.lr_scheduler.num_steps,
+        )
+        rows = [None] * self.world_size
+        dist.all_gather_object(rows, row, group=self.cpu_group)
+        if any(x["version"] != 0 or x["scheduler_steps"] != 0 for x in rows):
+            raise RuntimeError("Communication preflight advanced training state")
+        return dict(ranks=rows)
+
+    def _idle_optimizer_headroom(self):
+        margin = int(os.getenv("AREAL_IDLE_COLLECTIVE_MARGIN_BYTES", "0"))
+        if not margin:
+            return
+        # Ordinary, unoccupied allocator cache can crowd out native HCCL allocations.
+        # Do not touch mapped weights, optimizer state or live gradients.
+        current_platform.synchronize()
+
+        def free():
+            return int(self._shared_memory.backend.free_memory()[0])
+
+        before = free()
+        if before < margin:
+            current_platform.empty_cache()
+            current_platform.synchronize()
+        row = dict(rank=self.rank, before=before, after=free(), margin=margin)
+        rows = [None] * self.world_size
+        dist.all_gather_object(rows, row, group=self.cpu_group)
+        self.logger.info("IDLE_OPTIMIZER_HEADROOM %s", rows)
+        if any(x["after"] < margin for x in rows):
+            raise RuntimeError(
+                "Insufficient device headroom before optimizer collective on all ranks"
+            )
+
+    def idle_compute_probe(self, rows, length):
+        """One cold warmup plus one timed forward/backward, without optimizer step."""
+        import copy
+        from time import perf_counter
+
+        from megatron.core.tensor_parallel.random import get_cuda_rng_tracker
+
+        if self.is_offload or rows % self.world_size:
+            raise ValueError(
+                "Probe requires resident pure-DP engines and even sharding"
+            )
+        tracker = get_cuda_rng_tracker()
+        saved = copy.deepcopy(tracker.get_states())
+        cpu_rng = torch.get_rng_state()
+        device_rng = torch.npu.get_rng_state()
+        progress = (self.get_version(), self.lr_scheduler.num_steps)
+        try:
+            x = torch.ones(
+                (rows // self.world_size, length), dtype=torch.long, device=self.device
+            )
+            mbs = self._prepare_mb_list(
+                dict(input_ids=x, attention_mask=torch.ones_like(x, dtype=torch.bool))
+            ).to(self.device)
+            for _ in range(2):
+                self.optimizer_zero_grad()
+                current_platform.synchronize()
+                dist.barrier(group=self.cpu_group)
+                start = perf_counter()
+                self.forward_backward_batch(
+                    mbs,
+                    lambda logits, _: logits.reshape(-1)[0] * 0.0,
+                    forward_only=False,
+                )
+                current_platform.synchronize()
+                elapsed = perf_counter() - start
+            # Exercise the actual gradient-bearing reduction as well. Keep this
+            # outside the compute timer and never call optimizer.step().
+            if os.getenv("AREAL_IDLE_COLLECTIVE_MARGIN_BYTES"):
+                self.optimizer.get_grad_norm()
+                current_platform.synchronize()
+            times = [None] * self.world_size
+            dist.all_gather_object(times, elapsed, group=self.cpu_group)
+        finally:
+            self.optimizer_zero_grad()
+            torch.set_rng_state(cpu_rng)
+            torch.npu.set_rng_state(device_rng)
+            tracker.set_states(saved)
+        if progress != (self.get_version(), self.lr_scheduler.num_steps):
+            raise RuntimeError("Probe advanced training progress")
+        return dict(seconds=max(times), tokens=rows * length)
+
+    def idle_training_state(self, action: str, path: str | None = None) -> dict:
+        from areal.engine.megatron_utils.idle_state import state_operation
+
+        return state_operation(self, action, path)
 
     def prepare_optimizer_async(
         self, reserve_bytes: int, device_budget_bytes: int | None = None
@@ -1159,6 +1285,7 @@ class MegatronEngine(TrainEngine):
 
     def optimizer_step(self):
         self.wait_shared_snapshot()
+        self._idle_optimizer_headroom()
         with self._shared_scope("actor_optimizer"):
             return self._optimizer_step_impl()
 
@@ -1180,9 +1307,25 @@ class MegatronEngine(TrainEngine):
     def forward_backward_batch(self, mb_list, process_output_fn, forward_only=False):
         self._ensure_ready()
         with self._shared_scope("actor_workspace"):
-            return self._forward_backward_batch_impl(
+            if not os.getenv("AREAL_IDLE_COLLECTIVE_MARGIN_BYTES"):
+                return self._forward_backward_batch_impl(
+                    mb_list, process_output_fn, forward_only
+                )
+            before = int(self._shared_memory.backend.free_memory()[0])
+            # Keep the entry baseline through both the no-grad and gradient passes.
+            reference = max(before, getattr(self, "_idle_resident_free", 0))
+            reserved = torch.npu.memory_reserved()
+            result = self._forward_backward_batch_impl(
                 mb_list, process_output_fn, forward_only
             )
+            current_platform.synchronize()
+            after = int(self._shared_memory.backend.free_memory()[0])
+            self._idle_workspace_peak = max(
+                getattr(self, "_idle_workspace_peak", 0),
+                reference - after,
+                torch.npu.memory_reserved() - reserved,
+            )
+            return result
 
     def _forward_backward_batch_impl(
         self,
@@ -1505,6 +1648,8 @@ class MegatronEngine(TrainEngine):
 
         Ref: https://github.com/THUDM/slime/blob/main/slime/backends/megatron_utils/actor.py
         """
+        if getattr(self, "_idle_stage_valid", True) is not True:
+            raise RuntimeError("Cannot restore incomplete Megatron CPU staging")
         self.wait_shared_snapshot()
         if getattr(self, "_shared_memory", None) is not None:
             self.colocation_memory("restore")

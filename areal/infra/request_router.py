@@ -45,6 +45,8 @@ class RequestLeasePool:
         self.task_affinity = task_affinity
         self.groups = {}
         self.completed = {}
+        self._last_answer_time = {}
+        self._score_tail = None
         self.lengths = []
         self.window_lengths = []
         self.window_observations = []
@@ -195,6 +197,7 @@ class RequestLeasePool:
             )
             self.waiting.pop(ticket)
             self.rebalance_reservations.pop(request_id, None)
+            lease["acquired_monotonic"] = time.monotonic()
             self.active[ticket] = lease
             previous = self.interrupted.pop(request_id, None)
             if previous is not None and previous[0] != rank:
@@ -210,6 +213,9 @@ class RequestLeasePool:
             ):
                 raise RuntimeError("Group still has outstanding generation requests")
             self.groups.pop(group_id, None)
+            last = self._last_answer_time.pop(group_id, None)
+            if last is not None:
+                self._score_tail = time.monotonic() - last
             self.completed.pop(group_id, None)
             request_trace.emit("route_group_finished", group_id=group_id)
 
@@ -245,6 +251,8 @@ class RequestLeasePool:
                 question = lease.get("metrics", {}).get("question_id")
                 if question is not None:
                     self.completed.setdefault(question, set()).add(lease["request_id"])
+                    if self.batch_metrics:
+                        self._last_answer_time[question] = time.monotonic()
                 terminal = int(observation["total_tokens"]) < lease.get(
                     "metrics", {}
                 ).get("max_new_tokens", float("inf"))
@@ -256,6 +264,8 @@ class RequestLeasePool:
                             request_id=lease["request_id"],
                             question_id=question,
                             length=int(observation["total_tokens"]),
+                            lease_seconds=time.monotonic()
+                            - lease["acquired_monotonic"],
                             done=True,
                             event=terminal,
                         )
@@ -393,6 +403,7 @@ class RequestLeasePool:
                 task_affinity=self.task_affinity,
                 running_moved=list(self.running_moved),
                 reserved=len(self.rebalance_reservations),
+                score_tail=self._score_tail or 0.0,
                 window_lengths=lengths,
                 window_migrations=migrations,
                 window_observations=observations,

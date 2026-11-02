@@ -50,6 +50,8 @@ def main():
         cmd = [
             sys.executable,
             str(Path(__file__).with_name("run_bench.py")),
+            "--arms",
+            "two",
             "--profile",
             str(opts.profile),
             *extra,
@@ -74,7 +76,13 @@ def main():
 
     try:
         warmup = run(
-            "deployment-calibration", ["--batches", "2", "--return-calibration-out"]
+            "deployment-calibration",
+            [
+                "--batches",
+                "2",
+                "--return-calibration-out",
+                "--return-calibration-if-missing",
+            ],
         )
         cache = warmup / "return-calibration.json"
         if not cache.is_file():

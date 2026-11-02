@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run a reproducible fixed/shared two-NPU comparison on the local Linux host."""
+"""Run a reproducible fixed/colocated/shared NPU comparison on the local Linux host."""
 
 import argparse
 import datetime as dt
@@ -18,6 +18,8 @@ import time
 import uuid
 from pathlib import Path
 from zoneinfo import ZoneInfo
+
+from arm_sources import resolve as resolve_arm_sources
 
 HERE = Path(__file__).resolve().parent
 
@@ -192,6 +194,13 @@ def validate_topology(count, inference_tp=1, ratio="1:1"):
 
 def arguments():
     p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument(
+        "--arms",
+        choices=["three", "two", "colocated"],
+        default="three",
+        help="three includes community AWEX colocation; two is explicit legacy mode",
+    )
+    p.add_argument("--colocated-actor-tp", type=positive, default=1)
     p.add_argument("--rl", choices=["math", "code"], default="math")
     p.add_argument(
         "--code-reward-scheduling",
@@ -293,6 +302,9 @@ def arguments():
         action="store_true",
         help="export real return/restore costs from a deployment warmup run",
     )
+    p.add_argument(
+        "--return-calibration-if-missing", action="store_true", help=argparse.SUPPRESS
+    )
     return p.parse_args()
 
 
@@ -376,6 +388,10 @@ def environment(shared):
         AREAL_TRAIN_PRIORITY_INFERENCE=(
             os.getenv("AREAL_TRAIN_PRIORITY_INFERENCE", "0") if shared else "0"
         ),
+        AREAL_IDLE_CRITICAL_PATH=os.getenv("AREAL_IDLE_CRITICAL_PATH", "0"),
+        AREAL_IDLE_RAW_TRANSPORT=os.getenv("AREAL_IDLE_RAW_TRANSPORT", "0"),
+        AREAL_IDLE_PREEMPT_ALL=os.getenv("AREAL_IDLE_PREEMPT_ALL", "0"),
+        AREAL_IDLE_PREEMPT_FIRST=os.getenv("AREAL_IDLE_PREEMPT_FIRST", "0"),
         AREAL_IDLE_FULL_VERIFY=os.getenv("AREAL_IDLE_FULL_VERIFY", "1"),
         AREAL_IDLE_HELPER_VALIDATE=os.getenv("AREAL_IDLE_HELPER_VALIDATE", "0"),
         AREAL_IDLE_HELPER_LEAN=os.getenv("AREAL_IDLE_HELPER_LEAN", "0"),
@@ -389,8 +405,6 @@ def environment(shared):
         AREAL_IDLE_ENTRY_VALIDATE_WORLDS=os.getenv(
             "AREAL_IDLE_ENTRY_VALIDATE_WORLDS", ""
         ),
-        AREAL_IDLE_SWITCH_COST_SECONDS=os.getenv("AREAL_IDLE_SWITCH_COST_SECONDS", "6"),
-        AREAL_IDLE_SWITCH_SPEEDUP=os.getenv("AREAL_IDLE_SWITCH_SPEEDUP", "1.5"),
         AREAL_IDLE_SWITCH_MARGIN_SECONDS=os.getenv(
             "AREAL_IDLE_SWITCH_MARGIN_SECONDS", "0"
         ),
@@ -421,26 +435,42 @@ def environment(shared):
     if env["AREAL_TRAIN_PRIORITY_INFERENCE"] != "1":
         env["AREAL_ADAPTIVE_DRAIN"] = "0"
         env["AREAL_BATCH_DRAIN"] = "0"
+    for key in ("AREAL_IDLE_SWITCH_COST_SECONDS", "AREAL_IDLE_SWITCH_SPEEDUP"):
+        if shared and key in os.environ:
+            env[key] = os.environ[key]
     return env
 
 
 def docker_args(profile, settings, workspace, arm=None):
-    spec = profile["engines"][settings["engine"]]
+    spec = (
+        profile.get("baseline_engines", profile["engines"])[settings["engine"]]
+        if arm in ("fixed", "colocated")
+        else profile["engines"][settings["engine"]]
+    )
     args = ["docker", "run", "--network", "host"]
     if arm:
+        # AWEX CPU IPC holds a model copy per training rank; eight ranks exceed 16 GiB.
+        # Keep the same baseline limit for fixed and colocated. This is a cap, not a reservation.
         args += [
             "--privileged",
             "--shm-size",
-            "64g"
-            if arm == "latest" and os.getenv("AREAL_IDLE_TRAINING") == "1"
-            else "16g",
+            profile.get("shm_size_by_arm", {}).get(
+                arm,
+                profile.get(
+                    "shm_size",
+                    "64g"
+                    if arm in ("fixed", "colocated")
+                    or (arm == "latest" and os.getenv("AREAL_IDLE_TRAINING") == "1")
+                    else "16g",
+                ),
+            ),
             "--name",
             settings["container_prefix"] + "-" + arm,
         ]
     else:
         args += ["--rm"]
     mounts = [
-        (workspace / "source", "/repo", "ro"),
+        (workspace / settings.get("source_dirs", {}).get(arm, "source"), "/repo", "ro"),
         (workspace / "benchmark/templates", "/tool", "ro"),
         (workspace, "/work", "rw"),
         (Path(profile["model"]), "/model", "ro"),
@@ -449,6 +479,8 @@ def docker_args(profile, settings, workspace, arm=None):
     for split in ["train", "test"]:
         mounts.append((Path(data[split]), "/input/" + split + ".parquet", "ro"))
     env = environment(arm == "latest")
+    if arm in ("fixed", "colocated"):
+        env = {k: v for k, v in env.items() if not k.startswith("AREAL_")}
     env["AREAL_ADAPTIVE_CONCURRENCY"] = (
         settings.get("adaptive_concurrency", "off") if arm == "latest" else "off"
     )
@@ -457,7 +489,22 @@ def docker_args(profile, settings, workspace, arm=None):
     )
     if arm == "latest" and settings.get("inference_tp", 1) > 1:
         env["AREAL_NPU_SHARE_PAUSE_KEEP"] = "1"
+    if arm == "colocated":
+        env["VLLM_SERVER_DEV_MODE"] = "1"
+        env["HCCL_NPU_SOCKET_PORT_RANGE"] = "auto"
+        env["AREAL_KV_SLAB_BLOCKS"] = "0"
+        env["AREAL_AUTO_MEMORY"] = "0"
+        for key in env:
+            if key.startswith("AREAL_IDLE_") or key in (
+                "AREAL_OVERLAP_TRAIN_RESTORE",
+                "AREAL_PARK_TRAIN_CACHE",
+                "AREAL_RETAIN_DRAM",
+                "AREAL_RETURN_CALIBRATION_PROBE",
+            ):
+                env[key] = "0"
     env.update(PYTHONPATH="/tool:/repo", AREAL_BENCH_WORKSPACE="/work")
+    if arm == "latest":
+        env["AREAL_CALIBRATION_RUN_ID"] = workspace.name
     if arm:
         mounts += [
             (workspace / arm, "/run-output", "rw"),
@@ -491,7 +538,14 @@ def docker_args(profile, settings, workspace, arm=None):
         args += ["-v", f"{src}:{dst}:{mode}"]
     for k, v in env.items():
         args += ["-e", k + "=" + v]
-    args += ["-w", "/repo", "--entrypoint", "bash", settings["image_id"], "-lc"]
+    args += [
+        "-w",
+        "/repo",
+        "--entrypoint",
+        "bash",
+        settings.get("arm_image_ids", {}).get(arm, settings["image_id"]),
+        "-lc",
+    ]
     setup = (
         "set +eu; "
         + "; ".join("source " + shlex.quote(x) for x in profile["cann_env"])
@@ -539,6 +593,14 @@ def main():
         return
     validate_topology(opts.npu_count, opts.inference_tp, opts.inference_training_ratio)
     allocation = allocation_counts(opts.npu_count, opts.inference_training_ratio)
+    arms = (
+        ["fixed", "colocated", "latest"]
+        if getattr(opts, "arms", "three") == "three"
+        else ["fixed", "latest"]
+    )
+    if getattr(opts, "arms", "three") == "colocated":
+        arms = ["colocated"]
+    source_repos = resolve_arm_sources(profile, arms)
     repo = Path(profile["repo"]).resolve()
     root = (opts.workspace_root or Path(profile["workspace_root"])).resolve()
     if root == repo or repo in root.parents:
@@ -575,10 +637,14 @@ def main():
     workspace.mkdir()
     print(f"WORKSPACE={workspace}", flush=True)
     settings = dict(
+        arms=arms,
+        colocated_actor_tp=getattr(opts, "colocated_actor_tp", 1),
+        colocated_weight_update="awex" if "colocated" in arms else None,
         rl=opts.rl,
         code_reward_scheduling=opts.code_reward_scheduling,
         code_reward_scheduling_by_arm={
             "fixed": "answer",
+            "colocated": "answer",
             "latest": opts.code_reward_scheduling,
         },
         engine=opts.engine,
@@ -591,6 +657,7 @@ def main():
         batch_size=opts.batch_size,
         answers=opts.answers,
         questions=opts.batch_size * opts.batches,
+        repeat_code_questions=profile.get("repeat_code_questions", False),
         seed=1,
         max_new_tokens=1024,
         timezone=profile.get("timezone", "UTC"),
@@ -629,7 +696,7 @@ def main():
             "TP shared instances use per-device budgets and all-member mapping acknowledgements"
         )
     progress.set(
-        f"Preparing {opts.rl} / {opts.engine} / inference={opts.inference_mode}: fixed + shared, {opts.batches} batches each, {opts.batch_size} questions/batch, {opts.answers} answers/question, concurrency {opts.concurrency}"
+        f"Preparing {opts.rl} / {opts.engine} / inference={opts.inference_mode}: {' + '.join(arms)}, {opts.batches} batches each, {opts.batch_size} questions/batch, {opts.answers} answers/question, concurrency {opts.concurrency}"
     )
     hooks = ResourceHooks(profile, workspace, selected, progress)
     signal.signal(signal.SIGINT, interrupted)
@@ -639,6 +706,24 @@ def main():
         settings["image_id"] = capture(
             ["docker", "image", "inspect", "--format", "{{.Id}}", settings["image"]]
         )
+        baseline_spec = profile.get("baseline_engines", profile["engines"])[
+            settings["engine"]
+        ]
+        settings["arm_image_ids"] = {
+            a: capture(
+                [
+                    "docker",
+                    "image",
+                    "inspect",
+                    "--format",
+                    "{{.Id}}",
+                    baseline_spec["image"],
+                ]
+            )
+            if a != "latest"
+            else settings["image_id"]
+            for a in arms
+        }
         write_json(workspace / "settings.json", settings)
         if not opts.prepare_only:
             command([profile["plot_python"], "-c", "import matplotlib, numpy, PIL"])
@@ -650,6 +735,11 @@ def main():
         )
         shutil.copy2(HERE / "render.py", workspace / "benchmark/render.py")
         shutil.copy2(HERE / "run_bench.py", workspace / "benchmark/run_bench.py")
+        shutil.copy2(HERE / "arm_sources.py", workspace / "benchmark/arm_sources.py")
+        shutil.copy2(
+            HERE / "independent_report.py",
+            workspace / "benchmark/independent_report.py",
+        )
         write_json(
             workspace / "adapter-manifest.json",
             {
@@ -663,53 +753,26 @@ def main():
         write_json(
             workspace / "source-manifest.json", freeze(repo, workspace / "source")
         )
+        settings["source_dirs"] = {}
+        provenance = {}
+        for source_arm, source_repo in source_repos.items():
+            destination = "source-" + source_arm
+            settings["source_dirs"][source_arm] = destination
+            manifest = freeze(source_repo, workspace / destination)
+            manifest.update(
+                repo=str(source_repo),
+                branch=capture(["git", "-C", source_repo, "branch", "--show-current"]),
+            )
+            write_json(workspace / (source_arm + "-source-manifest.json"), manifest)
+            provenance[source_arm] = {k: v for k, v in manifest.items() if k != "files"}
+        settings["source_provenance"] = provenance
+        write_json(workspace / "settings.json", settings)
         (workspace / "source.patch").write_text(
             capture(["git", "-C", repo, "diff", "HEAD"])
         )
-        for arm in ["fixed", "latest"]:
+        for arm in arms:
             (workspace / arm).mkdir()
             (workspace / (arm + "-cache")).mkdir()
-        if opts.return_calibration_in or opts.return_calibration_out:
-            stable = {
-                k: v
-                for k, v in settings.items()
-                if k
-                not in {
-                    "batches",
-                    "questions",
-                    "created",
-                    "container_prefix",
-                    "timeout",
-                }
-            }
-            model_files = {
-                str(f.relative_to(profile["model"])): [
-                    f.stat().st_size,
-                    f.stat().st_mtime_ns,
-                ]
-                for f in Path(profile["model"]).rglob("*")
-                if f.is_file()
-            }
-            context = dict(
-                settings=stable,
-                model=str(Path(profile["model"]).resolve()),
-                model_files=model_files,
-                source=json.loads((workspace / "source-manifest.json").read_text()),
-                templates=json.loads((workspace / "adapter-manifest.json").read_text()),
-                environment={
-                    arm: environment(arm == "latest") for arm in ["fixed", "latest"]
-                },
-            )
-            write_json(workspace / "return-calibration-context.json", context)
-            if opts.return_calibration_in:
-                sys.path.insert(0, str(HERE / "templates"))
-                from deployment_calibration import validate
-
-                payload = json.loads(opts.return_calibration_in.read_text())
-                validate(payload, context)
-                write_json(workspace / "return-calibration.json", payload)
-            else:
-                (workspace / "return-calibration-export").touch()
         args, setup = docker_args(profile, settings, workspace)
         progress.set(
             f"Preparing data and validating configurations; log: {workspace / 'prepare.log'}"
@@ -721,10 +784,152 @@ def main():
                 stderr=subprocess.STDOUT,
                 timeout=1800,
             )
+        arm_status_path = workspace / "arm-status.json"
+        arm_status = (
+            json.loads(arm_status_path.read_text()) if arm_status_path.exists() else {}
+        )
+        for baseline_arm in (a for a in arms if a != "latest"):
+            if arm_status.get(baseline_arm, {}).get("status") == "unsupported":
+                continue
+            baseline_args, baseline_setup = docker_args(
+                profile, settings, workspace, baseline_arm
+            )
+            baseline_args.insert(2, "--rm")
+            try:
+                with (workspace / baseline_arm / "baseline-prepare.log").open(
+                    "w"
+                ) as log:
+                    command(
+                        baseline_args
+                        + [
+                            baseline_setup
+                            + f"python3 /tool/baseline_prepare.py {baseline_arm}"
+                        ],
+                        stdout=log,
+                        stderr=subprocess.STDOUT,
+                    )
+            except Exception as exc:
+                if baseline_arm == "fixed":
+                    raise
+                arm_status[baseline_arm] = {"status": "unsupported", "reason": str(exc)}
+        write_json(arm_status_path, arm_status)
+        state["arms"] = arm_status
+        run_arms = [
+            a for a in arms if arm_status.get(a, {}).get("status") != "unsupported"
+        ]
+        settings["requested_arms"] = arms
+        settings["arms"] = run_arms
+        write_json(workspace / "settings.json", settings)
+        for a, status in arm_status.items():
+            if status.get("status") == "unsupported":
+                progress.message(
+                    f"{a} unsupported: {status['reason']}; continuing available arms"
+                )
         if opts.prepare_only:
             state["phase"] = "prepared"
             progress.message("Preparation complete; no NPU training requested")
             return
+        # The host owns the cache; only a checked copy enters the run workspace.
+        sys.path.insert(0, str(HERE / "templates"))
+        from deployment_calibration import fingerprint, validate
+        from local_cost_store import IdentityUnavailable, Store, host_context
+
+        stores = {}
+        cache_inputs = {}
+        kinds = []
+        if "latest" in run_arms:
+            kinds.append("inference-return")
+            if (
+                environment(True).get("AREAL_IDLE_CRITICAL_PATH") == "1"
+                and environment(True).get("AREAL_IDLE_TRAINING") == "1"
+            ):
+                kinds.append("training-layout")
+        common = None
+        for kind in kinds:
+            if common is None:
+                try:
+                    common = host_context(
+                        kind, profile, settings, workspace, environment(True)
+                    )
+                except (IdentityUnavailable, OSError) as exc:
+                    if opts.return_calibration_in or opts.return_calibration_out:
+                        raise
+                    progress.message(
+                        f"Local calibration disabled: {exc}; fresh deployment"
+                    )
+                    write_json(
+                        workspace / "calibration-inputs.json",
+                        dict(status="uncached", reason=str(exc)),
+                    )
+                    break
+            ctx = dict(common, kind=kind)
+            store = stores[kind] = Store(ctx)
+            snap = store.snapshot()
+            record = snap["data"] if snap else None
+            cache_inputs[kind] = dict(
+                key=store.key,
+                revision=snap["revision"] if snap else None,
+                origins=snap["details"].get("origins", {}) if snap else {},
+                source=snap["source"] if snap else "cold",
+            )
+            write_json(workspace / "calibration-inputs.json", cache_inputs)
+            progress.message(
+                f"Local calibration {kind}: {'hit' if record else 'miss'} {store.key}"
+            )
+            if kind == "inference-return" and snap:
+                cache_inputs[kind]["has_runtime_observation"] = any(
+                    o.get("source") == "runtime_observation"
+                    for o in cache_inputs[kind]["origins"].values()
+                )
+            if kind == "training-layout":
+                if record:
+                    write_json(workspace / "layout-calibration-in.json", record)
+                continue
+            write_json(workspace / "return-calibration-context.json", ctx)
+            if opts.return_calibration_in:
+                payload = json.loads(opts.return_calibration_in.read_text())
+                validate(payload, ctx)
+                if cache_inputs[kind].get("has_runtime_observation"):
+                    payload = dict(
+                        schema=1,
+                        fingerprint=fingerprint(ctx),
+                        context=ctx,
+                        costs=record["samples"],
+                        source="host_local_actual",
+                    )
+                else:
+                    cache_inputs[kind].update(
+                        source="explicit_import",
+                        file=str(opts.return_calibration_in),
+                        revision=None,
+                        origins=payload.get("origins", {}),
+                    )
+                    write_json(workspace / "calibration-inputs.json", cache_inputs)
+                write_json(workspace / "return-calibration.json", payload)
+            elif record:
+                write_json(
+                    workspace / "return-calibration.json",
+                    dict(
+                        schema=1,
+                        fingerprint=fingerprint(ctx),
+                        context=ctx,
+                        costs=record["samples"],
+                        source="host_local",
+                    ),
+                )
+            (workspace / "return-calibration-export").touch()
+            if opts.return_calibration_out:
+                (workspace / "require-return-calibration").touch()
+            else:
+                (workspace / "optional-return-calibration").touch()
+            if (
+                opts.return_calibration_out
+                and record
+                and opts.return_calibration_if_missing
+            ):
+                state["phase"] = "complete"
+                state["calibration_reused"] = True
+                return
         if opts.rl == "code":
             progress.set("Checking sandbox create / execute / delete")
             with (workspace / "sandbox-preflight.log").open("w") as log:
@@ -742,77 +947,192 @@ def main():
         raw = capture([profile["npu_smi"], "info"])
         devices, processes = parse_info(raw)
         validate_idle_devices(raw, devices, processes, profile["devices"])
-        for arm in ["fixed", "latest"]:
-            progress.set(f"Starting {arm} group: model initialization and training")
-            event_offset, completed_batches = 0, 0
-            state.update(phase="running", current=arm)
-            save()
-            args, setup = docker_args(profile, settings, workspace, arm)
-            active = settings["container_prefix"] + "-" + arm
-            # Detached container plus bounded host supervisor permits laptop disconnects.
-            args.insert(2, "-d")
-            command(
-                args
-                + [setup + f"python3 /tool/entry.py --config /work/{arm}/config.yaml"],
-                stdout=subprocess.DEVNULL,
-            )
-            done = threading.Event()
-            sampler_thread = threading.Thread(
-                target=sampler,
-                args=(workspace / arm, done, profile["devices"]),
-                daemon=True,
-            )
-            sampler_thread.start()
-            deadline = time.monotonic() + settings["timeout"]
-            progress.message(
-                f"Container: {active}; live details: docker logs -f {active}"
-            )
-            while running(active):
-                event_offset, completed_batches = report_events(
+        for arm in run_arms:
+            try:
+                progress.set(f"Starting {arm} group: model initialization and training")
+                event_offset, completed_batches = 0, 0
+                state.update(phase="running", current=arm)
+                save()
+                args, setup = docker_args(profile, settings, workspace, arm)
+                active = settings["container_prefix"] + "-" + arm
+                # Detached container plus bounded host supervisor permits laptop disconnects.
+                args.insert(2, "-d")
+                command(
+                    args
+                    + [
+                        setup
+                        + f"python3 /tool/{'entry.py' if arm == 'latest' else 'baseline_entry.py'} --config /work/{arm}/config.yaml"
+                    ],
+                    stdout=subprocess.DEVNULL,
+                )
+                done = threading.Event()
+                sampler_thread = threading.Thread(
+                    target=sampler,
+                    args=(workspace / arm, done, profile["devices"]),
+                    daemon=True,
+                )
+                sampler_thread.start()
+                deadline = time.monotonic() + settings["timeout"]
+                progress.message(
+                    f"Container: {active}; live details: docker logs -f {active}"
+                )
+                while running(active):
+                    event_offset, completed_batches = report_events(
+                        workspace / arm / "phases.jsonl",
+                        event_offset,
+                        completed_batches,
+                        opts.batches,
+                        progress,
+                    )
+                    if time.monotonic() > deadline:
+                        raise TimeoutError(
+                            f"{arm} exceeded {settings['timeout']} seconds"
+                        )
+                    time.sleep(5)
+                report_events(
                     workspace / arm / "phases.jsonl",
                     event_offset,
                     completed_batches,
                     opts.batches,
                     progress,
                 )
-                if time.monotonic() > deadline:
-                    raise TimeoutError(f"{arm} exceeded {settings['timeout']} seconds")
-                time.sleep(5)
-            report_events(
-                workspace / arm / "phases.jsonl",
-                event_offset,
-                completed_batches,
-                opts.batches,
-                progress,
-            )
-            done.set()
-            sampler_thread.join(timeout=35)
-            with (workspace / arm / "train.log").open("w") as log:
-                command(
-                    ["docker", "logs", active], stdout=log, stderr=subprocess.STDOUT
+                done.set()
+                sampler_thread.join(timeout=35)
+                with (workspace / arm / "train.log").open("w") as log:
+                    command(
+                        ["docker", "logs", active], stdout=log, stderr=subprocess.STDOUT
+                    )
+                code = int(
+                    capture(
+                        ["docker", "inspect", "--format", "{{.State.ExitCode}}", active]
+                    )
                 )
-            code = int(
-                capture(
-                    ["docker", "inspect", "--format", "{{.State.ExitCode}}", active]
+                if code:
+                    raise RuntimeError(
+                        f"{arm} training exited {code}; see {workspace / arm / 'train.log'}"
+                    )
+                state["completed"].append(arm)
+                save()
+                progress.message(
+                    f"{arm} group finished successfully; logs: {workspace / arm}"
                 )
-            )
-            if code:
-                raise RuntimeError(
-                    f"{arm} training exited {code}; see {workspace / arm / 'train.log'}"
+                active = None
+                arm_status[arm] = {"status": "complete"}
+            except Exception as exc:
+                if arm != "colocated":
+                    raise
+                done.set()
+                if sampler_thread:
+                    sampler_thread.join(timeout=35)
+                if active:
+                    owned = capture(
+                        [
+                            "docker",
+                            "ps",
+                            "-a",
+                            "--filter",
+                            f"name=^/{active}$",
+                            "--format",
+                            "{{.Names}}",
+                        ]
+                    )
+                    if active in owned.splitlines():
+                        if running(active):
+                            command(["docker", "stop", "-t", "20", active], timeout=60)
+                        if running(active):
+                            raise RuntimeError(
+                                "Failed colocated container is still running"
+                            ) from exc
+                        with (workspace / arm / "train.log").open("a") as log:
+                            subprocess.run(
+                                ["docker", "logs", active],
+                                stdout=log,
+                                stderr=subprocess.STDOUT,
+                                timeout=60,
+                                check=False,
+                            )
+                    active = None
+                arm_status[arm] = {"status": "failed", "reason": str(exc)}
+                progress.message(
+                    f"Colocated failed: {exc}"
+                    + ("; continuing shared arm" if "latest" in run_arms else "")
                 )
-            state["completed"].append(arm)
-            save()
-            progress.message(
-                f"{arm} group finished successfully; logs: {workspace / arm}"
-            )
-            active = None
+            finally:
+                write_json(arm_status_path, arm_status)
+                save()
+        settings["arms"] = [a for a in arms if a in state["completed"]]
+        write_json(workspace / "settings.json", settings)
         hooks.finish()
-        progress.set("Generating four chart families")
-        state["phase"] = "rendering"
-        save()
-        render(workspace, profile)
-        state["phase"] = "complete"
-        progress.message(f"Comparison complete: {workspace / 'index.html'}")
+        if arms == ["colocated"]:
+            if "colocated" not in state["completed"]:
+                raise RuntimeError(
+                    "Colocated-only validation failed; see arm-status.json"
+                )
+            state["phase"] = "complete"
+            progress.message(f"Colocated-only run complete: {workspace}")
+        else:
+            progress.set("Generating four chart families")
+            state["phase"] = "rendering"
+            save()
+            if settings.get("source_provenance"):
+                from independent_report import render as render_independent
+
+                render_independent(workspace)
+            else:
+                render(workspace, profile)
+            state["phase"] = "complete"
+            progress.message(f"Comparison complete: {workspace / 'index.html'}")
+        if "latest" in state["completed"]:
+            commits = {}
+            for kind, store in stores.items():
+                if kind == "training-layout":
+                    output = workspace / "layout-calibration-out.json"
+                    if output.exists():
+                        audit = json.loads(
+                            (workspace / "layout-calibration-audit.json").read_text()
+                        )
+                        commits[kind] = store.put(
+                            json.loads(output.read_text()),
+                            source="mixed",
+                            details=dict(
+                                workspace=str(workspace),
+                                input_revision=cache_inputs[kind]["revision"],
+                                **audit,
+                            ),
+                        )
+                else:
+                    output = workspace / "return-calibration-observed.json"
+                    if output.exists():
+                        measured = json.loads(output.read_text())
+                        samples = validate(measured, store.ctx)
+                        origin = (
+                            "deployment_probe"
+                            if opts.return_calibration_out
+                            else "runtime_observation"
+                        )
+                        if origin == "deployment_probe" and cache_inputs[kind].get(
+                            "has_runtime_observation"
+                        ):
+                            continue
+                        commits[kind] = store.put(
+                            dict(samples=samples),
+                            source=origin,
+                            details=dict(
+                                workspace=str(workspace),
+                                input_revision=cache_inputs[kind]["revision"],
+                                observations=measured.get("observations", []),
+                                origins={
+                                    k: dict(
+                                        source=origin,
+                                        workspace=str(workspace),
+                                        unit="seconds",
+                                        values=[v[k] for v in samples],
+                                    )
+                                    for k in ("publish", "restore")
+                                },
+                            ),
+                        )
+            write_json(workspace / "calibration-commits.json", commits)
     except BaseException as exc:
         error = exc
         state.update(phase="failed", error=str(exc))

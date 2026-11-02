@@ -29,6 +29,20 @@ def validate(payload, context):
     return costs
 
 
+class ObservedCosts(deque):
+    """Imported deployment samples disappear on the very first real measurement."""
+
+    def __init__(self, initial):
+        super().__init__(initial, maxlen=3)
+        self.fresh = False
+
+    def append(self, value):
+        if not self.fresh:
+            self.clear()
+            self.fresh = True
+        super().append(value)
+
+
 def install(trainer, workspace, emit):
     path = Path(workspace) / "return-calibration.json"
     context_path = Path(workspace) / "return-calibration-context.json"
@@ -41,7 +55,7 @@ def install(trainer, workspace, emit):
         raise RuntimeError("Deployment calibration requires initial model version zero")
     if getattr(trainer.rollout, "_return_costs", None):
         raise RuntimeError("Calibration import requires a fresh rollout controller")
-    trainer.rollout._return_costs = deque((dict(c) for c in costs), maxlen=3)
+    trainer.rollout._return_costs = ObservedCosts([dict(c) for c in costs])
     # New online observations still drive the forecast; missing metadata must
     # not manufacture a second calibration run inside the measured loop.
     os.environ["AREAL_RETURN_CALIBRATION_PROBE"] = "0"
@@ -61,7 +75,12 @@ def export(trainer, workspace, emit):
         or not trainer.config.npu_share
     ):
         return
-    costs = list(getattr(trainer.rollout, "_return_costs", []))
+    observations = getattr(trainer.rollout, "_return_costs", [])
+    if isinstance(observations, ObservedCosts) and not observations.fresh:
+        return
+    if not observations and (workspace / "optional-return-calibration").exists():
+        return
+    costs = list(observations)
     context = json.loads((workspace / "return-calibration-context.json").read_text())
     payload = dict(
         schema=1,
@@ -69,10 +88,17 @@ def export(trainer, workspace, emit):
         context=context,
         costs=costs,
         source="completed_real_return_and_training_restore",
+        observations=getattr(trainer.rollout, "_r031_return_events", []),
     )
     validate(payload, context)
     target = workspace / "return-calibration.json"
-    tmp = target.with_suffix(".tmp")
-    tmp.write_text(json.dumps(payload, indent=2) + "\n")
-    tmp.replace(target)
+    raw = json.dumps(payload, indent=2) + "\n"
+    observed = workspace / "return-calibration-observed.json"
+    tmp = observed.with_suffix(".tmp")
+    tmp.write_text(raw)
+    tmp.replace(observed)
+    if not target.exists() or (workspace / "require-return-calibration").exists():
+        tmp = target.with_suffix(".tmp")
+        tmp.write_text(raw)
+        tmp.replace(target)
     emit("deployment_calibration.exported", samples=len(costs), costs=costs)

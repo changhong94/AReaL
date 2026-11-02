@@ -61,6 +61,7 @@ KV-migration benefit still needs ablation. See the
 | R028 | [Multi-node training–inference sharing](optimizations/R028-multinode-training-inference-sharing.md)                      | Proposed; extends M1/M2/M3 across nodes; not implemented or validated.                                                                                             |
 | R029 | [Reward scheduling for training-batch readiness](optimizations/R029-training-ready-reward-scheduling.md)                 | Work-conserving question priority; >99% slot occupancy and earlier first-batch training, but mixed whole-loop results.                                             |
 | R030 | [Idle inference devices join training](optimizations/R030-idle-inference-training-expansion.md)                          | Full state validation passed; latest switch 15.31 s, development RL 2.31% faster; tokens differ, initialization excluded. Opt-in; see repeated results and limits. |
+| R031 | [Local deployment calibration](optimizations/R031-local-deployment-calibration.md)                                       | Machine-bound calibration, observations, provenance and revision history.                                                                                          |
 
 ## Recording rules
 

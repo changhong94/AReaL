@@ -15,11 +15,10 @@ def dual_work(work):
 
 
 class SwitchBudget:
-    def __init__(self, initial_cost=6.0, initial_speedup=1.5, margin=0.0):
+    def __init__(self, initial_cost=None, initial_speedup=None, margin=0.0):
         if not (
-            math.isfinite(initial_cost)
-            and initial_cost > 0
-            and 1 < initial_speedup <= 2
+            (initial_cost is None or (math.isfinite(initial_cost) and initial_cost > 0))
+            and (initial_speedup is None or 1 < initial_speedup <= 2)
             and math.isfinite(margin)
             and margin >= 0
         ):
@@ -58,10 +57,14 @@ class SwitchBudget:
             return dict(accepted=False, reason="insufficient_work_or_samples")
         single = sum(remaining) * rates[1]
         # Each collective round waits for its heavier microbatch.
-        dual_rate = rates.get(2, rates[1] * 2 / self.initial_speedup)
+        if 2 not in rates and self.initial_speedup is None:
+            return dict(accepted=False, reason="unknown_candidate_rate")
+        dual_rate = rates[2] if 2 in rates else rates[1] * 2 / self.initial_speedup
         dual = dual_work(remaining) * dual_rate
         entry = [s[2] for s in self.costs if s[1] == "in"]
         entry_cost = max(entry) if entry else self.initial_cost
+        if entry_cost is None:
+            return dict(accepted=False, reason="unknown_switch_cost")
         publication = {}
         stale_cost = False
         for world in (1, 2):
@@ -73,6 +76,8 @@ class SwitchBudget:
             publication[world] = [s[3] for s in recent]
         # The DP2 engine publishes directly; there is no mandatory DP2 -> DP1
         # restoration. Charge only its additional publication exposure.
+        if not terminal and not all(publication.values()) and self.initial_cost is None:
+            return dict(accepted=False, reason="unknown_publication_cost")
         extra_publication = (
             0.0
             if terminal

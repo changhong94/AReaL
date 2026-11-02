@@ -84,13 +84,27 @@ def collect(root, final=False):
                 status=status,
                 parameters=row | settings,
                 workspace=workspace.name if workspace else None,
+                colocated_seconds=times.get("colocated"),
+                colocated_reduction_percent=(100 * (1 - times["colocated"] / fixed))
+                if status == "complete"
+                and number(times.get("colocated"))
+                and number(fixed)
+                and fixed > 0
+                else None,
+                shared_vs_colocated_percent=(100 * (1 - shared / times["colocated"]))
+                if status == "complete"
+                and number(shared)
+                and number(times.get("colocated"))
+                and times["colocated"] > 0
+                else None,
                 fixed_seconds=fixed,
                 shared_seconds=shared,
                 reduction_percent=gain,
                 tokens={
                     a: summary.get("token_audit", {}).get(a, {}).get("reported")
-                    for a in ["fixed", "latest"]
+                    for a in ["fixed", "colocated", "latest"]
                 },
+                arm_status=summary.get("arm_status", state.get("arms", {})),
                 error=error[:500],
                 log=f"{case}.log" if log.exists() else None,
             )
@@ -126,9 +140,12 @@ def write_reports(root, final=False):
                 "配置",
                 "状态",
                 "固定耗时(s)",
+                "Colocated耗时(s)",
                 "共享耗时(s)",
-                "节省比例",
-                "Tokens 固定/共享",
+                "共享相对固定",
+                "Colocated相对固定",
+                "共享相对Colocated",
+                "Tokens 固定/Colocated/共享",
                 "详情",
             ]
             if zh
@@ -137,9 +154,12 @@ def write_reports(root, final=False):
                 "Configuration",
                 "Status",
                 "Fixed (s)",
+                "Colocated (s)",
                 "Shared (s)",
-                "Reduction",
-                "Tokens fixed/shared",
+                "Shared vs fixed",
+                "Colocated vs fixed",
+                "Shared vs colocated",
+                "Tokens fixed/colocated/shared",
                 "Details",
             ]
         )
@@ -185,13 +205,22 @@ def write_reports(root, final=False):
                 config,
                 labels[row["status"]] if zh else row["status"],
                 fmt(row["fixed_seconds"]),
+                fmt(row["colocated_seconds"]),
                 fmt(row["shared_seconds"]),
                 f"{gain:+.2f}%" if number(gain) else "—",
+                fmt(row["colocated_reduction_percent"]),
+                fmt(row["shared_vs_colocated_percent"]),
                 " / ".join(
                     str(row["tokens"][a]) if row["tokens"][a] is not None else "—"
-                    for a in ["fixed", "latest"]
+                    for a in ["fixed", "colocated", "latest"]
                 ),
             ]
+            unavailable = row.get("arm_status", {}).get("colocated", {})
+            if unavailable.get("status") in ("failed", "unsupported"):
+                cells[2] += " / colocated: " + unavailable["status"]
+                row["error"] = (
+                    row["error"] + " " + unavailable.get("reason", "")
+                ).strip()
             links = []
             if row["workspace"]:
                 folder = root / row["workspace"]

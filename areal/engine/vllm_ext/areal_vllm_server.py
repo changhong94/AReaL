@@ -524,7 +524,10 @@ class ColocationMemoryRequest(OpenAIBaseModel):
 @router.post("/areal_generation_progress")
 async def areal_generation_progress(raw_request: Request):
     body = await raw_request.json()
-    result = generation_progress.registry.snapshot(rotate=body.get("rotate", False))
+    result = generation_progress.registry.snapshot(
+        rotate=body.get("rotate", False),
+        include_window=body.get("include_window", False),
+    )
     if body.get("include_internal_ids"):
         with generation_progress.registry.lock:
             result["internal_ids"] = {

@@ -90,7 +90,7 @@ def run(opts, profile):
                 / "areal-development"
             ),
         )
-        cmd += ["--workspace-root", str(development_root)]
+        cmd += ["--workspace-root", str(development_root), "--arms", "two"]
         prepared = subprocess.run(cmd, text=True, capture_output=True, timeout=1800)
         if prepared.returncode:
             raise RuntimeError(prepared.stdout + prepared.stderr)
@@ -108,6 +108,8 @@ def run(opts, profile):
         settings = json.loads((workspace / "settings.json").read_text())
         validate_session_topology(settings)
         settings.update(
+            arms=["fixed", "latest"],
+            requested_arms=["fixed", "colocated", "latest"],
             repetitions=opts.repetitions,
             reuse_vllm=True,
             kv_policy=opts.kv_policy,
@@ -183,6 +185,15 @@ def run(opts, profile):
                 container_prefix=settings["container_prefix"] + f"-r{repetition}",
             )
             bench.write_json(pair / "settings.json", pair_settings)
+            bench.write_json(
+                pair / "arm-status.json",
+                {
+                    "colocated": {
+                        "status": "unsupported",
+                        "reason": "Reusable sessions do not yet implement AWEX colocated memory handover",
+                    }
+                },
+            )
             for arm in ("fixed", "latest"):
                 (pair / arm).mkdir()
                 (pair / (arm + "-cache")).mkdir()

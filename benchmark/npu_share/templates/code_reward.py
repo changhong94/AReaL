@@ -7,10 +7,10 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
+import benchmark_trace as request_trace
 from kuasar import run_test
 from question_rewards import DEFAULT_REWARD_CONCURRENCY
 
-from areal.utils import request_trace
 from areal.workflow.openai.code_agent import _build_test_script, _extract_code_block
 
 

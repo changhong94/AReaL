@@ -122,6 +122,9 @@ def main():
         event("initialize.end")
         for name in [
             "_offload_rollout",
+            "_onload_rollout",
+            "_offload_model",
+            "_onload_model",
             "_publish_weights",
             "_publish_fixed_weights",
             "_finish_shared_weights",
@@ -157,6 +160,12 @@ def main():
         )
         event("train.end")
         export(trainer, "/work", event)
+        pool = getattr(trainer, "_idle_training", None)
+        if getattr(pool, "critical", False):
+            from local_cost_store import atomic
+
+            atomic("/work/layout-calibration-out.json", pool.export_deployment_costs())
+            atomic("/work/layout-calibration-audit.json", pool.export_cost_audit())
         assert len(submitted) == SETTINGS["questions"]
         Path("/run-output/submitted.json").write_text(json.dumps(submitted, indent=2))
     event("closed")
