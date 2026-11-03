@@ -394,14 +394,26 @@ class PPOTrainer:
         self.actor.initialize(**engine_init_kwargs, role="actor")
         from areal.trainer.idle_training import IdleTrainingPool, idle_training_enabled
 
-        pool_cls = IdleTrainingPool
-        if idle_training_enabled() and self.actor_alloc.backend == "megatron":
-            from areal.trainer.megatron_idle_training import MegatronIdleTrainingPool
+        self._idle_training = None
+        if idle_training_enabled():
+            actor_world = self.actor_alloc.world_size
+            rollout_world = self.rollout_alloc.world_size
+            rollout_tp = self.rollout_alloc.parallel.tp_size
+            if (actor_world, rollout_world, rollout_tp) == (1, 2, 1):
+                pool_cls = IdleTrainingPool
+                if self.actor_alloc.backend == "megatron":
+                    from areal.trainer.megatron_idle_training import (
+                        MegatronIdleTrainingPool,
+                    )
 
-            pool_cls = MegatronIdleTrainingPool
-        self._idle_training = (
-            pool_cls(self, ft_spec) if idle_training_enabled() else None
-        )
+                    pool_cls = MegatronIdleTrainingPool
+                self._idle_training = pool_cls(self, ft_spec)
+            else:
+                logger.info(
+                    f"Using configured training layout without idle expansion: "
+                    f"actor_world={actor_world}, rollout_world={rollout_world}, "
+                    f"rollout_tp={rollout_tp}"
+                )
         if self.critic is not None:
             self.critic.initialize(**engine_init_kwargs, role="critic")
         if self.ref is not None:

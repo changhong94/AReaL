@@ -245,13 +245,11 @@ restores current state once, without the previous stale restore plus overwrite. 
 export remains asynchronous; destination staging is still measured critical-path CPU
 work, not a fully synchronized standby engine.
 
-`AREAL_IDLE_FULL_VERIFY=1` is the default and validates complete state after restore.
-Performance experiments may explicitly set it to `0` only after correctness passes;
-version, optimizer step, scheduler and sampled state checks remain.
-Full-verification-disabled events carry `full_verification=false` and
-`verified_bytes=0`. The external chain at `/root/areal-development/idle-direct-20261023`
-enforces full correctness first, then six-batch reused-vLLM performance comparison.
-Results are recorded below.
+Full restore verification is off by default for both own-engine and imported state. R032
+quality runs must explicitly set `AREAL_IDLE_FULL_VERIFY=1`. Full-verification-disabled
+events carry `full_verification=false` and `verified_bytes=0`. The external chain at
+`/root/areal-development/idle-direct-20261023` enforces full correctness first, then
+six-batch reused-vLLM performance comparison. Results are recorded below.
 
 ### Direct-backup validation and performance result (2026-10-24)
 

@@ -115,7 +115,8 @@ for arm in s.get("arms", ["fixed", "latest"]):
         backend=f"vllm:d{shared_instances if shared else instances}p1t{inference_tp}",
         max_concurrent_rollouts=s["concurrency"],
         max_head_offpolicyness=s.get("max_head_offpolicyness", 2),
-        queue_size=max(32, s["concurrency"] * 16),
+        # The community dispatcher reserves one consumer batch before submission.
+        queue_size=max(32, s["concurrency"] * 16, s["batch_size"] + s["concurrency"]),
     )
     c["rollout"]["scheduling_strategy"].update(
         type="colocation" if shared else "separation",

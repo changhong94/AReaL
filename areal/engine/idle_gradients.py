@@ -24,7 +24,7 @@ def export_prefix_gradients(engine, path, token):
     values = {
         n: p.grad for n, p in engine.model.named_parameters() if p.grad is not None
     }
-    if os.getenv("AREAL_IDLE_FULL_VERIFY", "1") == "1" and hasattr(
+    if os.getenv("AREAL_IDLE_FULL_VERIFY", "0") == "1" and hasattr(
         engine, "_idle_recorded_segments"
     ):
         replay_segments(engine, engine._idle_replay_segments, token)

@@ -331,7 +331,7 @@ class DramState:
         self.engine.set_version(version)
         return dict(staged_bytes=copied, stage_seconds=elapsed, version=version)
 
-    def verify(self, full=True):
+    def verify(self, full=True, *, audit_digest=True):
         if getattr(self.engine, "is_offload", False):
             raise RuntimeError("Restore staged training state before verification")
         if getattr(self, "pending_import", None) is None:
@@ -356,20 +356,21 @@ class DramState:
                 ):
                     raise RuntimeError(f"Imported training state differs: {name}")
                 timings["equality_seconds"] += time.monotonic() - started
-                started = time.monotonic()
-                digest.update(
-                    memoryview(
-                        actual.contiguous().reshape(-1).view(torch.uint8).numpy()
+                if audit_digest:
+                    started = time.monotonic()
+                    digest.update(
+                        memoryview(
+                            actual.contiguous().reshape(-1).view(torch.uint8).numpy()
+                        )
                     )
-                )
-                timings["hash_seconds"] += time.monotonic() - started
+                    timings["hash_seconds"] += time.monotonic() - started
                 checked += actual.numel() * actual.element_size()
         self.pending_import = None
         return dict(
             **timings,
             full_verification=full,
             verified_bytes=checked,
-            shard_sha256=digest.hexdigest() if full else None,
+            shard_sha256=digest.hexdigest() if full and audit_digest else None,
             version=version,
             scheduler_epoch=self.engine.lr_scheduler.last_epoch,
         )

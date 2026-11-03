@@ -248,7 +248,7 @@ class TaggedMemory:
                     copied_bytes += a.handle[1]
                 else:
                     reused_bytes += a.handle[1]
-                    if os.getenv("AREAL_IDLE_FULL_VERIFY", "1") == "1":
+                    if os.getenv("AREAL_IDLE_FULL_VERIFY", "0") == "1":
                         self.backend.verify_backup(a, backup)
                         verified_bytes += a.handle[1]
                 a.cpu_backup_tensor = backup

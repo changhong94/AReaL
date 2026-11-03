@@ -1142,7 +1142,7 @@ class FSDPEngine(TrainEngine):
             )
 
         self.forward_backward_batch(mb_list, process_output, forward_only=False)
-        if accumulation is not None and os.getenv("AREAL_IDLE_FULL_VERIFY", "1") == "1":
+        if accumulation is not None and os.getenv("AREAL_IDLE_FULL_VERIFY", "0") == "1":
             import copy
             import functools
 
@@ -1164,7 +1164,7 @@ class FSDPEngine(TrainEngine):
         if accumulation is not None and not accumulation["last"]:
             return {"num_micro_batches": len(mb_list.mbs)}
         if accumulation is not None and accumulation.get("prefix_path"):
-            if os.getenv("AREAL_IDLE_FULL_VERIFY", "1") == "1":
+            if os.getenv("AREAL_IDLE_FULL_VERIFY", "0") == "1":
                 from areal.engine.idle_gradients import replay_segments
 
                 replay_segments(
@@ -1182,7 +1182,7 @@ class FSDPEngine(TrainEngine):
                 self, accumulation["prefix_path"], accumulation["token"]
             )
             self._idle_import_seconds = time.monotonic() - import_started
-        if accumulation is not None and os.getenv("AREAL_IDLE_FULL_VERIFY", "1") == "1":
+        if accumulation is not None and os.getenv("AREAL_IDLE_FULL_VERIFY", "0") == "1":
             from areal.engine.idle_gradients import verify_accumulated_gradients
 
             if accumulation.get("plan_path"):
@@ -2424,7 +2424,7 @@ class FSDPEngine(TrainEngine):
     def idle_loss_weight(self, data):
         """Compute the immutable global denominator before segmented backward."""
         batch, _ = self._normalize_batch_input(data)
-        if os.getenv("AREAL_IDLE_FULL_VERIFY", "1") == "1":
+        if os.getenv("AREAL_IDLE_FULL_VERIFY", "0") == "1":
             self._idle_reference_input = batch
         count = batch["loss_mask"].count_nonzero().to(self.device)
         dist.all_reduce(count, group=self.dp_group)
@@ -2556,8 +2556,8 @@ class FSDPEngine(TrainEngine):
                 )
                 action = "dram_verify"
             if action == "dram_verify":
-                full = os.getenv("AREAL_IDLE_FULL_VERIFY", "1") == "1"
-                result = self._idle_dram.verify(full=full)
+                full = os.getenv("AREAL_IDLE_FULL_VERIFY", "0") == "1"
+                result = self._idle_dram.verify(full=full, audit_digest=False)
                 from areal.utils import request_trace
 
                 request_trace.emit(

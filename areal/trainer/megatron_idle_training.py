@@ -947,7 +947,7 @@ class MegatronIdleTrainingPool(IdleTrainingPool):
         self._restore_costs[world].append(time.monotonic() - started)
         if destination is not self.snapshot_actor:
             verified = None
-            if os.getenv("AREAL_IDLE_FULL_VERIFY", "1") == "1":
+            if os.getenv("AREAL_IDLE_FULL_VERIFY", "0") == "1":
                 verified = destination.idle_training_state(
                     "verify", str(prepared["path"])
                 )

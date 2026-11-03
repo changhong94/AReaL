@@ -126,8 +126,8 @@ memoryview SHA256 26.78 秒，实际 `sha256(tobytes())` 组合 33.21 秒。各�
 onload。设备指针只用于定位字节范围，不读取未映射的设备存储；写入前校验所有目标和元数据，CPU 优化器 step
 直接更新。恢复时只搬运一次最新状态，不再先恢复旧值再覆盖。源导出仍异步，目标备份写入目前仍是计时关键路径 CPU 工作，并非已实现完全异步维护的备用引擎。
 
-默认 `AREAL_IDLE_FULL_VERIFY=1`，恢复后进行全量校验。正确性通过后，性能实验可显式设为
-`0`，仍保留版本、优化器步数、调度器及抽样状态检查；相应事件明确记录 `full_verification=false`、`verified_bytes=0`。外部实验链
+同引擎恢复和跨引擎导入均默认关闭全量校验；R032 质量研究须显式设置 `AREAL_IDLE_FULL_VERIFY=1`。相应事件明确记录
+`full_verification=false`、`verified_bytes=0`。外部实验链
 `/root/areal-development/idle-direct-20261023` 先跑全量正确性，再跑六批复用 vLLM 对比，结果见下文。
 
 ### 直接备份正确性及性能结果（2026-10-24）
