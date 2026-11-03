@@ -241,7 +241,7 @@ class Store:
             schema=1,
             revision=rev,
             previous=previous,
-            created_utc=dt.datetime.now(dt.UTC).isoformat(),
+            created_utc=dt.datetime.now(dt.timezone.utc).isoformat(),  # noqa: UP017 -- host supports Python 3.9
             context=self.ctx,
             source=source,
             details=details,
