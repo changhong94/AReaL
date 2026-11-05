@@ -57,8 +57,8 @@ def main():
         raise ValueError("Provide one off/capacity mode per repetition")
     if opts.render_only:
         raise ValueError("Use the original benchmark renderer for existing workspaces")
-    if opts.npu_count != 2 or opts.inference_tp != 1:
-        raise ValueError("Development reuse currently supports two NPUs and TP=1")
+    if opts.arms != "shared":
+        raise ValueError("This development evaluation requires --arms shared")
     print(
         "DEVELOPMENT ONLY: warm-session results are not formal benchmark evidence",
         flush=True,

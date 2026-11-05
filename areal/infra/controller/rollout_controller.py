@@ -402,7 +402,7 @@ class RolloutController:
         self._return_publish_cost = seconds
 
     def skip_inference_return(self, version: int) -> None:
-        # No snapshot exists for this version. Keep leases closed and old model
+        # No shared reader needs this version. Keep leases closed and old model
         # versions unchanged until a later full load ACK, including during train.
         self._shared_held_for_training = True
         self._batch_publish_seconds = None
@@ -463,7 +463,7 @@ class RolloutController:
                 handoff=handoff,
             )
 
-    def _adaptive_drain_reason(self, target: int) -> str:
+    def _adaptive_drain_reason(self, target: int, *, retained: bool = False) -> str:
         import requests
 
         from areal.infra.adaptive_drain import estimate_drain
@@ -472,7 +472,9 @@ class RolloutController:
         # A watchdog is failure protection, not the normal scheduling deadline.
         watchdog = time.monotonic() + self.config.request_timeout
         votes = 0
-        batch_mode = os.getenv("AREAL_BATCH_DRAIN", "0") == "1"
+        batch_mode = os.getenv("AREAL_BATCH_DRAIN", "0") == "1" or (
+            retained and hasattr(self, "_batch_calibration")
+        )
         with requests.Session() as session:
             session.trust_env = False
             while True:
@@ -488,6 +490,8 @@ class RolloutController:
                     return "version_limit"
                 if time.monotonic() >= watchdog:
                     return "watchdog"
+                if retained and not batch_mode and len(pool.addresses) > 2:
+                    return "missing_multi_replica_calibration"
                 engines = []
                 try:
                     for address in pool.addresses:
@@ -518,7 +522,11 @@ class RolloutController:
                     accepted = self.staleness_manager.get_stats().accepted
                     route = pool.drain_snapshot()
                     needed = target - accepted
-                    prefetch_needed = max(0, self.training_prefetch_target() - accepted)
+                    prefetch_needed = max(
+                        0,
+                        (target if retained else self.training_prefetch_target())
+                        - accepted,
+                    )
                     request_trace.emit(
                         "batch_drain_prediction_input",
                         route=route,
@@ -609,6 +617,24 @@ class RolloutController:
             version=self.get_version(),
         )
 
+    def request_training_after_publication(self, version: int) -> None:
+        """Record a ready training batch without racing an in-progress load."""
+        with self._shared_publication_lock:
+            self._training_publication_demand = version
+
+    def _hold_completed_drain_for_training(self, version: int) -> bool:
+        # Called only after every retained lease drained and pause was ACKed.
+        # No model load has started, so its snapshot has no asynchronous reader.
+        with self._shared_publication_lock:
+            if getattr(self, "_training_publication_demand", None) != version:
+                return False
+            if version != self.get_version():
+                raise RuntimeError("Training demand does not match fixed publication")
+            self.skip_inference_return(version)
+            self._shared_loading = False
+            request_trace.emit("shared_load_skipped_for_training", version=version)
+            return True
+
     def wait_shared_publication(self) -> None:
         future = getattr(self, "_shared_publication", None)
         if future is not None:
@@ -620,6 +646,7 @@ class RolloutController:
         # A later drain decision narrows this to the non-overlapped handoff tail.
         self._batch_transition_started = time.monotonic()
         self._batch_publish_seconds = None
+        self._publication_training_target = self.training_prefetch_target()
         if self._borrowed_pool is None:
             raise RuntimeError("Asymmetric publication requires a borrowed replica")
         self.wait_running_rebalance()
@@ -671,6 +698,7 @@ class RolloutController:
                 self._load_shared_snapshot,
                 replace(meta, clear_checkpoint_after_load=False),
                 restore_memory,
+                self._publication_training_target,
             )
 
     def _schedule_queue_rebalance(self, version: int) -> None:
@@ -857,7 +885,10 @@ class RolloutController:
             )
 
     def _load_shared_snapshot(
-        self, meta: WeightUpdateMeta, restore_memory: bool = False
+        self,
+        meta: WeightUpdateMeta,
+        restore_memory: bool = False,
+        training_target: int | None = None,
     ) -> None:
         started = time.perf_counter()
         self._pool_event(
@@ -878,14 +909,34 @@ class RolloutController:
                 self._group_rpc(
                     self.borrowed_ranks, "continue_generation", http_timeout=60.0
                 )
+                if training_target is None:
+                    raise RuntimeError(
+                        "Retained publication requires captured training target"
+                    )
+                reason = self._adaptive_drain_reason(training_target, retained=True)
+                request_trace.emit(
+                    "shared_retained_drain_decision",
+                    version=meta.version,
+                    reason=reason,
+                    target=training_target,
+                    remaining=len(self._borrowed_requests()),
+                )
+                # Reuse the existing drain/switch contract: native pause aborts
+                # remaining leases, clients reroute to ready fixed replicas.
+                # Wait for releases before any weight or memory transition.
+                self._group_rpc(
+                    self.borrowed_ranks, "pause_generation", http_timeout=60.0
+                )
                 for replica_rank in self.borrowed_ranks:
                     self._request_pool.wait_empty(
                         replica_rank, timeout=self.config.request_timeout
                     )
                 request_trace.emit("shared_retained_drain_end", version=meta.version)
-                self._group_rpc(
-                    self.borrowed_ranks, "pause_generation", http_timeout=60.0
-                )
+            if getattr(
+                self, "_preserve_borrowed_requests", False
+            ) and self._hold_completed_drain_for_training(meta.version):
+                shutil.rmtree(meta.path, ignore_errors=True)
+                return
             request_trace.emit("shared_model_load_begin", version=meta.version)
             self._group_rpc(self.borrowed_ranks, "update_weights_from_disk", meta=meta)
             request_trace.emit("shared_model_load_end", version=meta.version)
@@ -1039,6 +1090,17 @@ class RolloutController:
                 [format_hostport(info.host, info.port) for info in self.server_infos],
                 capacity=server_args["max_num_seqs"],
             )
+            horizon_mode = os.getenv("AREAL_BORROW_HORIZON")
+            if horizon_mode in {"prefer", "reserve"}:
+                self._request_pool.configure_borrow_horizon(
+                    horizon_mode,
+                    self.borrowed_ranks,
+                    lambda: max(
+                        0,
+                        self.training_prefetch_target()
+                        - self.staleness_manager.get_stats().accepted,
+                    ),
+                )
         self._start_callback_server()
         if self._request_pool is not None:
             self._collective_rpc("configure_request_router", address=self.callback_addr)

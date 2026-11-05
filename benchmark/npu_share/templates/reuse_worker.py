@@ -33,6 +33,31 @@ class ReuseWorkerExtension(VLLMWorkerExtension):
             )
         elif action == "reset":
             os.environ["AREAL_REQUEST_TRACE_DIR"] = payload["trace_dir"]
+            if "packed_tp_fence" in payload:
+                if not isinstance(payload["packed_tp_fence"], bool):
+                    raise ValueError("packed_tp_fence must be boolean")
+                from areal.engine.vllm_ext.dynamic_kv import set_tp_protocol
+
+                fused = payload.get("fused_tp_fence", False)
+                if not isinstance(fused, bool) or (
+                    fused and not payload["packed_tp_fence"]
+                ):
+                    raise ValueError("Fused KV fences require packed TP consensus")
+                voted = payload.get("voted_tp_fence", False)
+                if not isinstance(voted, bool) or (voted and not fused):
+                    raise ValueError("Residency voting requires fused TP consensus")
+                protocol = (
+                    "voted"
+                    if voted
+                    else "fused"
+                    if fused
+                    else "packed"
+                    if payload["packed_tp_fence"]
+                    else "object"
+                )
+                dynamic = getattr(runner, "_areal_dynamic_kv", None)
+                if dynamic is not None:
+                    set_tp_protocol(dynamic, protocol)
             if getattr(self, "_areal_kv_staging", {}):
                 raise RuntimeError("Outstanding KV staging prevents reset")
             groups = list(getattr(self, "weight_update_groups", {}).values())
@@ -79,6 +104,17 @@ class ReuseWorkerExtension(VLLMWorkerExtension):
             seconds=time.perf_counter() - started,
             device_used_bytes=total - free,
             worker_pid=os.getpid(),
+            tp_fence_protocol=getattr(
+                getattr(runner, "_areal_dynamic_kv", None), "tp_protocol", "object"
+            ),
+            fused_tp_fence=getattr(
+                getattr(runner, "_areal_dynamic_kv", None), "tp_protocol", "object"
+            )
+            in {"fused", "voted"},
+            packed_tp_fence=getattr(
+                getattr(runner, "_areal_dynamic_kv", None), "tp_protocol", "object"
+            )
+            in {"packed", "fused", "voted"},
         )
         memory = getattr(runner, "_adaptive_memory", None)
         if memory is not None:

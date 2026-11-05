@@ -141,12 +141,13 @@ def test_resident_reuse_keeps_budget_check_without_repeated_pause():
     trainer.rollout.resume_training_inference.assert_not_called()
 
 
-def test_missing_cost_history_returns_for_calibration_by_default(monkeypatch):
+def test_missing_cost_history_keeps_training_by_default(monkeypatch):
     monkeypatch.delenv("AREAL_RETURN_CALIBRATION_PROBE", raising=False)
     c, route, engines = inputs()
     result = estimate_return(c, route, engines, 4, [])
-    assert result["action"] == "return"
-    assert result["reason"] == "calibration_probe"
+    assert result["action"] == "keep"
+    assert result["reason"] == "uncalibrated_keep"
+    assert result["missing_reason"] == "calibration_probe"
     assert result["cost_samples"] == 0
 
 
@@ -171,7 +172,7 @@ def test_every_uncalibrated_return_allows_explicit_opt_out(monkeypatch, reason):
         known_questions=2,
     )
     monkeypatch.delenv("AREAL_RETURN_CALIBRATION_PROBE", raising=False)
-    assert uncalibrated_return(reason)["action"] == "return"
+    assert uncalibrated_return(reason)["action"] == "keep"
 
 
 @pytest.mark.parametrize("publish", [0.1, 10.51, 1000.0])

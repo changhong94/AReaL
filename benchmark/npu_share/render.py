@@ -688,10 +688,13 @@ def write_summary_markdown(root, summary):
             "Reported tokens / loop second",
             [rate(c, times[a]) for a, c in zip(arms, counts)],
         )
+        if "fixed" in times and "latest" in times:
+            lines += [
+                "",
+                f"{tr('Shared loop time reduction')}: **{summary['reduction_percent']:.2f}%**.",
+                f"{tr('Speedup (fixed/shared)')}: **{rate(times['fixed'], times['latest'])}x**.",
+            ]
         lines += [
-            "",
-            f"{tr('Shared loop time reduction')}: **{summary['reduction_percent']:.2f}%**.",
-            f"{tr('Speedup (fixed/shared)')}: **{rate(times['fixed'], times['latest'])}x**.",
             "",
             f"## {tr('Sampled device utilization')}",
             "",
@@ -1030,6 +1033,7 @@ def main():
             1,
             figsize=(24, (12 + len(extra_phase_names) + len(devices)) * len(data) / 2),
         )
+        axs = np.atleast_1d(axs)
         names = [
             "Shared-group inference",
             "Log-prob recomputation",
@@ -1192,6 +1196,7 @@ def main():
                 figsize=(22, max(15, 5 + sum(heights) * 0.115)),
                 gridspec_kw={"height_ratios": heights},
             )
+            axs = np.atleast_1d(axs)
             fig.request_chart = True
             legend = (
                 [Patch(facecolor=color(b), label=f"B{b}") for b in range(1, n + 1)]
@@ -1394,6 +1399,7 @@ def main():
         sharex=True,
         sharey=True,
     )
+    axs = np.atleast_1d(axs)
     audit = {}
     bins = int(extent) + 1
     for k, d in enumerate(data):

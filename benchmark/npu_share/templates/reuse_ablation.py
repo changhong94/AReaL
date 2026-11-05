@@ -8,6 +8,12 @@ MODES = {
     "no-training-overlap",
     "both",
     "calibration-return",
+    "packed-tp",
+    "fused-tp",
+    "voted-tp",
+    "voted-route",
+    "voted-prefer",
+    "voted-reserve",
 }
 
 
@@ -21,6 +27,10 @@ def validate_modes(value, repetitions):
 def install(mode, trainer, predictor, emit):
     if mode not in MODES:
         raise ValueError("Unknown development ablation")
+    if mode in ("voted-prefer", "voted-reserve"):
+        os.environ["AREAL_BORROW_HORIZON"] = mode.split("-", 1)[1]
+    if mode == "voted-route":
+        os.environ["AREAL_ROUTE_FAST_SCAN"] = "1"
     if mode == "calibration-return":
         os.environ["AREAL_RETURN_CALIBRATION_PROBE"] = "1"
     emit("development_ablation", mode=mode)

@@ -369,3 +369,30 @@ def test_resident_cache_credit_cannot_hide_exceeded_device_cap(monkeypatch):
         ColocationMemoryPolicy(cfg, Mock(return_value=state), rollout, Mock()).train(
             resident=True
         )
+
+
+@pytest.mark.parametrize(
+    "cache,gradient,expected", [(10, 6, (6, 4)), (4, 6, (4, 0)), (30, 6, (6, 12))]
+)
+def test_unified_resident_credit_never_counts_private_cache_twice(
+    cache, gradient, expected
+):
+    policy = ColocationMemoryPolicy(
+        SimpleNamespace(train_workspace_gib=12), None, None, Mock()
+    )
+    status = dict(
+        gradient_bytes=gradient * GIB,
+        reusable_workspace_bytes=cache * GIB,
+        training_forward_in_workspace=True,
+        reusable_forward_bytes=99 * GIB,
+    )
+    assert policy._resident_credits(status) == tuple(v * GIB for v in expected)
+
+
+def test_missing_unified_capability_does_not_credit_private_forward_cache():
+    policy = ColocationMemoryPolicy(
+        SimpleNamespace(train_workspace_gib=12), None, None, Mock()
+    )
+    assert policy._resident_credits(
+        dict(gradient_bytes=6 * GIB, reusable_workspace_bytes=10 * GIB)
+    ) == (6 * GIB, 0)

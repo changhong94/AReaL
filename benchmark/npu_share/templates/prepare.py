@@ -107,6 +107,11 @@ for arm in s.get("arms", ["fixed", "latest"]):
     if s["engine"] == "fsdp":
         c["actor"].pop("megatron", None)
     c["actor"]["mb_spec"]["max_tokens_per_mb"] = 4096
+    # Match the independent graph baseline's actor queue mode. Deep task
+    # queues retain extra asynchronous operator workspaces on Ascend.
+    if shared and s.get("inference_mode", "graph") == "graph":
+        for spec in c["actor"]["scheduling_spec"]:
+            spec.setdefault("env_vars", {})["TASK_QUEUE_ENABLE"] = "1"
     c["actor"]["weight_update_mode"] = "disk" if shared else "xccl"
     c["gconfig"].update(
         n_samples=s["answers"], max_new_tokens=s["max_new_tokens"], max_tokens=4096

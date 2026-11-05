@@ -233,3 +233,68 @@ def test_snapshot_wait_occurs_after_fixed_resume_before_memory_switch():
         "actor.wait_shared_snapshot"
     )
     assert names.index("actor.wait_shared_snapshot") < names.index("memory.inference")
+
+
+@pytest.mark.parametrize("demand,expected", [(3, True), (2, False), (None, False)])
+def test_training_demand_is_version_scoped(controller, demand, expected):
+    controller._version = 3
+    controller._shared_loading = True
+    if demand is not None:
+        controller.request_training_after_publication(demand)
+    assert controller._hold_completed_drain_for_training(3) is expected
+    assert controller._shared_loading is (not expected)
+    if expected:
+        assert controller._shared_held_for_training
+        controller._worker_rpc.reset_mock()
+        controller.resume()
+        assert all(c.args[0] == 1 for c in controller._worker_rpc.call_args_list)
+
+
+def test_training_demand_rejects_superseded_publication(controller):
+    controller._version = 4
+    controller.request_training_after_publication(3)
+    with pytest.raises(RuntimeError, match="fixed publication"):
+        controller._hold_completed_drain_for_training(3)
+
+
+def test_publication_captures_target_before_fixed_resume(controller):
+    controller.training_prefetch_target = Mock(return_value=64)
+    controller.prepare_fixed_publication()
+    controller.training_prefetch_target.return_value = 96
+    controller.publish_fixed_version(1)
+    assert controller._publication_training_target == 64
+    controller.training_prefetch_target.assert_called_once_with()
+
+
+@pytest.mark.parametrize("reason", ["empty", "next_batch_ready", "migration_faster"])
+def test_retained_decision_fences_release_before_training(controller, tmp_path, reason):
+    controller._preserve_borrowed_requests = True
+    controller._request_pool = Mock()
+    controller._request_pool.active_requests.return_value = []
+    controller.training_prefetch_target = Mock(return_value=64)
+    controller.prepare_fixed_publication()
+    controller.publish_fixed_version(3)
+    controller.request_training_after_publication(3)
+    controller.training_prefetch_target.return_value = 96
+    controller._adaptive_drain_reason = Mock(return_value=reason)
+    order = []
+    controller._worker_rpc.side_effect = lambda rank, method, **kw: order.append(method)
+    controller._request_pool.wait_empty.side_effect = lambda *a, **kw: order.append(
+        "released"
+    )
+    snapshot = tmp_path / "retained-v3"
+    snapshot.mkdir()
+    meta = WeightUpdateMeta(
+        type="disk", path=str(snapshot), version=3, npu_share_snapshot=True
+    )
+    controller.load_shared_snapshot_async(meta, restore_memory=True)
+    controller.wait_shared_publication()
+    controller._adaptive_drain_reason.assert_called_once_with(64, retained=True)
+    assert (
+        order.index("continue_generation")
+        < order.index("pause_generation")
+        < order.index("released")
+    )
+    assert "update_weights_from_disk" not in order
+    assert controller._shared_held_for_training
+    assert not snapshot.exists()

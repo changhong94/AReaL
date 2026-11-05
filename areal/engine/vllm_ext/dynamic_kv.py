@@ -248,6 +248,54 @@ class SparseKVPages:
         )
 
 
+def set_tp_protocol(pool, requested):
+    """Negotiate once before serving, or at an acknowledged idle session reset."""
+    import torch.distributed as dist
+    from vllm.distributed import get_tp_group
+
+    group = get_tp_group()
+    modes = [requested]
+    if group.world_size > 1:
+        modes = [None] * group.world_size
+        dist.all_gather_object(modes, requested, group=group.cpu_group)
+    if len(set(modes)) != 1 or requested not in {"object", "packed", "fused", "voted"}:
+        pool.broken = True
+        raise RuntimeError(f"Incompatible TP KV protocols: {modes}")
+    pool.tp_protocol = requested if group.world_size > 1 else "object"
+    import logging
+
+    logging.getLogger("vllm.areal_kv_slab").info(
+        "TP_KV_CONSENSUS protocol=%s members=%s", pool.tp_protocol, group.world_size
+    )
+
+
+def _packed_consensus(group, phase, error, digest=None, mapping_needed=False):
+    """One fixed-size CPU collective on the healthy path; collect details on failure."""
+    import torch
+    import torch.distributed as dist
+
+    payload = torch.tensor(
+        [phase, int(error is not None), int(mapping_needed), *(digest or bytes(32))],
+        device="cpu",
+        dtype=torch.uint8,
+    )
+    states = [torch.empty_like(payload) for _ in range(group.world_size)]
+    dist.all_gather(states, payload, group=group.cpu_group)
+    rows = [bytes(state.tolist()) for state in states]
+    any_mapping = any(row[2] for row in rows)
+    if (
+        not any(row[1] for row in rows)
+        and len({row[:2] + row[3:] for row in rows}) == 1
+    ):
+        return None, any_mapping
+    errors = [None] * group.world_size
+    # All ranks see the same gathered values and take this branch together.
+    dist.all_gather_object(errors, error, group=group.cpu_group)
+    return [
+        (message, row[0], row[3:].hex()) for message, row in zip(errors, rows)
+    ], any_mapping
+
+
 def coordinated_state_call(pool, function):
     """Propagate rank-local state failures before a peer enters a collective."""
     import torch.distributed as dist
@@ -261,15 +309,19 @@ def coordinated_state_call(pool, function):
         result = function()
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
-    errors = [None] * group.world_size
-    dist.all_gather_object(errors, error, group=group.cpu_group)
-    if any(errors):
+    if getattr(pool, "tp_protocol", "object") != "object":
+        errors, _ = _packed_consensus(group, 0, error)
+    else:
+        states = [None] * group.world_size
+        dist.all_gather_object(states, error, group=group.cpu_group)
+        errors = states if any(states) else None
+    if errors:
         pool.broken = True
         raise RuntimeError(f"TP KV state update failed: {errors}")
     return result
 
 
-def coordinated_reconcile(pool, block_ids):
+def coordinated_reconcile(pool, block_ids, metadata_only=False):
     """Fence TP peers before mapping and before any following model collective.
 
     Physical residency is local: each member may map a different number of pages.
@@ -280,11 +332,25 @@ def coordinated_reconcile(pool, block_ids):
 
     group = get_tp_group()
     if group.world_size == 1:
-        return pool.reconcile(block_ids)
-    ids = set(block_ids) | {0}
+        local_ids = block_ids() if callable(block_ids) else block_ids
+        if metadata_only:
+            if (
+                pool.broken
+                or not pool.paused
+                or not (set(local_ids) | {0}).issubset(pool.live)
+            ):
+                raise RuntimeError("Invalid paused KV metadata update")
+            return
+        return pool.reconcile(local_ids)
+    ids = set()
+    mapping_needed = True
+    digest = bytes(32)
     error = None
     try:
-        if pool.broken or pool.swapped:
+        ids = set(block_ids() if callable(block_ids) else block_ids) | {0}
+        if metadata_only and (not pool.paused or not ids.issubset(pool.live)):
+            raise RuntimeError("Invalid paused KV metadata update")
+        if pool.broken or (pool.swapped and not metadata_only):
             raise RuntimeError("KV pages must be restored before TP execution")
         if any(type(b) is not int or b < 0 or b >= pool.capacity_blocks for b in ids):
             raise ValueError("Invalid TP block ID")
@@ -296,6 +362,10 @@ def coordinated_reconcile(pool, block_ids):
                     (pool.num_blocks * pool.bytes_per_block + 31) // pool.page + 1,
                 )
             )
+        mapping_needed = (
+            bool(target - pool.mapped)
+            or len(pool.mapped - target) > pool.keep_idle_pages
+        )
         growth = len(target - pool.mapped) * len(pool.tensors) * pool.page
         reclaimable = (
             max(0, len(pool.mapped - target) - pool.keep_idle_pages)
@@ -303,28 +373,49 @@ def coordinated_reconcile(pool, block_ids):
             * pool.page
         )
         if (
-            growth
+            not metadata_only
+            and growth
             and pool.backend.free_bytes() + reclaimable < growth + pool.reserve_bytes
         ):
             raise MemoryError(
                 "TP member cannot fit the next KV mapping within its budget"
             )
+        digest = hashlib.sha256(str((metadata_only, sorted(ids))).encode()).digest()
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
-    states = [None] * group.world_size
-    digest = hashlib.sha256(str(sorted(ids)).encode()).hexdigest()
-    dist.all_gather_object(states, (error, digest), group=group.cpu_group)
-    if any(item[0] for item in states) or len({item[1] for item in states}) != 1:
+    packed = getattr(pool, "tp_protocol", "object") != "object"
+    if packed:
+        states, any_mapping = _packed_consensus(group, 1, error, digest, mapping_needed)
+    else:
+        states = [None] * group.world_size
+        dist.all_gather_object(states, (error, digest.hex()), group=group.cpu_group)
+        if (
+            not any(item[0] for item in states)
+            and len({item[1] for item in states}) == 1
+        ):
+            states = None
+    if states:
         pool.broken = True
         raise RuntimeError(f"TP KV preflight rejected execution: {states}")
+    if metadata_only:
+        return
+    if getattr(pool, "tp_protocol", "object") == "voted" and not any_mapping:
+        # Every TP rank validated the same logical IDs and its own residency.
+        # reconcile() would only assign live; there is no mapping mutation to acknowledge.
+        pool.live = ids
+        return
     error = None
     try:
         pool.reconcile(ids)
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
-    states = [None] * group.world_size
-    dist.all_gather_object(states, error, group=group.cpu_group)
-    if any(states):
+    if packed:
+        states, _ = _packed_consensus(group, 2, error)
+    else:
+        states = [None] * group.world_size
+        dist.all_gather_object(states, error, group=group.cpu_group)
+        states = states if any(states) else None
+    if states:
         pool.broken = True
         raise RuntimeError(
             f"TP KV mapping failed; instance must remain stopped: {states}"
@@ -500,6 +591,7 @@ def allocate_dynamic_kv(runner, config):
         int(os.getenv("AREAL_DYNAMIC_KV_RESERVE_BYTES", str(4 * 1024**3))),
         int(os.getenv("AREAL_DYNAMIC_KV_KEEP_IDLE_PAGES", "1")),
     )
+    set_tp_protocol(pool, os.getenv("AREAL_TP_KV_PROTOCOL", "object"))
     runner._areal_dynamic_kv = pool
     # Keep allocator and MemPool alive as long as all tensor views.
     runner._areal_dynamic_kv_backend = backend
@@ -508,6 +600,48 @@ def allocate_dynamic_kv(runner, config):
         "DYNAMIC_KV_INIT %s", json.dumps(pool.snapshot())
     )
     return raw
+
+
+def paused_completion_only(runner, output, pool):
+    """Allow paused request bookkeeping, never scheduling or KV data movement."""
+    if not pool.paused or pool.broken or getattr(runner, "speculative_config", None):
+        return False
+    parallel = getattr(runner, "parallel_config", None)
+    if getattr(parallel, "distributed_executor_backend", None) == "external_launcher":
+        return False
+    if getattr(output, "total_num_scheduled_tokens", None) != 0:
+        return False
+    for name in (
+        "scheduled_new_reqs",
+        "num_scheduled_tokens",
+        "scheduled_spec_decode_tokens",
+        "scheduled_encoder_inputs",
+        "kv_cache_block_copies",
+        "new_block_ids_to_zero",
+        "kv_connector_metadata",
+        "ec_connector_metadata",
+        "preempted_req_ids",
+        "free_encoder_mm_hashes",
+        "has_structured_output_requests",
+        "num_spec_tokens_to_schedule",
+    ):
+        if getattr(output, name, None):
+            return False
+    cached = getattr(output, "scheduled_cached_reqs", None)
+    if cached is None:
+        return False
+    return not any(
+        getattr(cached, name, None)
+        for name in (
+            "req_ids",
+            "resumed_req_ids",
+            "new_token_ids",
+            "all_token_ids",
+            "new_block_ids",
+            "num_computed_tokens",
+            "num_output_tokens",
+        )
+    )
 
 
 def install_dynamic_state_hook(cls):
@@ -523,27 +657,57 @@ def install_dynamic_state_hook(cls):
         if pool is None:
             return original(self, output)
         before = pool.snapshot()
-        pending = coordinated_state_call(
-            pool, lambda: pending_blocks(self.requests, output)
-        )
-        pins = getattr(self, "_areal_kv_import_pins", {})
-        imported = set().union(*pins.values()) if pins else set()
-        coordinated_reconcile(pool, pending | imported)
-        result = coordinated_state_call(pool, lambda: original(self, output))
-        live = coordinated_state_call(
-            pool,
-            lambda: set().union(
-                *(
-                    set(flatten_blocks(state.block_ids))
-                    for state in self.requests.values()
+        metadata_only = paused_completion_only(self, output, pool)
+        if getattr(pool, "tp_protocol", "object") in {"fused", "voted"}:
+            pins = getattr(self, "_areal_kv_import_pins", {})
+
+            def before_update():
+                imported = set().union(*pins.values()) if pins else set()
+                return pending_blocks(self.requests, output) | imported
+
+            # No collective lies between local ID preparation and its preflight.
+            # Fencing the preparation result and hash together preserves the same
+            # all-member check before any mapping or native state update.
+            coordinated_reconcile(pool, before_update, metadata_only=metadata_only)
+            result = None
+
+            def after_update():
+                nonlocal result
+                result = original(self, output)
+                live = set().union(
+                    *(
+                        flatten_blocks(state.block_ids)
+                        for state in self.requests.values()
+                    )
                 )
-            ),
-        )
-        for rid in list(pins):
-            if rid in self.requests or rid in output.finished_req_ids:
-                del pins[rid]
-        imported = set().union(*pins.values()) if pins else set()
-        coordinated_reconcile(pool, live | imported)
+                for rid in list(pins):
+                    if rid in self.requests or rid in output.finished_req_ids:
+                        del pins[rid]
+                return live | (set().union(*pins.values()) if pins else set())
+
+            coordinated_reconcile(pool, after_update, metadata_only=metadata_only)
+        else:
+            pending = coordinated_state_call(
+                pool, lambda: pending_blocks(self.requests, output)
+            )
+            pins = getattr(self, "_areal_kv_import_pins", {})
+            imported = set().union(*pins.values()) if pins else set()
+            coordinated_reconcile(pool, pending | imported, metadata_only=metadata_only)
+            result = coordinated_state_call(pool, lambda: original(self, output))
+            live = coordinated_state_call(
+                pool,
+                lambda: set().union(
+                    *(
+                        set(flatten_blocks(state.block_ids))
+                        for state in self.requests.values()
+                    )
+                ),
+            )
+            for rid in list(pins):
+                if rid in self.requests or rid in output.finished_req_ids:
+                    del pins[rid]
+            imported = set().union(*pins.values()) if pins else set()
+            coordinated_reconcile(pool, live | imported, metadata_only=metadata_only)
         after = pool.snapshot()
         if before["mapped_bytes"] != after["mapped_bytes"]:
             logging.getLogger("vllm.areal_kv_slab").info(

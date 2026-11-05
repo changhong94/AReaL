@@ -11,7 +11,7 @@ class RoutingPaused(ValueError):
     pass
 
 
-def install_admission_guard(lock, run_event):
+def install_admission_guard(lock, run_event, wait_retained=None):
     from vllm.v1.engine.async_llm import AsyncLLM
 
     original = AsyncLLM._add_request
@@ -30,7 +30,7 @@ def install_admission_guard(lock, run_event):
                     raise RoutingPaused("Replica no longer accepts this segment")
             # A lease granted immediately before pause remains on this replica.
             # Never hold the transition lock while waiting for resume.
-            await run_event.wait()
+            await (wait_retained or run_event.wait)()
 
     add._areal_admission_guard = True
     AsyncLLM._add_request = add

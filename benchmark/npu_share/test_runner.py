@@ -437,11 +437,11 @@ class RunnerTests(unittest.TestCase):
         with patch.dict("os.environ", {}, clear=True):
             env = run.environment(True)
             self.assertEqual(env["AREAL_ROUTE_TRANSPORT"], "push")
-            self.assertEqual(env["AREAL_RETURN_CALIBRATION_PROBE"], "1")
+            self.assertEqual(env["AREAL_RETURN_CALIBRATION_PROBE"], "0")
             self.assertEqual(env["AREAL_TRAIN_PRIORITY_INFERENCE"], "0")
         overrides = {
             "AREAL_TRAIN_PRIORITY_INFERENCE": "1",
-            "AREAL_RETURN_CALIBRATION_PROBE": "0",
+            "AREAL_RETURN_CALIBRATION_PROBE": "1",
             "AREAL_ROUTE_TRANSPORT": "poll",
         }
         with patch.dict("os.environ", overrides):
@@ -452,7 +452,7 @@ class RunnerTests(unittest.TestCase):
                 run.environment(False)["AREAL_TRAIN_PRIORITY_INFERENCE"], "0"
             )
             self.assertEqual(
-                run.environment(True)["AREAL_RETURN_CALIBRATION_PROBE"], "0"
+                run.environment(True)["AREAL_RETURN_CALIBRATION_PROBE"], "1"
             )
             self.assertEqual(run.environment(True)["AREAL_ROUTE_TRANSPORT"], "poll")
 

@@ -140,6 +140,16 @@ class ColocationMemoryPolicy:
             decisions.append("actor_cpu")
         self._check(actor, needed, "initial_inference", decisions)
 
+    def _resident_credits(self, status):
+        reusable = max(0, status.get("reusable_workspace_bytes", 0))
+        backward = min(status["gradient_bytes"], reusable)
+        forward_pool = (
+            reusable - backward
+            if status.get("training_forward_in_workspace", False)
+            else max(0, status.get("reusable_forward_bytes", 0))
+        )
+        return backward, min(int(self.config.train_workspace_gib * GIB), forward_pool)
+
     def train(self, resident=False):
         actor = self._actor()
         needed = self.required(
@@ -150,14 +160,7 @@ class ColocationMemoryPolicy:
             + actor.get("publication_workspace_bytes", 0),
         )
         if resident and os.getenv("AREAL_RESIDENT_BUDGET", "1") == "1":
-            backward_credit = min(
-                actor["gradient_bytes"],
-                max(0, actor.get("reusable_workspace_bytes", 0)),
-            )
-            forward_credit = min(
-                int(self.config.train_workspace_gib * GIB),
-                max(0, actor.get("reusable_forward_bytes", 0)),
-            )
+            backward_credit, forward_credit = self._resident_credits(actor)
             incremental = needed - backward_credit - forward_credit
             if (
                 not actor["restore_bytes"]
@@ -206,20 +209,18 @@ class ColocationMemoryPolicy:
                 if not refreshed["restore_bytes"] and not refreshed.get(
                     "workspace_parked_bytes", 0
                 ):
-                    credit = min(
-                        refreshed["gradient_bytes"],
-                        max(0, refreshed.get("reusable_workspace_bytes", 0)),
-                    )
-                    credit += min(
-                        int(self.config.train_workspace_gib * GIB),
-                        max(0, refreshed.get("reusable_forward_bytes", 0)),
-                    )
-                    self._check(
-                        refreshed,
-                        needed - credit,
-                        "resident_train",
-                        ["post_reclaim_verified_allocator_reuse"],
-                    )
+                    credit = sum(self._resident_credits(refreshed))
+                    required = needed - credit
+                    decisions = ["post_reclaim_verified_allocator_reuse"]
+                    if self.free(refreshed) < required:
+                        # The borrowed rollout rank is quiescent. Partial reclaim
+                        # may leave mapped inference state on this training card.
+                        self._rollout("offload")
+                        refreshed = self._actor()
+                        credit = sum(self._resident_credits(refreshed))
+                        required = needed - credit
+                        decisions.append("inference_weights_cpu")
+                    self._check(refreshed, required, "resident_train", decisions)
                     return
             self._check(status, needed, "train", ["pressure_budget_verified"])
             self._actor("restore")

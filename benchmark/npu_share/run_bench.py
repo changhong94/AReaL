@@ -196,7 +196,7 @@ def arguments():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
         "--arms",
-        choices=["three", "two", "colocated"],
+        choices=["three", "two", "colocated", "shared"],
         default="three",
         help="three includes community AWEX colocation; two is explicit legacy mode",
     )
@@ -385,9 +385,16 @@ def environment(shared):
         ]
     }
     env.update(
+        AREAL_BORROW_HORIZON=os.getenv("AREAL_BORROW_HORIZON", "") if shared else "",
+        AREAL_ROUTE_FAST_SCAN=os.getenv("AREAL_ROUTE_FAST_SCAN", "0")
+        if shared
+        else "0",
+        AREAL_TP_KV_PROTOCOL=os.getenv("AREAL_TP_KV_PROTOCOL", "object")
+        if shared
+        else "object",
         AREAL_MEMORY_DIAGNOSTICS=os.getenv("AREAL_MEMORY_DIAGNOSTICS", ""),
         AREAL_ROUTE_TRANSPORT=os.getenv("AREAL_ROUTE_TRANSPORT", "push"),
-        AREAL_RETURN_CALIBRATION_PROBE=os.getenv("AREAL_RETURN_CALIBRATION_PROBE", "1"),
+        AREAL_RETURN_CALIBRATION_PROBE=os.getenv("AREAL_RETURN_CALIBRATION_PROBE", "0"),
         AREAL_TRAIN_PRIORITY_INFERENCE=(
             os.getenv("AREAL_TRAIN_PRIORITY_INFERENCE", "0") if shared else "0"
         ),
@@ -606,6 +613,8 @@ def main():
     )
     if getattr(opts, "arms", "three") == "colocated":
         arms = ["colocated"]
+    if getattr(opts, "arms", "three") == "shared":
+        arms = ["latest"]
     source_repos = resolve_arm_sources(profile, arms)
     repo = Path(profile["repo"]).resolve()
     root = (opts.workspace_root or Path(profile["workspace_root"])).resolve()

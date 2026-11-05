@@ -29,8 +29,16 @@ def session_call(address, action, **payload):
 
 
 def validate_session_topology(settings):
-    if settings["npu_count"] != 2 or settings["inference_tp"] != 1:
-        raise ValueError("Reusable sessions currently require two NPUs and TP=1")
+    tp = settings["inference_tp"]
+    if tp <= 0 or settings["npu_count"] % tp:
+        raise ValueError("Reusable device count must be divisible by inference TP")
+    if settings["allocation"]["training"] % tp:
+        raise ValueError("Training boundary must not split an inference TP group")
+    devices = settings["devices"]
+    if len(devices) != settings["npu_count"] or len(set(devices)) != len(devices):
+        raise ValueError(
+            "Reusable devices must be unique and match the requested count"
+        )
 
 
 def run(opts, profile):
@@ -38,6 +46,8 @@ def run(opts, profile):
     active = None
     services = []
     lock = None
+    hooks = None
+    arms = ("latest",)
     workspace = None
     state = dict(
         phase="preparing",
@@ -47,7 +57,7 @@ def run(opts, profile):
     done = threading.Event()
     sample_thread = None
     try:
-        progress.set("Preparing one immutable workload for repeated fixed/shared pairs")
+        progress.set("Preparing one immutable workload for repeated shared runs")
         cmd = [
             sys.executable,
             str(bench.HERE / "run_bench.py"),
@@ -90,7 +100,7 @@ def run(opts, profile):
                 / "areal-development"
             ),
         )
-        cmd += ["--workspace-root", str(development_root), "--arms", "two"]
+        cmd += ["--workspace-root", str(development_root), "--arms", "shared"]
         prepared = subprocess.run(cmd, text=True, capture_output=True, timeout=1800)
         if prepared.returncode:
             raise RuntimeError(prepared.stdout + prepared.stderr)
@@ -108,8 +118,8 @@ def run(opts, profile):
         settings = json.loads((workspace / "settings.json").read_text())
         validate_session_topology(settings)
         settings.update(
-            arms=["fixed", "latest"],
-            requested_arms=["fixed", "colocated", "latest"],
+            arms=list(arms),
+            requested_arms=list(arms),
             repetitions=opts.repetitions,
             reuse_vllm=True,
             kv_policy=opts.kv_policy,
@@ -126,11 +136,13 @@ def run(opts, profile):
         sys.path.insert(0, str(bench.HERE / "templates"))
         from telemetry import parse_info, sampler
 
+        hooks = bench.ResourceHooks(profile, workspace, profile["devices"], progress)
+        hooks.start()
         raw = bench.capture([profile["npu_smi"], "info"])
         devices, processes = parse_info(raw)
         bench.validate_idle_devices(raw, devices, processes, profile["devices"])
         infos = {}
-        for arm in ("fixed", "latest"):
+        for arm in arms:
             progress.set(
                 "Initializing and parking reusable " + arm + " inference services"
             )
@@ -148,7 +160,7 @@ def run(opts, profile):
                 stdout=subprocess.DEVNULL,
             )
             services.append(name)
-        for arm, name in zip(("fixed", "latest"), services, strict=True):
+        for arm, name in zip(arms, services, strict=True):
             progress.set("Validating reusable " + arm + " inference services")
             deadline = time.monotonic() + 1800
             manifest = workspace / ("services-" + arm + ".json")
@@ -166,7 +178,9 @@ def run(opts, profile):
         for repetition in range(1, opts.repetitions + 1):
             pair = workspace / "repetitions" / f"{repetition:02d}"
             pair.mkdir(parents=True)
-            for directory in ("source", "benchmark"):
+            for directory in dict.fromkeys(
+                ["source", "benchmark", *settings["source_dirs"].values()]
+            ):
                 (pair / directory).symlink_to(
                     workspace / directory, target_is_directory=True
                 )
@@ -194,13 +208,13 @@ def run(opts, profile):
                     }
                 },
             )
-            for arm in ("fixed", "latest"):
+            for arm in arms:
                 (pair / arm).mkdir()
                 (pair / (arm + "-cache")).mkdir()
                 shutil.copy2(
                     workspace / arm / "config.yaml", pair / arm / "config.yaml"
                 )
-            for arm in ("fixed", "latest"):
+            for arm in arms:
                 progress.set(
                     f"Resetting initial DRAM weights: repetition {repetition}, {arm}"
                 )
@@ -214,6 +228,30 @@ def run(opts, profile):
                                 str(row["host"]) + ":" + str(row["port"]),
                                 "reset",
                                 trace_dir=trace,
+                                packed_tp_fence=pair_settings["shared_ablation"]
+                                in {
+                                    "packed-tp",
+                                    "fused-tp",
+                                    "voted-tp",
+                                    "voted-route",
+                                    "voted-prefer",
+                                    "voted-reserve",
+                                },
+                                fused_tp_fence=pair_settings["shared_ablation"]
+                                in {
+                                    "fused-tp",
+                                    "voted-tp",
+                                    "voted-route",
+                                    "voted-prefer",
+                                    "voted-reserve",
+                                },
+                                voted_tp_fence=pair_settings["shared_ablation"]
+                                in {
+                                    "voted-tp",
+                                    "voted-route",
+                                    "voted-prefer",
+                                    "voted-reserve",
+                                },
                                 seed=settings["seed"],
                             ),
                             infos[arm],
@@ -222,6 +260,11 @@ def run(opts, profile):
                 for original, reset in zip(infos[arm], resets, strict=True):
                     before = original["capture"]["workers"]
                     after = reset["workers"]
+                    if (
+                        len(before) != settings["inference_tp"]
+                        or len(after) != settings["inference_tp"]
+                    ):
+                        raise RuntimeError("Reusable TP worker count changed")
                     if [x["worker_pid"] for x in before] != [
                         x["worker_pid"] for x in after
                     ]:
@@ -319,8 +362,9 @@ def run(opts, profile):
                 bench.write_json(pair / arm / "reuse-park.json", parked)
                 state["completed"].append(dict(repetition=repetition, arm=arm))
                 bench.write_json(workspace / "session-state.json", state)
-            progress.set(f"Reporting fixed/shared pair {repetition} separately")
-            bench.render(pair, profile)
+        for repetition in range(1, opts.repetitions + 1):
+            progress.set(f"Reporting shared repetition {repetition}")
+            bench.render(workspace / "repetitions" / f"{repetition:02d}", profile)
         state["phase"] = "complete"
     except BaseException as exc:
         state.update(phase="failed", error=str(exc))
@@ -335,6 +379,8 @@ def run(opts, profile):
             )
         if workspace:
             bench.write_json(workspace / "session-state.json", state)
+        if hooks:
+            hooks.finish()
         if lock:
             lock.close()
         progress.close()

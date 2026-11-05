@@ -214,3 +214,28 @@ def test_reclaim_succeeds_below_reserve_without_new_mapping():
     assert pool.live == {0}
     assert not pool.broken
     assert not any(isinstance(e, tuple) and e[0] == "map" for e in backend.events)
+
+
+def test_paused_completion_predicate_rejects_execution_and_copy():
+    from areal.engine.vllm_ext.dynamic_kv import paused_completion_only
+
+    runner = SimpleNamespace(speculative_config=None)
+    pool = SimpleNamespace(paused=True, broken=False)
+    output = SimpleNamespace(
+        total_num_scheduled_tokens=0,
+        scheduled_cached_reqs=SimpleNamespace(req_ids=[]),
+        finished_req_ids={"done"},
+    )
+    assert paused_completion_only(runner, output, pool)
+    for field, value in [
+        ("total_num_scheduled_tokens", 1),
+        ("kv_cache_block_copies", [1]),
+        ("scheduled_new_reqs", [1]),
+        ("kv_connector_metadata", {"work": 1}),
+    ]:
+        old = getattr(output, field, None)
+        setattr(output, field, value)
+        assert not paused_completion_only(runner, output, pool)
+        setattr(output, field, old)
+    pool.paused = False
+    assert not paused_completion_only(runner, output, pool)

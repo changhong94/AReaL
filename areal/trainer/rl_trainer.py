@@ -216,6 +216,9 @@ class PPOTrainer:
                     {
                         "AREAL_AUTO_MEMORY": "1",
                         "AREAL_KV_SLAB_BLOCKS": "16",
+                        "AREAL_TP_KV_PROTOCOL": os.getenv(
+                            "AREAL_TP_KV_PROTOCOL", "object"
+                        ),
                         "AREAL_DYNAMIC_KV": os.getenv("AREAL_DYNAMIC_KV", "1"),
                         "AREAL_DYNAMIC_KV_RESERVE_BYTES": str(
                             int(
@@ -850,6 +853,8 @@ class PPOTrainer:
         )
 
     def _resume_training_inference(self):
+        if getattr(self.rollout, "_shared_held_for_training", False):
+            return  # A late-cancelled publication leaves old weights closed.
         if not getattr(self, "_return_shared_inference", True):
             return  # Shared weights were deliberately not updated; never relabel them.
         if self.config.rollout.max_head_offpolicyness == 0:
@@ -1234,6 +1239,14 @@ class PPOTrainer:
                 )
             request_trace.emit("train_batch_answers_ready", batch=global_step + 1)
             prepare_seconds = time.perf_counter() - prepare_started
+            # This signal does not touch actor state. The prior publication still
+            # owns its drain/pause and must finish before any training RPC.
+            if (
+                self._idle_training is None
+                and getattr(self, "_step_tail", None) is not None
+                and getattr(self, "_fixed_weight_update_meta", None) is not None
+            ):
+                self.rollout.request_training_after_publication(global_step)
             # No actor RPC, tensor mutation, or next-step stats before this join.
             self._wait_step_tail()
             stats_tracker.scalar(**{"timeperf/rollout": prepare_seconds})
@@ -1523,7 +1536,9 @@ class PPOTrainer:
             ):
                 actor_stats = self._finish_shared_weights(kwargs["global_step"] + 1)
                 self.rollout.wait_shared_publication()
-                if getattr(self, "_return_shared_inference", True):
+                if getattr(self, "_return_shared_inference", True) and not getattr(
+                    self.rollout, "_shared_held_for_training", False
+                ):
                     self.rollout.record_inference_return(
                         time.monotonic() - self._return_fixed_ready_at
                     )

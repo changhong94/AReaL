@@ -110,7 +110,6 @@ logger.setLevel(logging.INFO)
 # Global event to control generation resume/pause
 _generation_run_event = asyncio.Event()
 _generation_run_event.set()  # Initially not paused
-install_admission_guard(_memory_transition_lock, _generation_run_event)
 
 
 def _apply_ascend_patch_awex():
@@ -480,6 +479,12 @@ async def wait_retained_or_evacuated():
         for task in (running, evacuated):
             task.cancel()
         await asyncio.gather(running, evacuated, return_exceptions=True)
+
+
+# Both the HTTP entry and the inner native-admission gate must observe evacuation.
+install_admission_guard(
+    _memory_transition_lock, _generation_run_event, wait_retained_or_evacuated
+)
 
 
 @router.post("/areal_pause_generation")

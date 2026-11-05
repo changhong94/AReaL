@@ -36,7 +36,15 @@ def main():
     config, _ = load_expr_config(
         ["--config", str(root / opts.arm / "config.yaml")], GRPOConfig
     )
-    devices = settings["devices"] if opts.arm == "latest" else settings["devices"][1:]
+    devices = (
+        settings["devices"]
+        if opts.arm == "latest"
+        else settings["devices"][settings["allocation"]["training"] :]
+    )
+    tp = settings["inference_tp"]
+    if len(devices) % tp:
+        raise ValueError("Inference devices must form complete TP groups")
+    groups = [devices[i : i + tp] for i in range(0, len(devices), tp)]
     children, infos = [], []
     stopping = False
 
@@ -47,8 +55,9 @@ def main():
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
     try:
-        for device in devices:
-            args = vLLMConfig.build_args(config.vllm, tp_size=1, pp_size=1)
+        for group in groups:
+            device = "-".join(map(str, group))
+            args = vLLMConfig.build_args(config.vllm, tp_size=tp, pp_size=1)
             args.update(
                 host=gethostip(),
                 port=find_free_ports(1)[0],
@@ -62,7 +71,7 @@ def main():
             if opts.arm == "fixed":
                 args["enable_sleep_mode"] = True
             env = VLLMBackend.build_server_env(os.environ)
-            env["ASCEND_RT_VISIBLE_DEVICES"] = str(device)
+            env["ASCEND_RT_VISIBLE_DEVICES"] = ",".join(map(str, group))
             if opts.arm == "latest":
                 env.update(
                     AREAL_AUTO_MEMORY="1",
@@ -125,6 +134,8 @@ def main():
                     host=args["host"],
                     port=args["port"],
                     device=device,
+                    devices=group,
+                    inference_tp=tp,
                     capture=capture,
                     parked=parked,
                 )

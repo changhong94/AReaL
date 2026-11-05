@@ -10,7 +10,7 @@ from areal.infra.rolling_drain import residual_distribution
 
 def uncalibrated_return(reason, **details):
     """Keep unknown-cost exploration explicit instead of assuming a benefit."""
-    if os.getenv("AREAL_RETURN_CALIBRATION_PROBE", "1") == "1":
+    if os.getenv("AREAL_RETURN_CALIBRATION_PROBE", "0") == "1":
         return dict(details, action="return", reason=reason)
     return dict(
         details, action="keep", reason="uncalibrated_keep", missing_reason=reason

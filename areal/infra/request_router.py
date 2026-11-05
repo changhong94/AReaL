@@ -42,8 +42,13 @@ class RequestLeasePool:
         self.change_listeners = []
         self.push_cancelled = None
         self.lock = Lock()
+        self.fast_scan = os.getenv("AREAL_ROUTE_FAST_SCAN", "0") == "1"
         self.task_affinity = task_affinity
         self.groups = {}
+        self.horizon_mode = None
+        self.question_tiers = {}
+        self.borrowed_ranks = frozenset()
+        self.remaining_questions = None
         self.completed = {}
         self._last_answer_time = {}
         self._score_tail = None
@@ -60,6 +65,35 @@ class RequestLeasePool:
         self.closing = set()
         self.evacuation_targets = {}
         self.retained_kv_pins = {}
+
+    def configure_borrow_horizon(self, mode, borrowed_ranks, remaining_questions):
+        if mode not in {"prefer", "reserve"}:
+            raise ValueError("Unknown borrow horizon policy")
+        self.horizon_mode = mode
+        self.borrowed_ranks = frozenset(borrowed_ranks)
+        self.remaining_questions = remaining_questions
+
+    def _horizon_candidates(self, question, candidates, remaining):
+        if not question or not candidates:
+            return candidates
+        # Count distinct live questions, not individual answers. Do not claim
+        # that all live questions will necessarily finish in the current batch.
+        overflow = self.question_tiers.get(question)
+        if overflow is None:
+            overflow = len(self.question_tiers) >= remaining
+        if not overflow:
+            return candidates
+        dedicated = [r for r in candidates if r not in self.borrowed_ranks]
+        if dedicated:
+            return dedicated
+        # Reserve borrowed capacity only while a dedicated destination is open;
+        # withdrawal/epoch-transition safety and pinned handoffs take precedence.
+        if self.horizon_mode == "reserve" and any(
+            ready and r not in self.borrowed_ranks and r not in self.closing
+            for r, ready in enumerate(self.ready)
+        ):
+            return []
+        return candidates
 
     def acquire(
         self,
@@ -89,16 +123,36 @@ class RequestLeasePool:
                 return self.active[ticket].copy()
             if self.waiting.setdefault(ticket, item) != item:
                 raise ValueError("Ticket metadata changed")
-            counts = [
-                sum(x["rank"] == r for x in self.active.values())
-                + sum(x["rank"] == r for x in self.rebalance_reservations.values())
-                for r in range(len(self.addresses))
-            ]
+            active_ids = None
+            if self.fast_scan:
+                counts = [0] * len(self.addresses)
+                active_ids = set()
+                for lease in self.active.values():
+                    counts[lease["rank"]] += 1
+                    active_ids.add(lease["request_id"])
+                for reserved in self.rebalance_reservations.values():
+                    counts[reserved["rank"]] += 1
+            else:
+                counts = [
+                    sum(x["rank"] == r for x in self.active.values())
+                    + sum(x["rank"] == r for x in self.rebalance_reservations.values())
+                    for r in range(len(self.addresses))
+                ]
             available = [
                 r
                 for r in range(len(counts))
                 if self.ready[r] and r not in self.closing and counts[r] < self.capacity
             ]
+            if (
+                self.fast_scan
+                and not available
+                and not self.rebalance_reservations
+                and not self.retained_kv_pins
+                and not self.groups
+                and not self.running_versions
+            ):
+                # No normal or reserved destination can issue a lease in this pass.
+                return None
             group_load = [
                 sum(g["size"] for g in self.groups.values() if g["rank"] == r)
                 for r in range(len(counts))
@@ -106,11 +160,17 @@ class RequestLeasePool:
             rank = None
             # Oldest eligible ticket wins. A full preferred replica must not
             # block unrelated groups that can use the other replica.
+            remaining = self.remaining_questions() if self.horizon_mode else 0
             for waiting_ticket, pending in self.waiting.items():
-                if any(
-                    x["request_id"] == pending["request_id"]
-                    for x in self.active.values()
-                ):
+                already_active = (
+                    pending["request_id"] in active_ids
+                    if active_ids is not None
+                    else any(
+                        x["request_id"] == pending["request_id"]
+                        for x in self.active.values()
+                    )
+                )
+                if already_active:
                     continue
                 group = self.groups.get(pending["group_id"])
                 if group and group["size"] != pending["group_size"]:
@@ -150,6 +210,17 @@ class RequestLeasePool:
                     if not any(v == required_version for v in self.versions):
                         self.error = "No compatible epoch remains for running handoff"
                         raise RuntimeError(self.error)
+                if (
+                    self.horizon_mode
+                    and waiting_ticket.endswith(":1")
+                    and group is None
+                    and reservation is None
+                    and evacuation is None
+                    and required_version is None
+                ):
+                    candidates = self._horizon_candidates(
+                        pending["metrics"].get("question_id"), candidates, remaining
+                    )
                 if not candidates:
                     continue
                 if waiting_ticket != ticket:
@@ -165,6 +236,22 @@ class RequestLeasePool:
                 break
             if rank is None:
                 return None
+            question = item["metrics"].get("question_id")
+            if (
+                self.horizon_mode
+                and ticket.endswith(":1")
+                and question
+                and question not in self.question_tiers
+            ):
+                overflow = len(self.question_tiers) >= remaining
+                self.question_tiers[question] = overflow
+                request_trace.emit(
+                    "borrow_horizon_assignment",
+                    question_id=question,
+                    overflow=overflow,
+                    remaining=remaining,
+                    rank=rank,
+                )
             if group_id is not None:
                 previous = self.groups.get(group_id)
                 if previous is None or previous["rank"] != rank:
@@ -213,6 +300,7 @@ class RequestLeasePool:
             ):
                 raise RuntimeError("Group still has outstanding generation requests")
             self.groups.pop(group_id, None)
+            self.question_tiers.pop(group_id, None)
             last = self._last_answer_time.pop(group_id, None)
             if last is not None:
                 self._score_tail = time.monotonic() - last

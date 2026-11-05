@@ -1439,6 +1439,9 @@ class FSDPEngine(TrainEngine):
             if dist.get_world_size() > 1 and dist.get_rank() == 0
             else 0
         )
+        status["training_forward_in_workspace"] = bool(
+            getattr(self._adaptive_backend, "training_forward_in_workspace", False)
+        )
         status["optimizer_id"] = id(self.optimizer)
         self.logger.info("AUTO_MEMORY_ACTOR %s", status)
         return status

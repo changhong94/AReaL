@@ -39,6 +39,17 @@ async def session(request: Request):
             "benchmark_idle", dict(trace_dir=trace_dir)
         )
         adaptive = os.getenv("AREAL_AUTO_MEMORY") == "1"
+        # A completed trainer can leave an empty retained pause behind. The
+        # core idle proof above fences requests/imports; verify KV ownership
+        # too before using the normal retained-discard transition.
+        if adaptive and getattr(llm, "_areal_preserve_pause", False):
+            stats = await llm.engine_core.call_utility_async("areal_kv_slab_stats")
+            if stats["used_blocks"]:
+                raise HTTPException(409, "Live retained KV prevents session reset")
+            await llm.collective_rpc(
+                "areal_colocation_memory", args=("discard_preserved", True)
+            )
+            llm._areal_preserve_pause = False
         if action == "capture":
             if captured:
                 raise HTTPException(409, "Snapshot already captured")
