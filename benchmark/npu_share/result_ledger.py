@@ -72,14 +72,13 @@ def row(w, machine, case=None):
     if state.get("phase") == "prepared" or not (state or summary):
         return None
     tag = settings.get("run_tag")
-    created = settings.get("created") or RUN.fullmatch(w.name)[1]
     date = None
     if tag:
         date = dt.datetime.strptime(tag.split("_")[0], "%Y%m%d").date()
-    elif created:
+    elif match := RUN.fullmatch(w.name):
         try:
             date = (
-                dt.datetime.strptime(created, "%Y%m%d-%H%M%z")
+                dt.datetime.strptime(match[1], "%Y%m%d-%H%M%S%z")
                 .astimezone(ZoneInfo("America/Creston"))
                 .date()
             )
