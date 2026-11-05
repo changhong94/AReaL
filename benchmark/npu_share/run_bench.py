@@ -1249,8 +1249,14 @@ def main():
             progress.message(
                 f"Final status: {state['phase']}; state file: {workspace / 'state.json'}"
             )
-            progress.close()
-            lock.close()
+            try:
+                if not opts.prepare_only:
+                    from result_ledger import update
+
+                    update(Path(profile["workspace_root"]), [workspace])
+            finally:
+                progress.close()
+                lock.close()
     if error:
         raise SystemExit(1)
 
