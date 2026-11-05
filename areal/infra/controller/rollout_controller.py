@@ -380,6 +380,34 @@ class RolloutController:
                 getattr(self, "_return_costs", []),
                 margin=float(os.getenv("AREAL_RETURN_MARGIN_SECONDS", "0")),
             )
+        if (
+            os.getenv("AREAL_PUBLICATION_CAPACITY_RETURN", "1") == "1"
+            and result["reason"] in {"uncalibrated_keep", "incomplete_horizon_keep"}
+            and observation is not None
+            and calibration is not None
+        ):
+            manager = self.staleness_manager
+            stats = manager.get_stats()
+            version = manager.version_provider.get_version()
+            limit = (version + manager.max_staleness + 1) * manager.consumer_batch_size
+            next_limit = limit + manager.consumer_batch_size
+            if (
+                stats.running == 0
+                and limit == stats.accepted < target
+                and next_limit >= target
+                and not route["active"]
+                and not route["waiting"]
+                and all(not engine["active"] for engine in engines)
+            ):
+                result = dict(
+                    result,
+                    action="return",
+                    reason="publication_unlocks_batch",
+                    previous_reason=result["reason"],
+                    old_limit=limit,
+                    new_limit=next_limit,
+                    version=version,
+                )
         request_trace.emit(
             "inference_return_decision", target=target, accepted=accepted, **result
         )

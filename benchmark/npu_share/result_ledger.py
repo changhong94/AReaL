@@ -12,7 +12,8 @@ import tempfile
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-FIELDS = "date case machine status run_tag workspace fixed_seconds colocated_seconds shared_seconds reduction_percent error".split()
+OLD_FIELDS = "date case machine status run_tag workspace fixed_seconds colocated_seconds shared_seconds reduction_percent error".split()
+FIELDS = [k for k in OLD_FIELDS if k not in {"error", "workspace"}] + ["workspace"]
 RUN = re.compile(r"^(\d{8}-\d{6}[+-]\d{4})_(math|code)_.*_c\d+_b\d+_[0-9a-f]+$")
 CASE = re.compile(r"[A-Z]\d{2}")
 
@@ -137,9 +138,13 @@ def update(root, paths=None):
         if dst.exists():
             with dst.open(encoding="utf-8-sig", newline="") as f:
                 reader = csv.DictReader(f)
-                if reader.fieldnames != FIELDS:
+                if reader.fieldnames not in (FIELDS, OLD_FIELDS):
                     raise ValueError(f"Unexpected ledger header: {dst}")
-                records = {r["workspace"]: r for r in reader}
+                records = {
+                    r["workspace"]: {k: r[k] for k in FIELDS}
+                    for r in reader
+                    if not r.get("error") and r["status"] not in {"failed", "partial"}
+                }
         mapping = {}
         for w in paths if paths is not None else workspaces(root):
             if w.parent not in mapping:
@@ -151,7 +156,10 @@ def update(root, paths=None):
                 or next((p.name for p in w.parents if CASE.fullmatch(p.name)), None),
             )
             if r is not None:
-                records[str(w)] = r
+                if r.pop("error") or r["status"] in {"failed", "partial"}:
+                    records.pop(str(w), None)
+                else:
+                    records[str(w)] = r
         with tempfile.NamedTemporaryFile(
             mode="w", encoding="utf-8-sig", newline="", dir=root, delete=False
         ) as tmp:

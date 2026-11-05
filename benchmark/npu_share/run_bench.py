@@ -479,7 +479,12 @@ def docker_args(profile, settings, workspace, arm=None):
         if arm in ("fixed", "colocated")
         else profile["engines"][settings["engine"]]
     )
-    args = ["docker", "run", "--network", "host"]
+    args = [
+        "docker",
+        "run",
+        "--network",
+        "bridge" if profile.get("parallel_devices") else "host",
+    ]
     if arm:
         # AWEX CPU IPC holds a model copy per training rank; eight ranks exceed 16 GiB.
         # Keep the same baseline limit for fixed and colocated. This is a cap, not a reservation.
@@ -663,7 +668,16 @@ def main():
     lockpath = Path.home() / ".cache/areal-benchmark.lock"
     lockpath.parent.mkdir(exist_ok=True)
     lock = lockpath.open("w")
-    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    parallel = profile.get("parallel_devices", False)
+    if parallel and profile.get("resource_hooks"):
+        raise ValueError("Parallel runs require externally coordinated host hooks")
+    fcntl.flock(lock, (fcntl.LOCK_SH if parallel else fcntl.LOCK_EX) | fcntl.LOCK_NB)
+    device_locks = []
+    if parallel:
+        for device in sorted(selected):
+            fd = (lockpath.parent / f"areal-benchmark-device-{device}.lock").open("a")
+            device_locks.append(fd)
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     stamp = dt.datetime.now(ZoneInfo(profile.get("timezone", "UTC"))).strftime(
         "%Y%m%d-%H%M%S%z"
     )
@@ -1256,6 +1270,8 @@ def main():
                     update(Path(profile["workspace_root"]), [workspace])
             finally:
                 progress.close()
+                for fd in device_locks:
+                    fd.close()
                 lock.close()
     if error:
         raise SystemExit(1)
