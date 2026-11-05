@@ -83,6 +83,8 @@ def collect(root, final=False):
                 case=case,
                 status=status,
                 parameters=row | settings,
+                run_tag=settings.get("run_tag"),
+                machine=settings.get("machine"),
                 workspace=workspace.name if workspace else None,
                 colocated_seconds=times.get("colocated"),
                 colocated_reduction_percent=(100 * (1 - times["colocated"] / fixed))
@@ -202,7 +204,7 @@ def write_reports(root, final=False):
             gain = row["reduction_percent"]
             cells = [
                 row["case"],
-                config,
+                " / ".join(filter(None, [config, row["run_tag"], row["machine"]])),
                 labels[row["status"]] if zh else row["status"],
                 fmt(row["fixed_seconds"]),
                 fmt(row["colocated_seconds"]),

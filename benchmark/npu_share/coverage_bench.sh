@@ -244,7 +244,7 @@ for id in "${ids[@]}"; do
     : > "$output/$id.log"
     python3 "$reporter" "$output"
     set +e
-    "${cmd[@]}" 2>&1 | tee "$output/$id.log"
+    AREAL_COVERAGE_CASE="$id" "${cmd[@]}" 2>&1 | tee "$output/$id.log"
     statuses=("${PIPESTATUS[@]}")
     set -e
     rc="${statuses[0]}"

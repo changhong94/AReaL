@@ -343,6 +343,17 @@ def render(workspace, profile):
 
 
 def freeze(repo, dest):
+    head = capture(["git", "-C", repo, "rev-parse", "HEAD"])
+    status_args = [
+        "git",
+        "-C",
+        repo,
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=all",
+    ]
+    status = capture(status_args)
+    minute = dt.datetime.now(ZoneInfo("America/Creston")).strftime("%Y%m%d_%H%M")
     names = capture(
         [
             "git",
@@ -365,8 +376,17 @@ def freeze(repo, dest):
         target = dest / name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, target)
-        hashes[name] = hashlib.sha256(src.read_bytes()).hexdigest()
-    return dict(head=capture(["git", "-C", repo, "rev-parse", "HEAD"]), files=hashes)
+        hashes[name] = hashlib.sha256(target.read_bytes()).hexdigest()
+    if head != capture(["git", "-C", repo, "rev-parse", "HEAD"]) or status != capture(
+        status_args
+    ):
+        raise RuntimeError(f"Git source state changed while freezing {repo}")
+    return dict(
+        head=head,
+        dirty=bool(status),
+        run_tag=f"{minute}_{head[:8]}_{int(bool(status))}",
+        files=hashes,
+    )
 
 
 def environment(shared):
@@ -770,9 +790,15 @@ def main():
                 if f.is_file()
             },
         )
-        write_json(
-            workspace / "source-manifest.json", freeze(repo, workspace / "source")
+        manifest = freeze(repo, workspace / "source")
+        write_json(workspace / "source-manifest.json", manifest)
+        settings.update(
+            run_tag=manifest["run_tag"],
+            machine=os.uname().nodename,
+            coverage_case=os.getenv("AREAL_COVERAGE_CASE"),
         )
+        write_json(workspace / "settings.json", settings)
+        print(f"RUN_TAG={settings['run_tag']}", flush=True)
         settings["source_dirs"] = {}
         provenance = {}
         for source_arm, source_repo in source_repos.items():
