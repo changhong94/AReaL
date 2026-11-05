@@ -3,6 +3,7 @@
 set -euo pipefail
 
 output_override=""
+arms=three
 mode=prepare
 suite=core
 inference_mode=""
@@ -17,6 +18,7 @@ usage() {
 Usage: coverage_bench.sh [--suite NAME] [--mode plan|prepare|run]
                          [--cases 'C01 C02 ...'] [--profile FILE]
                          [--inference-mode graph|eager] [--shuffle] [--shuffle-seed INTEGER]
+--arms three|colocated selects all comparison arms or just the colocated baseline.
 --output DIR reuses a coverage directory and preserves prior attempts.
 Suites: core (default), load, boundary, topology, ratio, execution, workload, long, all
 Inference defaults to graph; execution suite also includes eager controls.
@@ -29,9 +31,10 @@ HELP
 }
 while (($#)); do
     case "$1" in
-        --suite|--mode|--cases|--profile|--inference-mode|--shuffle-seed|--output)
+        --suite|--mode|--cases|--profile|--inference-mode|--shuffle-seed|--output|--arms)
             (($# >= 2)) || { usage >&2; exit 2; }
             case "$1" in
+                --arms) arms="$2";;
                 --output) output_override="$2";;
                 --suite) suite="$2";; --mode) mode="$2";;
                 --cases) selected="$2";; --profile) profile="$2";;
@@ -44,6 +47,7 @@ while (($#)); do
         *) echo "Unknown option: $1" >&2; usage >&2; exit 2;;
     esac
 done
+case "$arms" in three|colocated) ;; *) echo "Invalid arms: $arms" >&2; exit 2;; esac
 case "$mode" in plan|prepare|run) ;; *) echo "Invalid mode: $mode" >&2; exit 2;; esac
 case "$inference_mode" in ""|graph|eager) ;; *) echo "Invalid inference mode" >&2; exit 2;; esac
 case "$suite" in
@@ -102,6 +106,27 @@ declare -A matrix=(
     [W07]="math megatron 16 6   2 1 2 1:1 graph 16 8"
     [W08]="math megatron 16 6   2 1 2 1:1 graph 32 16"
 )
+declare -A sleep_modes=(
+    [C02]=wait
+    [C04]=wait
+    [C06]=abort
+    [E04]=abort
+    [E06]=abort
+    [E07]=wait
+    [E08]=abort
+    [G02]=wait
+    [G03]=wait
+    [L02]=abort
+    [L03]=wait
+    [R03]=wait
+    [R04]=abort
+    [R05]=abort
+    [T03]=wait
+    [T04]=wait
+    [W06]=wait
+    [W07]=abort
+    [W08]=abort
+)
 read -r -a ids <<< "$selected"
 declare -A seen=()
 for id in "${ids[@]}"; do
@@ -153,23 +178,32 @@ from pathlib import Path
     "cases": sys.argv[4:],
 }, indent=2) + "\n")
 PY
-    printf 'case\trl\tengine\tconcurrency\tbatches\tnpu_count\ttp\toffpolicy\tinference_training_ratio\tadaptive_concurrency\tinference_mode\tbatch_size\tanswers\texit_code\n' > "$output/cases.tsv"
+    printf 'case\trl\tengine\tconcurrency\tbatches\tnpu_count\ttp\toffpolicy\tinference_training_ratio\tadaptive_concurrency\tinference_mode\tbatch_size\tanswers\texit_code\tcolocated_inference_mode\n' > "$output/cases.tsv"
     fi
 fi
+write_case_row() {
+    local file="$1" rc="$2"
+    shift 2
+    printf '%s\t' "$@" >> "$file"
+    printf '%s' "$rc" >> "$file"
+    if [[ "$(head -1 "$file")" == *$'\tcolocated_inference_mode' ]]; then printf '\t%s' "$sleep_mode" >> "$file"; fi
+    printf '\n' >> "$file"
+}
 case_parameters() {
     read -r rl engine concurrency batches npus tp offpolicy ratio case_mode batch_size answers <<< "${matrix[$id]}"
     batch_size="${batch_size:-32}"
     answers="${answers:-8}"
     ratio="${ratio:-1:1}"
     case_mode="${inference_mode:-${case_mode:-graph}}"
+    sleep_mode="${sleep_modes[$id]:-N/A}"
+    if [[ "$engine" == megatron && "$sleep_mode" == N/A ]]; then echo "Missing sleep mode for $id" >&2; exit 2; fi
 }
 if [[ "$mode" != plan ]]; then
     if [[ "$reuse" == 0 ]]; then
     head -1 "$output/cases.tsv" > "$output/planned-cases.tsv"
     for id in "${ids[@]}"; do
         case_parameters
-        printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n' \
-            "$id" "$rl" "$engine" "$concurrency" "$batches" "$npus" "$tp" "$offpolicy" "$ratio" "capacity" "$case_mode" "$batch_size" "$answers" >> "$output/planned-cases.tsv"
+        write_case_row "$output/planned-cases.tsv" '' "$id" "$rl" "$engine" "$concurrency" "$batches" "$npus" "$tp" "$offpolicy" "$ratio" "capacity" "$case_mode" "$batch_size" "$answers"
     done
     fi
     report_on_exit() {
@@ -188,14 +222,15 @@ failed=0
 echo "Coverage mode=$mode; cases=$selected; output=$output"
 for id in "${ids[@]}"; do
     case_parameters
-    cmd=(python3 "$runner" --profile "$profile" --workspace-root "$output" --arms three
+    cmd=(python3 "$runner" --profile "$profile" --workspace-root "$output" --arms "$arms"
          --rl "$rl" --engine "$engine" --concurrency "$concurrency"
          --batches "$batches" --npu-count "$npus" --inference-tp "$tp"
          --max-head-offpolicyness "$offpolicy"
          --inference-training-ratio "$ratio" --adaptive-concurrency capacity
          --inference-mode "$case_mode" --batch-size "$batch_size" --answers "$answers")
+    if [[ "$sleep_mode" != N/A ]]; then cmd+=(--colocated-inference-mode "$sleep_mode"); elif [[ "$arms" == colocated ]]; then echo "Unavailable colocated case: $id" >&2; exit 2; fi
     [[ "$mode" != prepare ]] || cmd+=(--prepare-only)
-    echo "[$id] $rl / $engine; c=$concurrency b=$batches NPU=$npus TP=$tp offpolicy=$offpolicy inference:training=$ratio adaptive=capacity inference=$case_mode batch-size=$batch_size answers=$answers"
+    echo "[$id] $rl / $engine; c=$concurrency b=$batches NPU=$npus TP=$tp offpolicy=$offpolicy inference:training=$ratio adaptive=capacity inference=$case_mode batch-size=$batch_size answers=$answers colocated-inference=$sleep_mode"
     printf '%q ' "${cmd[@]}"; printf '\n'
     [[ "$mode" != plan ]] || continue
     if [[ -f "$output/$id.log" ]]; then
@@ -205,8 +240,7 @@ for id in "${ids[@]}"; do
         cp "$output/cases.tsv" "$history/cases.tsv"
     fi
     # The last row represents the new attempt; prior rows remain as history.
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n' \
-        "$id" "$rl" "$engine" "$concurrency" "$batches" "$npus" "$tp" "$offpolicy" "$ratio" "capacity" "$case_mode" "$batch_size" "$answers" >> "$output/cases.tsv"
+    write_case_row "$output/cases.tsv" '' "$id" "$rl" "$engine" "$concurrency" "$batches" "$npus" "$tp" "$offpolicy" "$ratio" "capacity" "$case_mode" "$batch_size" "$answers"
     : > "$output/$id.log"
     python3 "$reporter" "$output"
     set +e
@@ -215,8 +249,7 @@ for id in "${ids[@]}"; do
     set -e
     rc="${statuses[0]}"
     [[ "${statuses[1]}" == 0 ]] || rc=1
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-        "$id" "$rl" "$engine" "$concurrency" "$batches" "$npus" "$tp" "$offpolicy" "$ratio" "capacity" "$case_mode" "$batch_size" "$answers" "$rc" >> "$output/cases.tsv"
+    write_case_row "$output/cases.tsv" "$rc" "$id" "$rl" "$engine" "$concurrency" "$batches" "$npus" "$tp" "$offpolicy" "$ratio" "capacity" "$case_mode" "$batch_size" "$answers"
     python3 "$reporter" "$output"
     if [[ "$rc" != 0 ]]; then
         failed=$((failed + 1))

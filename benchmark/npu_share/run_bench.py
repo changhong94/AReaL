@@ -200,6 +200,9 @@ def arguments():
         default="three",
         help="three includes community AWEX colocation; two is explicit legacy mode",
     )
+    p.add_argument(
+        "--colocated-inference-mode", choices=["wait", "abort"], default="abort"
+    )
     p.add_argument("--colocated-actor-tp", type=positive, default=1)
     p.add_argument("--rl", choices=["math", "code"], default="math")
     p.add_argument(
@@ -490,6 +493,9 @@ def docker_args(profile, settings, workspace, arm=None):
     if arm == "latest" and settings.get("inference_tp", 1) > 1:
         env["AREAL_NPU_SHARE_PAUSE_KEEP"] = "1"
     if arm == "colocated":
+        overlay = workspace / "colocated-sleep-client.py"
+        if overlay.exists():
+            mounts.append((overlay, "/repo/areal/engine/vllm_remote.py", "ro"))
         env["VLLM_SERVER_DEV_MODE"] = "1"
         env["HCCL_NPU_SOCKET_PORT_RANGE"] = "auto"
         env["AREAL_KV_SLAB_BLOCKS"] = "0"
@@ -638,6 +644,9 @@ def main():
     print(f"WORKSPACE={workspace}", flush=True)
     settings = dict(
         arms=arms,
+        colocated_inference_mode=getattr(opts, "colocated_inference_mode", "abort")
+        if "colocated" in arms
+        else None,
         colocated_actor_tp=getattr(opts, "colocated_actor_tp", 1),
         colocated_weight_update="awex" if "colocated" in arms else None,
         rl=opts.rl,
@@ -765,6 +774,32 @@ def main():
             )
             write_json(workspace / (source_arm + "-source-manifest.json"), manifest)
             provenance[source_arm] = {k: v for k, v in manifest.items() if k != "files"}
+        if "colocated" in source_repos and settings["engine"] == "megatron":
+            # Keep the independent checkout and its frozen copy pristine. Mount
+            # only the HTTP client with the selected sleep query in this arm.
+            original = (
+                workspace
+                / settings["source_dirs"]["colocated"]
+                / "areal/engine/vllm_remote.py"
+            )
+            source = original.read_text()
+            old = 'HttpRequest(endpoint="/sleep", payload={}, method="POST")'
+            if source.count(old) != 1:
+                raise RuntimeError("Unexpected community /sleep client; review adapter")
+            mode = settings["colocated_inference_mode"]
+            overlay = workspace / "colocated-sleep-client.py"
+            overlay.write_text(
+                source.replace(old, old.replace("/sleep", f"/sleep?mode={mode}"))
+            )
+            write_json(
+                workspace / "colocated-sleep-adapter.json",
+                {
+                    "mode": mode,
+                    "endpoint": f"/sleep?mode={mode}",
+                    "source_sha256": hashlib.sha256(original.read_bytes()).hexdigest(),
+                    "mounted_sha256": hashlib.sha256(overlay.read_bytes()).hexdigest(),
+                },
+            )
         settings["source_provenance"] = provenance
         write_json(workspace / "settings.json", settings)
         (workspace / "source.patch").write_text(
