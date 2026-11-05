@@ -1090,7 +1090,7 @@ class RolloutController:
                 [format_hostport(info.host, info.port) for info in self.server_infos],
                 capacity=server_args["max_num_seqs"],
             )
-            horizon_mode = os.getenv("AREAL_BORROW_HORIZON")
+            horizon_mode = os.getenv("AREAL_BORROW_HORIZON", "reserve")
             if horizon_mode in {"prefer", "reserve"}:
                 self._request_pool.configure_borrow_horizon(
                     horizon_mode,

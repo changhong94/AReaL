@@ -3,6 +3,7 @@
 import os
 
 MODES = {
+    "default",
     "baseline",
     "no-first-return",
     "no-training-overlap",
@@ -18,10 +19,20 @@ MODES = {
 
 
 def validate_modes(value, repetitions):
-    modes = value.split(",") if value else ["baseline"] * repetitions
+    modes = value.split(",") if value else ["default"] * repetitions
     if len(modes) != repetitions or any(mode not in MODES for mode in modes):
         raise ValueError("Provide one supported shared ablation per repetition")
     return modes
+
+
+def tp_protocol(mode):
+    if mode == "baseline":
+        return "object"
+    if mode.startswith("voted-"):
+        return "voted"
+    if mode in {"packed-tp", "fused-tp"}:
+        return mode.split("-", 1)[0]
+    return os.getenv("AREAL_TP_KV_PROTOCOL", "voted")
 
 
 def install(mode, trainer, predictor, emit):
@@ -29,6 +40,8 @@ def install(mode, trainer, predictor, emit):
         raise ValueError("Unknown development ablation")
     if mode in ("voted-prefer", "voted-reserve"):
         os.environ["AREAL_BORROW_HORIZON"] = mode.split("-", 1)[1]
+    elif mode in {"baseline", "packed-tp", "fused-tp", "voted-tp", "voted-route"}:
+        os.environ["AREAL_BORROW_HORIZON"] = ""
     if mode == "voted-route":
         os.environ["AREAL_ROUTE_FAST_SCAN"] = "1"
     if mode == "calibration-return":

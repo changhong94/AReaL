@@ -31,13 +31,11 @@ def test_ablation_isolates_target_and_keeps_later_probe(mode, monkeypatch):
     )
     assert predictor.estimate_return()["action"] == "return"
     Trainer()._resume_training_inference()
-    assert bool(calls) == (
-        mode in ("baseline", "no-first-return", "calibration-return")
-    )
+    assert bool(calls) == (mode not in ("both", "no-training-overlap"))
 
 
 def test_modes_reject_invalid_or_mismatched_matrix():
-    assert m.validate_modes(None, 2) == ["baseline", "baseline"]
+    assert m.validate_modes(None, 2) == ["default", "default"]
     with pytest.raises(ValueError):
         m.validate_modes("both", 2)
     with pytest.raises(ValueError):
@@ -56,3 +54,16 @@ def test_calibration_return_changes_only_probe_flag(monkeypatch):
     assert dict(os.environ) == expected
     assert not vars(predictor)
     assert not hasattr(trainer, "_resume_training_inference")
+
+
+def test_default_protocol_and_explicit_legacy_control(monkeypatch):
+    monkeypatch.delenv("AREAL_TP_KV_PROTOCOL", raising=False)
+    assert m.tp_protocol("default") == "voted"
+    assert m.tp_protocol("baseline") == "object"
+    monkeypatch.setenv("AREAL_TP_KV_PROTOCOL", "packed")
+    assert m.tp_protocol("default") == "packed"
+    monkeypatch.setenv("AREAL_BORROW_HORIZON", "prefer")
+    m.install("default", object, None, lambda *args, **kwargs: None)
+    assert m.os.environ["AREAL_BORROW_HORIZON"] == "prefer"
+    m.install("baseline", object, None, lambda *args, **kwargs: None)
+    assert m.os.environ["AREAL_BORROW_HORIZON"] == ""

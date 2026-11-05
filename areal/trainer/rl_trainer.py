@@ -217,7 +217,7 @@ class PPOTrainer:
                         "AREAL_AUTO_MEMORY": "1",
                         "AREAL_KV_SLAB_BLOCKS": "16",
                         "AREAL_TP_KV_PROTOCOL": os.getenv(
-                            "AREAL_TP_KV_PROTOCOL", "object"
+                            "AREAL_TP_KV_PROTOCOL", "voted"
                         ),
                         "AREAL_DYNAMIC_KV": os.getenv("AREAL_DYNAMIC_KV", "1"),
                         "AREAL_DYNAMIC_KV_RESERVE_BYTES": str(

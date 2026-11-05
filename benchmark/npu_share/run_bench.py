@@ -385,11 +385,13 @@ def environment(shared):
         ]
     }
     env.update(
-        AREAL_BORROW_HORIZON=os.getenv("AREAL_BORROW_HORIZON", "") if shared else "",
+        AREAL_BORROW_HORIZON=os.getenv("AREAL_BORROW_HORIZON", "reserve")
+        if shared
+        else "",
         AREAL_ROUTE_FAST_SCAN=os.getenv("AREAL_ROUTE_FAST_SCAN", "0")
         if shared
         else "0",
-        AREAL_TP_KV_PROTOCOL=os.getenv("AREAL_TP_KV_PROTOCOL", "object")
+        AREAL_TP_KV_PROTOCOL=os.getenv("AREAL_TP_KV_PROTOCOL", "voted")
         if shared
         else "object",
         AREAL_MEMORY_DIAGNOSTICS=os.getenv("AREAL_MEMORY_DIAGNOSTICS", ""),

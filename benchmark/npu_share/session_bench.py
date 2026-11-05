@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import run_bench as bench
+from templates.reuse_ablation import tp_protocol
 
 
 def session_call(address, action, **payload):
@@ -220,6 +221,11 @@ def run(opts, profile):
                 )
                 # The other pool stays parked. Never wake both execution pools.
                 trace = f"/session/repetitions/{repetition:02d}/{arm}/request-events"
+                protocol = (
+                    tp_protocol(pair_settings["shared_ablation"])
+                    if arm == "latest"
+                    else "object"
+                )
                 reset_started = time.monotonic()
                 with ThreadPoolExecutor(max_workers=len(infos[arm])) as executor:
                     resets = list(
@@ -228,30 +234,10 @@ def run(opts, profile):
                                 str(row["host"]) + ":" + str(row["port"]),
                                 "reset",
                                 trace_dir=trace,
-                                packed_tp_fence=pair_settings["shared_ablation"]
-                                in {
-                                    "packed-tp",
-                                    "fused-tp",
-                                    "voted-tp",
-                                    "voted-route",
-                                    "voted-prefer",
-                                    "voted-reserve",
-                                },
-                                fused_tp_fence=pair_settings["shared_ablation"]
-                                in {
-                                    "fused-tp",
-                                    "voted-tp",
-                                    "voted-route",
-                                    "voted-prefer",
-                                    "voted-reserve",
-                                },
-                                voted_tp_fence=pair_settings["shared_ablation"]
-                                in {
-                                    "voted-tp",
-                                    "voted-route",
-                                    "voted-prefer",
-                                    "voted-reserve",
-                                },
+                                packed_tp_fence=protocol
+                                in {"packed", "fused", "voted"},
+                                fused_tp_fence=protocol in {"fused", "voted"},
+                                voted_tp_fence=protocol == "voted",
                                 seed=settings["seed"],
                             ),
                             infos[arm],
