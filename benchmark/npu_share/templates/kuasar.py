@@ -65,22 +65,42 @@ def run_test(script: str, timeout: int = 10, trace_fields=None) -> tuple[bool, s
         )
     # SDK's TLS transport reads this before constructing its HTTP clients.
     os.environ["SSL_CERT_FILE"] = cfg["ca_file"]
-    sandbox = Sandbox.create(
-        template=cfg["template_id"],
-        timeout=120,
-        request_timeout=30,
-        metadata={"areal_run": os.getenv("AREAL_CODE_RUN_ID", "code-three-preflight")},
-        api_key=cfg["api_key"],
-        api_url=cfg["api_url"],
-        domain=cfg["domain"],
-        sandbox_url=cfg["proxy_url"],
-        api_headers={"Host": "api." + cfg["domain"]},
-    )
-    request_trace.emit(
-        "code_sandbox_created", sandbox_id=sandbox.sandbox_id, **trace_fields
-    )
+    from e2b.exceptions import FileNotFoundException
+
+    for attempt in range(2):
+        sandbox = Sandbox.create(
+            template=cfg["template_id"],
+            timeout=120,
+            request_timeout=30,
+            metadata={
+                "areal_run": os.getenv("AREAL_CODE_RUN_ID", "code-three-preflight")
+            },
+            api_key=cfg["api_key"],
+            api_url=cfg["api_url"],
+            domain=cfg["domain"],
+            sandbox_url=cfg["proxy_url"],
+            api_headers={"Host": "api." + cfg["domain"]},
+        )
+        request_trace.emit(
+            "code_sandbox_created", sandbox_id=sandbox.sandbox_id, **trace_fields
+        )
+        try:
+            _write_test(sandbox, script, trace_fields)
+            break
+        except BaseException as exc:
+            sandbox.kill(request_timeout=30)
+            if (
+                attempt
+                or not isinstance(exc, FileNotFoundException)
+                or str(exc).strip().lower() != "sandbox not found"
+            ):
+                raise
+            request_trace.emit(
+                "code_sandbox_replaced_before_execution",
+                sandbox_id=sandbox.sandbox_id,
+                **trace_fields,
+            )
     try:
-        _write_test(sandbox, script, trace_fields)
         # The guest shell enforces a wall-clock deadline; SDK transport has
         # a larger timeout so a test timeout is distinct from service failure.
         command = (
