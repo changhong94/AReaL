@@ -86,13 +86,6 @@ class VLLMBackend:
         env: Mapping[str, str], server_args: dict[str, Any] | None = None
     ) -> dict[str, str]:
         _env = sanitize_tms_env_vars(env)
-        if (
-            server_args is not None
-            and not server_args.get("enforce_eager", False)
-            and _env.get("TASK_QUEUE_ENABLE") == "2"
-        ):
-            # Only the inference child changes; the training process keeps its queue.
-            _env["TASK_QUEUE_ENABLE"] = "1"
 
         triton_cache_path = _env.get("TRITON_CACHE_PATH", TRITON_CACHE_PATH)
         _env["TRITON_CACHE_PATH"] = os.path.join(triton_cache_path, str(uuid.uuid4()))

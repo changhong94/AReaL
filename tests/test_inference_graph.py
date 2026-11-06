@@ -86,23 +86,15 @@ def test_capture_maps_only_null_and_refuses_live_recapture():
         runner.execute_model()
 
 
-def test_graph_server_queue_override_does_not_modify_training_environment():
+@pytest.mark.parametrize("queue", [None, "0", "1", "2"])
+@pytest.mark.parametrize("eager", [True, False])
+def test_server_preserves_configured_task_queue(queue, eager):
     from areal.engine.vllm_remote import VLLMBackend
 
-    original = {"TASK_QUEUE_ENABLE": "2"}
-    assert (
-        VLLMBackend.build_server_env(original, {"enforce_eager": False})[
-            "TASK_QUEUE_ENABLE"
-        ]
-        == "1"
-    )
-    assert (
-        VLLMBackend.build_server_env(original, {"enforce_eager": True})[
-            "TASK_QUEUE_ENABLE"
-        ]
-        == "2"
-    )
-    assert original == {"TASK_QUEUE_ENABLE": "2"}
+    original = {} if queue is None else {"TASK_QUEUE_ENABLE": queue}
+    child = VLLMBackend.build_server_env(original, {"enforce_eager": eager})
+    assert child.get("TASK_QUEUE_ENABLE") == queue
+    assert original == ({} if queue is None else {"TASK_QUEUE_ENABLE": queue})
 
 
 def test_graph_update_propagates_remote_tp_storage_failure(monkeypatch):

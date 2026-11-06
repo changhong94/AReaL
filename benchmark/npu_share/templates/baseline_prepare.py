@@ -62,8 +62,6 @@ for role in ("actor", "rollout"):
         spec["env_vars"] = {k: v for k, v in env.items() if not k.startswith("AREAL_")}
         spec["env_vars"]["AREAL_ALLOW_DEFAULT_ADMIN_KEY"] = "1"
         spec["env_vars"]["HCCL_NPU_SOCKET_PORT_RANGE"] = "auto"
-        if settings.get("inference_mode", "graph") == "graph":
-            spec["env_vars"]["TASK_QUEUE_ENABLE"] = "1"
 config["scheduler"] = {"type": "ray"}
 path.write_text(yaml.safe_dump(config, sort_keys=False))
 validated, _ = load_expr_config(["--config", str(path)], GRPOConfig)

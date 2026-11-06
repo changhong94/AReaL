@@ -515,8 +515,6 @@ def main():
                     AREAL_DYNAMIC_KV="0",
                     AREAL_KV_SLAB_BLOCKS="0",
                 )
-            if mode == "graph" and env.get("TASK_QUEUE_ENABLE") == "2":
-                env["TASK_QUEUE_ENABLE"] = "1"
             cmd = [
                 sys.executable,
                 "-m",

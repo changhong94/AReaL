@@ -35,9 +35,10 @@ establish successful graph execution.
 - Weight updates validate storage before and after publication. A storage change
   invalidates the graph and fails closed. TP members agree on errors before entering
   weight-update collectives.
-- Inference children normalize `TASK_QUEUE_ENABLE=2` to `1`, because the tested
-  torch_npu stack rejects Level 2 during graph capture. Training environment values are
-  preserved.
+- Set `TASK_QUEUE_ENABLE` explicitly per role in the benchmark template. The actor
+  defaults to level 2 and rollout to level 1 across arms and inference modes. The tested
+  torch_npu stack rejects level 2 during inference graph capture. The launcher and KV
+  probe pass the configured value through.
 
 Scope remains the existing Qwen2 BF16 full-attention uni/mp implementation, with
 equal-TP migration peers. This does not add support for LoRA, MoE, context parallelism,
