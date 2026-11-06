@@ -64,47 +64,47 @@ case "$suite" in
 esac
 selected="${selected:-$defaults}"
 declare -A matrix=(
-    [C01]="math fsdp     16 6   2 1 2"
-    [C02]="math megatron 16 6   2 1 2"
-    [C03]="code fsdp     16 3   2 1 2"
-    [C04]="code megatron 16 3   2 1 2"
-    [C05]="math fsdp     32 6   2 1 2"
-    [C06]="math megatron 32 6   2 1 2"
-    [E00]="math fsdp     16 6   2 1 0"
-    [E04]="math megatron 16 3   2 1 0"
-    [E01]="math fsdp      1 1   2 1 1"
-    [E02]="math fsdp     16 6   2 1 1"
-    [E03]="math fsdp     16 6   2 1 3"
-    [T01]="math fsdp     16 3   4 1 2"
-    [T02]="math fsdp     16 3   4 2 2"
-    [T03]="math megatron 32 3   8 1 2"
-    [T04]="math megatron 32 3   8 2 2"
-    [R01]="math fsdp     16 3   3 1 2 2:1"
-    [R02]="math fsdp     16 3   4 1 2 3:1"
-    [R03]="math megatron 16 3   6 2 2 2:1 graph 48 8"
-    [R04]="math megatron 16 3   8 2 2 3:1"
-    [G01]="math fsdp     16 6   2 1 2 1:1 eager"
-    [G02]="math megatron 16 6   2 1 2 1:1 eager"
-    [W01]="math fsdp     16 6   2 1 2 1:1 graph 16 8"
-    [W02]="math fsdp     16 6   2 1 2 1:1 graph 64 8"
-    [W03]="math fsdp     16 6   2 1 2 1:1 graph 32 4"
-    [W04]="math fsdp     16 6   2 1 2 1:1 graph 32 16"
-    [W05]="math fsdp     16 6   2 1 2 1:1 graph 64 16"
-    [L01]="math fsdp     16 100 2 1 2"
-    [L02]="math megatron 32 100 2 1 2 1:1"
-    [L03]="code megatron 16 100 2 1 2 1:1"
-    [C07]="code fsdp     32 3   2 1 2"
-    [E05]="code fsdp     16 3   2 1 0"
-    [E06]="code megatron 16 3   2 1 1"
-    [E07]="math megatron 16 6   2 1 1"
-    [E08]="math megatron 16 6   2 1 3"
-    [T05]="code fsdp     16 3   4 1 2"
-    [T06]="code fsdp     16 3   4 2 2"
-    [R05]="code megatron 16 3   6 2 2 2:1 graph 48 8"
-    [G03]="code megatron 16 3   2 1 2 1:1 eager"
-    [W06]="code megatron 16 3   2 1 2 1:1 graph 32 4"
-    [W07]="math megatron 16 6   2 1 2 1:1 graph 16 8"
-    [W08]="math megatron 16 6   2 1 2 1:1 graph 32 16"
+    [C01]="math fsdp     16 6   2 1 2 4096 0.4 2048 16"
+    [C02]="math megatron 16 6   2 1 2 4096 0.4 2048 16"
+    [C03]="code fsdp     16 3   2 1 2 4096 0.3 4096 8"
+    [C04]="code megatron 16 3   2 1 2 4096 0.4 2048 8"
+    [C05]="math fsdp     32 6   2 1 2 4096 0.4 2048 16"
+    [C06]="math megatron 32 6   2 1 2 4096 0.4 2048 8"
+    [E00]="math fsdp     16 6   2 1 0 4096 0.4 4096 8"
+    [E04]="math megatron 16 3   2 1 0 2048 0.3 4096 8"
+    [E01]="math fsdp      1 1   2 1 1 1024 0.3 2048 16"
+    [E02]="math fsdp     16 6   2 1 1 2048 0.4 2048 8"
+    [E03]="math fsdp     16 6   2 1 3 2048 0.4 2048 8"
+    [T01]="math fsdp     16 3   4 1 2 2048 0.4 4096 32"
+    [T02]="math fsdp     16 3   4 2 2 2048 0.4 2048 16"
+    [T03]="math megatron 32 3   8 1 2 4096 0.4 4096 64"
+    [T04]="math megatron 32 3   8 2 2 4096 0.4 4096 32"
+    [R01]="math fsdp     16 3   3 1 2 4096 0.4 4096 16 2:1"
+    [R02]="math fsdp     16 3   4 1 2 4096 0.4 4096 8 3:1"
+    [R03]="math megatron 16 3   6 2 2 4096 0.4 4096 32 2:1 graph 48 8"
+    [R04]="math megatron 16 3   8 2 2 4096 0.4 2048 16 3:1"
+    [G01]="math fsdp     16 6   2 1 2 4096 0.4 4096 16 1:1 eager"
+    [G02]="math megatron 16 6   2 1 2 4096 0.4 2048 8 1:1 eager"
+    [W01]="math fsdp     16 6   2 1 2 4096 0.4 4096 8 1:1 graph 16 8"
+    [W02]="math fsdp     16 6   2 1 2 4096 0.4 4096 16 1:1 graph 64 8"
+    [W03]="math fsdp     16 6   2 1 2 4096 0.4 4096 16 1:1 graph 32 4"
+    [W04]="math fsdp     16 6   2 1 2 2048 0.4 2048 8 1:1 graph 32 16"
+    [W05]="math fsdp     16 6   2 1 2 4096 0.4 4096 16 1:1 graph 64 16"
+    [L01]="math fsdp     16 100 2 1 2 4096 0.4 4096 16"
+    [L02]="math megatron 32 100 2 1 2 2048 0.4 2048 8 1:1"
+    [L03]="code megatron 16 100 2 1 2 4096 0.4 4096 16 1:1"
+    [C07]="code fsdp     32 3   2 1 2 2048 0.4 2048 8"
+    [E05]="code fsdp     16 3   2 1 0 4096 0.4 4096 16"
+    [E06]="code megatron 16 3   2 1 1 4096 0.4 4096 8"
+    [E07]="math megatron 16 6   2 1 1 4096 0.4 4096 16"
+    [E08]="math megatron 16 6   2 1 3 4096 0.4 2048 8"
+    [T05]="code fsdp     16 3   4 1 2 4096 0.4 4096 16"
+    [T06]="code fsdp     16 3   4 2 2 4096 0.4 4096 16"
+    [R05]="code megatron 16 3   6 2 2 4096 0.4 2048 32 2:1 graph 48 8"
+    [G03]="code megatron 16 3   2 1 2 4096 0.4 2048 8 1:1 eager"
+    [W06]="code megatron 16 3   2 1 2 4096 0.3 2048 16 1:1 graph 32 4"
+    [W07]="math megatron 16 6   2 1 2 4096 0.4 2048 8 1:1 graph 16 8"
+    [W08]="math megatron 16 6   2 1 2 4096 0.4 2048 8 1:1 graph 32 16"
 )
 declare -A sleep_modes=(
     [C02]=wait
@@ -178,7 +178,7 @@ from pathlib import Path
     "cases": sys.argv[4:],
 }, indent=2) + "\n")
 PY
-    printf 'case\trl\tengine\tconcurrency\tbatches\tnpu_count\ttp\toffpolicy\tinference_training_ratio\tadaptive_concurrency\tinference_mode\tbatch_size\tanswers\texit_code\tcolocated_inference_mode\n' > "$output/cases.tsv"
+    printf 'case\trl\tengine\tconcurrency\tbatches\tnpu_count\ttp\toffpolicy\tinference_training_ratio\tadaptive_concurrency\tinference_mode\tbatch_size\tanswers\texit_code\tcolocated_inference_mode\tmax_tokens_per_mb\tgpu_memory_utilization\tmax_model_len\tmax_num_seqs\n' > "$output/cases.tsv"
     fi
 fi
 write_case_row() {
@@ -186,11 +186,17 @@ write_case_row() {
     shift 2
     printf '%s\t' "$@" >> "$file"
     printf '%s' "$rc" >> "$file"
-    if [[ "$(head -1 "$file")" == *$'\tcolocated_inference_mode' ]]; then printf '\t%s' "$sleep_mode" >> "$file"; fi
+    local header
+    header="$(head -1 "$file")"
+    if [[ "$header" == *$'\tcolocated_inference_mode'* ]]; then printf '\t%s' "$sleep_mode" >> "$file"; fi
+    if [[ "$header" == *$'\tmax_tokens_per_mb'* ]]; then printf '\t%s' "$max_tokens_per_mb" >> "$file"; fi
+    if [[ "$header" == *$'\tgpu_memory_utilization'* ]]; then printf '\t%s' "$gpu_memory_utilization" >> "$file"; fi
+    if [[ "$header" == *$'\tmax_model_len'* ]]; then printf '\t%s' "$max_model_len" >> "$file"; fi
+    if [[ "$header" == *$'\tmax_num_seqs' ]]; then printf '\t%s' "$max_num_seqs" >> "$file"; fi
     printf '\n' >> "$file"
 }
 case_parameters() {
-    read -r rl engine concurrency batches npus tp offpolicy ratio case_mode batch_size answers <<< "${matrix[$id]}"
+    read -r rl engine concurrency batches npus tp offpolicy max_tokens_per_mb gpu_memory_utilization max_model_len max_num_seqs ratio case_mode batch_size answers <<< "${matrix[$id]}"
     batch_size="${batch_size:-32}"
     answers="${answers:-8}"
     ratio="${ratio:-1:1}"
@@ -227,7 +233,9 @@ for id in "${ids[@]}"; do
          --batches "$batches" --npu-count "$npus" --inference-tp "$tp"
          --max-head-offpolicyness "$offpolicy"
          --inference-training-ratio "$ratio" --adaptive-concurrency capacity
-         --inference-mode "$case_mode" --batch-size "$batch_size" --answers "$answers")
+         --inference-mode "$case_mode" --batch-size "$batch_size" --answers "$answers"
+         --max-tokens-per-mb "$max_tokens_per_mb" --gpu-memory-utilization "$gpu_memory_utilization"
+         --max-model-len "$max_model_len" --max-num-seqs "$max_num_seqs")
     if [[ "$sleep_mode" != N/A ]]; then cmd+=(--colocated-inference-mode "$sleep_mode"); elif [[ "$arms" == colocated ]]; then echo "Unavailable colocated case: $id" >&2; exit 2; fi
     [[ "$mode" != prepare ]] || cmd+=(--prepare-only)
     echo "[$id] $rl / $engine; c=$concurrency b=$batches NPU=$npus TP=$tp offpolicy=$offpolicy inference:training=$ratio adaptive=capacity inference=$case_mode batch-size=$batch_size answers=$answers colocated-inference=$sleep_mode"

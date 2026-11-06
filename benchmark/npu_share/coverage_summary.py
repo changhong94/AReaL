@@ -192,6 +192,10 @@ def write_reports(root, final=False):
                     ("c", "concurrency"),
                     ("batch", "batch_size"),
                     ("answers", "answers"),
+                    ("max_tokens_per_mb", "max_tokens_per_mb"),
+                    ("gpu_memory_utilization", "gpu_memory_utilization"),
+                    ("max_model_len", "max_model_len"),
+                    ("max_num_seqs", "max_num_seqs"),
                     ("batches", "batches"),
                     (
                         "offpolicy",

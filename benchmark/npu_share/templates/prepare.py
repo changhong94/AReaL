@@ -106,7 +106,8 @@ for arm in s.get("arms", ["fixed", "latest"]):
     c["actor"].update(backend=f"{s['engine']}:d{training_devices}p1t1", path="/model")
     if s["engine"] == "fsdp":
         c["actor"].pop("megatron", None)
-    c["actor"]["mb_spec"]["max_tokens_per_mb"] = 4096
+    if s.get("max_tokens_per_mb") is not None:
+        c["actor"]["mb_spec"]["max_tokens_per_mb"] = s["max_tokens_per_mb"]
     c["actor"]["weight_update_mode"] = "disk" if shared else "xccl"
     c["gconfig"].update(
         n_samples=s["answers"], max_new_tokens=s["max_new_tokens"], max_tokens=4096
@@ -124,10 +125,10 @@ for arm in s.get("arms", ["fixed", "latest"]):
     )
     c["vllm"].update(
         distributed_executor_backend="uni" if inference_tp == 1 else "mp",
-        max_model_len=4096,
-        gpu_memory_utilization=0.4,
-        max_num_seqs=max(64, s["concurrency"] * 4),
     )
+    for key in ("gpu_memory_utilization", "max_model_len", "max_num_seqs"):
+        if s.get(key) is not None:
+            c["vllm"][key] = s[key]
     inference_mode = s.get("inference_mode", "eager")
     if inference_mode not in {"graph", "eager"}:
         raise ValueError("Invalid inference mode")
@@ -145,7 +146,6 @@ for arm in s.get("arms", ["fixed", "latest"]):
             batch_size=s["batch_size"] if split == "train" else 4,
             max_length=2048,
         )
-    c["train_dataset"]["shuffle"] = False
     c["perf_tracer"].update(enabled=True)
     c["perf_tracer"]["session_tracer"]["enabled"] = True
     try:

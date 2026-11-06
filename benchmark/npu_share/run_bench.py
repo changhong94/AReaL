@@ -138,6 +138,13 @@ def positive(value):
     return n
 
 
+def memory_fraction(value):
+    fraction = float(value)
+    if not 0 < fraction <= 1:
+        raise argparse.ArgumentTypeError("must be greater than 0 and at most 1")
+    return fraction
+
+
 def nonnegative(value):
     number = int(value)
     if number < 0:
@@ -218,6 +225,24 @@ def arguments():
         help="concurrent questions, not answers or questions per batch",
     )
     p.add_argument("--engine", choices=["fsdp", "megatron"], default="fsdp")
+    p.add_argument(
+        "--gpu-memory-utilization",
+        type=memory_fraction,
+        help="vLLM device memory budget fraction",
+    )
+    p.add_argument(
+        "--max-num-seqs",
+        type=positive,
+        help="maximum sequences scheduled per vLLM instance per iteration",
+    )
+    p.add_argument(
+        "--max-model-len", type=positive, help="vLLM maximum sequence length in tokens"
+    )
+    p.add_argument(
+        "--max-tokens-per-mb",
+        type=positive,
+        help="actor microbatch token limit; defaults to the training template",
+    )
     p.add_argument("--batches", type=positive, default=6)
     p.add_argument(
         "--batch-size",
@@ -708,6 +733,10 @@ def main():
         running_rebalance=opts.running_rebalance,
         adaptive_concurrency=opts.adaptive_concurrency,
         inference_mode=opts.inference_mode,
+        gpu_memory_utilization=getattr(opts, "gpu_memory_utilization", None),
+        max_num_seqs=getattr(opts, "max_num_seqs", None),
+        max_model_len=getattr(opts, "max_model_len", None),
+        max_tokens_per_mb=getattr(opts, "max_tokens_per_mb", None),
         batch_size=opts.batch_size,
         answers=opts.answers,
         questions=opts.batch_size * opts.batches,

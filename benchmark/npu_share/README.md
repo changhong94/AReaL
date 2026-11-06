@@ -38,7 +38,7 @@ silently repeating questions. The initial model, seed, dataset, logging and nati
 scheduler limit are matched between arms. Generated answers and batch membership can
 still differ.
 
-The native `max_num_seqs` limit is `max(64, 4*concurrency)` per vLLM instance. The
+Coverage cases set the native per-instance `max_num_seqs` limit explicitly. The
 controller queue size is at least 32, including for concurrency 1. Code reward execution
 has a separate aggregate limit of four sandbox operations across all rollout processes;
 this does not change the requested answers per question. Code RL requires the configured
